@@ -1,6 +1,8 @@
 """IPLO-ingest: HTML ophalen -> tekst -> chunks -> embeddings -> VectorStore."""
 import html as _html
 import re
+import sys
+import time
 
 import httpx
 
@@ -37,12 +39,42 @@ def fetch_url(url: str, timeout_s: float = 20.0) -> str:
         raise ConnectorError(f"IPLO-pagina niet beschikbaar: {url}") from exc
 
 
-def build_index(urls, embed_fn, chunk_chars: int, overlap: int) -> VectorStore:
+def build_index(urls, embed_fn, chunk_chars: int, overlap: int,
+                pauze_s: float = 0.0, pogingen: int = 3) -> VectorStore:
+    """Bouw een index uit een lijst URL's.
+
+    `pauze_s` en `pogingen` bestaan omdat deze functie met twee URL's iets anders is
+    dan met honderd. Zonder pauze haalt hij de bron in één ruk leeg en gaat die
+    afknijpen; zonder herpogingen breekt één tijdelijke fout de hele bouw af, ook
+    als de andere negenennegentig pagina's prima binnenkwamen. Overgeslagen URL's
+    worden gemeld op stderr, niet stilzwijgend weggelaten.
+    """
     chunks: list[dict] = []
-    for url in urls:
-        text = html_to_text(fetch_url(url))
-        for piece in chunk_text(text, chunk_chars, overlap):
+    overgeslagen: list[str] = []
+
+    for i, url in enumerate(urls):
+        if i and pauze_s:
+            time.sleep(pauze_s)
+        tekst = None
+        for poging in range(pogingen):
+            try:
+                tekst = html_to_text(fetch_url(url))
+                break
+            except ConnectorError:
+                if poging + 1 < pogingen:
+                    time.sleep(1.0 + poging)
+        if tekst is None:
+            overgeslagen.append(url)
+            continue
+        for piece in chunk_text(tekst, chunk_chars, overlap):
             chunks.append({"text": piece, "url": url})
+
+    if overgeslagen:
+        print(f"ingest: {len(overgeslagen)} van {len(urls)} URL's overgeslagen na "
+              f"{pogingen} pogingen:", file=sys.stderr)
+        for u in overgeslagen:
+            print(f"  - {u}", file=sys.stderr)
+
     if not chunks:
         return VectorStore.build([], [])
     vectors = embed_fn([c["text"] for c in chunks])

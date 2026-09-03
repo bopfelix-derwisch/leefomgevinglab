@@ -14,7 +14,10 @@ def main():
     import yaml
     cfg = yaml.safe_load(open(Path(__file__).parent.parent / "core" / "config.yaml"))["leefomgevinglab"]["rag"]
     embed_fn = partial(embed_texts, base_url=cfg["embed"]["base_url"], model=cfg["embed"]["model"])
-    store = build_index(cfg["iplo_urls"], embed_fn, cfg["chunk_chars"], cfg["chunk_overlap"])
+    # Pauze tussen de pagina's: met honderd bronnen is de bron anders in enkele
+    # seconden honderd keer aangeslagen, en gaat die afknijpen.
+    store = build_index(cfg["iplo_urls"], embed_fn, cfg["chunk_chars"],
+                        cfg["chunk_overlap"], pauze_s=cfg.get("fetch_pauze_s", 0.5))
     store.save(cfg["store_dir"])
     print(f"RAG-index gebouwd: {store.size} chunks -> {cfg['store_dir']}")
 
