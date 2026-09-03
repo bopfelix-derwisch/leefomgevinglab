@@ -82,7 +82,7 @@ def _location_entry(
     }
 
 
-app = FastAPI(title="Geluidsmeter API", version="0.1.0")
+app = FastAPI(title="LeefomgevingLab API", version="0.1.0")
 _static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 _config: dict = {}
