@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Bronnenlandschap onder het CIM-VTH</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --open:#2ecc8f; --semi:#ffb74d; --dicht:#ff7a6b; --blue:#4fc3f7; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1400px; margin:0 auto; padding:0 20px; }
+    .hero { padding:30px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:900px; font-size:14px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+      margin:28px 0 10px; }
+
+    /* bedieningsbalk */
+    .bar { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:16px 0 6px;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:11px 14px; }
+    .grp { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .grp > b { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); margin-right:2px; }
+    .chip { font-size:11.5px; padding:3px 10px; border-radius:12px; cursor:pointer; user-select:none;
+      border:1px solid var(--border); background:var(--panel2); color:var(--muted); }
+    .chip.on { color:#042; font-weight:700; }
+    .chip.on[data-k="open"] { background:var(--open); border-color:var(--open); }
+    .chip.on[data-k="semi"] { background:var(--semi); border-color:var(--semi); }
+    .chip.on[data-k="gesloten"] { background:var(--dicht); border-color:var(--dicht); }
+    .chip.laag.on { background:var(--accent); border-color:var(--accent); }
+    input[type=search] { background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:6px 10px; font-size:12.5px; min-width:190px; font-family:inherit; }
+    button { padding:6px 13px; border-radius:8px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); font-size:12px; cursor:pointer; font-family:inherit; }
+    button:hover { color:var(--accent); border-color:var(--accent2); }
+    button.prim { background:var(--accent); border-color:var(--accent); color:#042; font-weight:700; }
+    button:disabled { opacity:.5; cursor:default; }
+    .status { font-size:11.5px; color:var(--dim); }
+
+    /* kaart + paneel */
+    .kaart { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:14px; align-items:start; }
+    @media (max-width:1080px) { .kaart { grid-template-columns:1fr; } }
+    .svgbox { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:6px; overflow:auto; max-height:78vh; }
+    svg { display:block; width:100%; height:auto; }
+    svg text { font-family:'Segoe UI',system-ui,sans-serif; }
+    .lnk { fill:none; stroke-width:1.2; opacity:.24; transition:opacity .12s, stroke-width .12s; }
+    .lnk.hi { opacity:.95; stroke-width:2.4; }
+    .lnk.uit { opacity:.05; }
+    .nd rect { transition:opacity .12s; }
+    .nd { cursor:pointer; }
+    .nd.uit { opacity:.2; }
+    .nd.hi rect { stroke-width:2; }
+    .nd.zoek rect { stroke:#fff; stroke-width:2; }
+    .grpkop { fill:var(--dim); font-size:10px; letter-spacing:.7px; text-transform:uppercase; }
+    .ndlbl { font-size:11.5px; fill:var(--text); pointer-events:none; }
+    .ndsub { font-size:9.5px; fill:var(--dim); pointer-events:none; }
+
+    .paneel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:15px 16px;
+      position:sticky; top:12px; max-height:78vh; overflow:auto; }
+    .paneel h3 { font-size:14.5px; color:#eafff6; margin-bottom:3px; }
+    .paneel .sub { font-size:11.5px; color:var(--dim); margin-bottom:10px; }
+    .paneel p { font-size:12.5px; color:var(--muted); margin-bottom:9px; }
+    .kv { display:grid; grid-template-columns:78px 1fr; gap:3px 9px; font-size:11.5px; margin-bottom:10px; }
+    .kv b { color:var(--dim); font-weight:400; }
+    .kv span { color:var(--text); }
+    .paneel .leeg { color:var(--dim); font-size:12.5px; }
+    .otlijst { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+    .otlijst span, .ot { font-family:ui-monospace,monospace; font-size:10px; background:var(--panel2);
+      border:1px solid var(--border); color:#cfe9df; padding:2px 7px; border-radius:9px; cursor:pointer; }
+    .pil { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:9px; }
+    .pil.open { background:rgba(46,204,143,.16); color:var(--open); border:1px solid #1d5c3f; }
+    .pil.semi { background:rgba(255,183,77,.14); color:var(--semi); border:1px solid #5a4520; }
+    .pil.gesloten { background:rgba(255,122,107,.13); color:var(--dicht); border:1px solid #6b2f28; }
+
+    /* dekking */
+    .dek { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:9px; }
+    .dekrij { background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:10px 13px; cursor:pointer; }
+    .dekrij:hover { border-color:var(--accent2); }
+    .dekrij.on { border-color:var(--accent); background:#0c1f18; }
+    .dekrij .kop { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    .dekrij h4 { font-size:12.5px; color:#eafff6; }
+    .dekrij .telling { font-size:11px; color:var(--dim); }
+    .balk { display:flex; height:8px; border-radius:4px; overflow:hidden; margin-top:7px; background:var(--panel2); }
+    .balk i { display:block; }
+    .dekrij .wit { font-size:10.5px; color:var(--semi); margin-top:6px; }
+
+    /* overlap */
+    .ovl { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--semi);
+      border-radius:9px; padding:11px 14px; margin-bottom:8px; cursor:pointer; }
+    .ovl:hover { border-color:var(--accent2); border-left-color:var(--accent); }
+    .ovl .kop { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:4px; }
+    .ovl h4 { font-family:ui-monospace,monospace; font-size:12.5px; color:#eafff6; }
+    .ovl .n { font-size:10.5px; color:var(--semi); font-weight:700; }
+    .ovl .v { font-size:10.5px; color:var(--dim); }
+    .ovl p { font-size:12.5px; color:var(--muted); }
+
+    table { width:100%; border-collapse:collapse; font-size:12px; margin:4px 0 10px; }
+    th, td { border:1px solid var(--border); padding:5px 8px; text-align:left; vertical-align:top; }
+    th { background:var(--panel); color:#b0c4ce; font-size:10px; text-transform:uppercase; letter-spacing:.3px; }
+    tr:nth-child(even) td { background:var(--panel2); }
+    td.mono { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+    .dot.ok { background:var(--open); } .dot.nok { background:var(--dicht); } .dot.onb { background:var(--dim); }
+    .scroll { overflow-x:auto; }
+
+    footer { border-top:1px solid var(--border); margin-top:30px; padding:20px 0 46px; color:var(--dim); font-size:12px; }
+    footer p { max-width:900px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">bronnen onder het CIM</span>
+    <nav>
+      <a href="/">Home</a><a href="/vth">VTH-kapstok</a><a href="/wfs-kwaliteit">WFS-check</a>
+      <a href="/kwaliteit">Kwaliteit</a><a href="/semantiek">Semantiek</a><a href="/roadmap">Roadmap</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Welke bronnen vullen het <span>Cim-VTH-Flo</span> — en waar overlappen ze?</h2>
+      <p>Links de registraties, API's en datasets bij rijk, Rijkswaterstaat, provincies, waterschappen,
+        omgevingsdiensten en gemeenten. Rechts de kern-objecttypen van het informatiemodel. Elke lijn is een
+        bron die een objecttype vult; komen er meerdere lijnen samen, dan beschrijven meerdere registraties
+        dezelfde werkelijkheid. Klik op een bron of objecttype om alles eromheen vast te zetten.</p>
+    </div>
+
+    <div class="bar">
+      <div class="grp" id="lagen"><b>Bestuurslaag</b></div>
+      <div class="grp" id="openheden"><b>Openheid</b></div>
+      <div class="grp"><input type="search" id="zoek" placeholder="zoek bron of objecttype…" /></div>
+      <div class="grp">
+        <button class="prim" id="check">Controleer endpoints live</button>
+        <button id="reset">Alles tonen</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="kaart">
+      <div class="svgbox"><svg id="map" role="img" aria-label="Bronnen gekoppeld aan CIM-objecttypen"></svg></div>
+      <div class="paneel" id="paneel"></div>
+    </div>
+
+    <div class="section-title">Dekking per view — klik om de kaart te filteren</div>
+    <div class="dek" id="dek"></div>
+
+    <div class="section-title">Overlaps — waar meerdere bronnen hetzelfde objecttype claimen</div>
+    <div id="overlap"></div>
+
+    <div class="section-title">Bronnen</div>
+    <div class="scroll"><table id="tabel"></table></div>
+
+    <footer>
+      <p><b>Verantwoording.</b> De mapping van bronnen op objecttypen is een interpretatie van dit lab en geen
+        product van Geonovum. De objecttypen komen uit het
+        <a href="https://geonovum.github.io/vth-cim-flo/">Cim-VTH-Flo</a> (werkversie 4 augustus 2026, CC BY 4.0).
+        Endpoints zijn met de knop hierboven live te controleren; wat als <em>gesloten</em> staat, heeft geen
+        publiek endpoint en is daarom niet te toetsen. De controle meet bereikbaarheid <em>vanaf deze machine</em> —
+        een rood bolletje kan dus ook aan het netwerk hier liggen, niet aan de bron. Indicatief, geen
+        operationeel overheidssysteem.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
+    const escA = s => esc(s).replace(/"/g,"&quot;");
+    const KLEUR = { open:"#2ecc8f", semi:"#ffb74d", gesloten:"#ff7a6b" };
+    const NS = "http://www.w3.org/2000/svg";
+
+    let DATA = null;              // catalogus van de API
+    let POS = { bron:{}, ot:{} }; // node-posities
+    let sel = null;               // {type:"bron"|"ot", id}
+    let hover = null;
+    let checkRes = {};            // live endpoint-status
+    const filt = { lagen:new Set(), openheid:new Set(), view:null, zoek:"" };
+
+    function kort(s, n){ s=String(s); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+
+    // ---- welke bronnen/objecttypen zijn zichtbaar onder de huidige filters
+    function zichtbareBronnen(){
+      return DATA.bronnen.filter(b =>
+        (!filt.lagen.size   || filt.lagen.has(b.laag)) &&
+        (!filt.openheid.size|| filt.openheid.has(b.openheid)) &&
+        (!filt.view         || b.objecttypen.some(ot => otView(ot)===filt.view)));
+    }
+    function otView(ot){ const v = DATA.views.find(v => v.objecttypen.includes(ot)); return v && v.naam; }
+    function zichtbareOts(){
+      const uit=[];
+      DATA.views.forEach(v => { if(!filt.view || filt.view===v.naam) v.objecttypen.forEach(ot => uit.push([v.naam,ot])); });
+      return uit;
+    }
+
+    // ---- layout + tekenen
+    function teken(){
+      const bronnen = zichtbareBronnen(), ots = zichtbareOts();
+      const W=1180, PAD=14, RIJ=26, KOP=30, BW=300, OW=250, H_MIN=340;
+      const links=[], rechts=[];
+      let y=PAD;
+      Object.entries(DATA.lagen).forEach(([k,label]) => {
+        const inLaag = bronnen.filter(b => b.laag===k);
+        if(!inLaag.length) return;
+        links.push({kop:label, y:y+11}); y+=KOP;
+        inLaag.forEach(b => { links.push({b, y}); POS.bron[b.id]={y:y+RIJ/2-4, x:BW}; y+=RIJ; });
+        y+=6;
+      });
+      const hL=y;
+      y=PAD;
+      let vorigeView=null;
+      ots.forEach(([view,ot]) => {
+        if(view!==vorigeView){ rechts.push({kop:view, y:y+11}); y+=KOP; vorigeView=view; }
+        rechts.push({ot, view, y}); POS.ot[ot]={y:y+RIJ/2-4, x:W-OW}; y+=RIJ;
+        if(ot===ots[ots.length-1][1]) y+=6;
+      });
+      const H=Math.max(hL, y, H_MIN)+PAD;
+
+      const parts=[];
+      // verbindingen eerst, zodat nodes erboven liggen
+      bronnen.forEach(b => b.objecttypen.forEach(ot => {
+        const p=POS.bron[b.id], q=POS.ot[ot];
+        if(!p||!q) return;
+        const x1=p.x, y1=p.y+4, x2=q.x, y2=q.y+4, dx=(x2-x1)*0.45;
+        parts.push('<path class="lnk" data-b="'+escA(b.id)+'" data-o="'+escA(ot)+'" '+
+          'd="M'+x1+','+y1+' C'+(x1+dx)+','+y1+' '+(x2-dx)+','+y2+' '+x2+','+y2+'" stroke="'+KLEUR[b.openheid]+'"/>');
+      }));
+      // linkerkolom
+      links.forEach(n => {
+        if(n.kop){ parts.push('<text class="grpkop" x="6" y="'+n.y+'">'+esc(n.kop)+'</text>'); return; }
+        const b=n.b, st=checkRes[b.id];
+        const dot = st ? '<circle cx="'+(BW-14)+'" cy="'+(n.y+11)+'" r="4" fill="'+(st.ok?"#2ecc8f":"#ff7a6b")+'"/>' : '';
+        parts.push('<g class="nd" data-t="bron" data-id="'+escA(b.id)+'">'+
+          '<rect x="6" y="'+n.y+'" width="'+(BW-12)+'" height="22" rx="6" fill="#0a1220" stroke="'+KLEUR[b.openheid]+'" stroke-opacity=".55"/>'+
+          '<text class="ndlbl" x="14" y="'+(n.y+15)+'">'+esc(kort(b.naam,44))+'</text>'+dot+'</g>');
+      });
+      // rechterkolom
+      rechts.forEach(n => {
+        if(n.kop){ parts.push('<text class="grpkop" x="'+(W-OW)+'" y="'+n.y+'">'+esc(n.kop)+'</text>'); return; }
+        const aantal = bronnen.filter(b => b.objecttypen.includes(n.ot)).length;
+        const kleur = aantal===0 ? "#1a3a5c" : (aantal>1 ? "#ffb74d" : "#26a69a");
+        parts.push('<g class="nd" data-t="ot" data-id="'+escA(n.ot)+'">'+
+          '<rect x="'+(W-OW)+'" y="'+n.y+'" width="'+(OW-6)+'" height="22" rx="6" fill="#0a1220" stroke="'+kleur+'" stroke-opacity=".7"/>'+
+          '<text class="ndlbl" x="'+(W-OW+10)+'" y="'+(n.y+15)+'" style="font-family:ui-monospace,monospace;font-size:10.5px">'+esc(kort(n.ot,26))+'</text>'+
+          '<text class="ndsub" x="'+(W-14)+'" y="'+(n.y+15)+'" text-anchor="end">'+(aantal||"–")+'</text></g>');
+      });
+
+      const svg=$("map");
+      svg.setAttribute("viewBox","0 0 "+W+" "+H);
+      svg.style.minHeight = Math.min(H, 1600)+"px";
+      svg.innerHTML = parts.join("");
+      pasAccentToe();
+    }
+
+    // ---- accent: selectie/hover bepaalt wat oplicht
+    function pasAccentToe(){
+      const svg=$("map"), actief = sel || hover;
+      const z = filt.zoek.trim().toLowerCase();
+      svg.querySelectorAll(".nd").forEach(n => {
+        const t=n.dataset.t, id=n.dataset.id;
+        n.classList.remove("hi","uit","zoek");
+        if(z){
+          const b = t==="bron" ? DATA.bronnen.find(x=>x.id===id) : null;
+          const tekst = (b ? b.naam+" "+b.houder+" "+b.standaard : id).toLowerCase();
+          if(tekst.includes(z)) n.classList.add("zoek");
+        }
+        if(!actief) return;
+        const raakt = (actief.type===t && actief.id===id) ||
+          (actief.type==="bron" && t==="ot" && (DATA.bronnen.find(x=>x.id===actief.id)||{objecttypen:[]}).objecttypen.includes(id)) ||
+          (actief.type==="ot" && t==="bron" && (DATA.bronnen.find(x=>x.id===id)||{objecttypen:[]}).objecttypen.includes(actief.id));
+        n.classList.add(raakt ? "hi" : "uit");
+      });
+      svg.querySelectorAll(".lnk").forEach(l => {
+        l.classList.remove("hi","uit");
+        if(!actief) return;
+        const raakt = (actief.type==="bron" && l.dataset.b===actief.id) ||
+                      (actief.type==="ot"   && l.dataset.o===actief.id);
+        l.classList.add(raakt ? "hi" : "uit");
+      });
+      toonPaneel();
+    }
+
+    // ---- detailpaneel
+    function toonPaneel(){
+      const a = sel || hover;
+      if(!a){
+        const n=DATA.bronnen.length, ov=DATA.overlap.length;
+        $("paneel").innerHTML = '<h3>Lees de kaart</h3><div class="sub">'+n+' bronnen · '+ov+' objecttypen met overlap</div>'+
+          '<p>Beweeg over een bron of objecttype om de verbindingen te zien; <b>klik</b> om ze vast te zetten. '+
+          'Het getal rechts op een objecttype is het aantal bronnen dat het vult — <span style="color:var(--semi)">oranje</span> '+
+          'betekent meer dan één, en dus overlap. Grijs omrand betekent: geen enkele bron.</p>'+
+          '<p style="color:var(--dim)">Lijnkleur is de openheid van de bron: '+
+          '<span class="pil open">open</span> <span class="pil semi">semi</span> <span class="pil gesloten">gesloten</span></p>'+
+          '<p style="color:var(--dim)">Esc wist de selectie.</p>';
+        return;
+      }
+      if(a.type==="bron"){
+        const b=DATA.bronnen.find(x=>x.id===a.id); if(!b) return;
+        const st=checkRes[b.id];
+        $("paneel").innerHTML =
+          '<h3>'+esc(b.naam)+'</h3><div class="sub">'+esc(b.houder)+' · '+esc(DATA.lagen[b.laag])+'</div>'+
+          '<div class="kv"><b>Openheid</b><span><span class="pil '+esc(b.openheid)+'">'+esc(b.openheid)+'</span></span>'+
+          '<b>Standaard</b><span>'+esc(b.standaard)+'</span><b>Vorm</b><span>'+esc(b.vorm)+'</span>'+
+          (st ? '<b>Endpoint</b><span><span class="dot '+(st.ok?"ok":"nok")+'"></span>'+
+                esc(st.status!=null ? "HTTP "+st.status : (st.fout||"onbereikbaar"))+'</span>' : '')+
+          '</div><p>'+esc(b.toelichting)+'</p>'+
+          '<div class="sub">Vult deze objecttypen</div><div class="otlijst">'+
+          b.objecttypen.map(o => '<span class="ot" data-ot="'+escA(o)+'">'+esc(o)+'</span>').join("")+'</div>'+
+          (b.url ? '<p><a href="'+escA(b.url)+'" target="_blank" rel="noopener" style="color:var(--blue)">'+esc(b.url)+'</a></p>' : '');
+      } else {
+        const ot=a.id, vronnen=DATA.bronnen.filter(b => b.objecttypen.includes(ot));
+        const ov=DATA.overlap.find(o => o.objecttype===ot);
+        $("paneel").innerHTML =
+          '<h3 style="font-family:ui-monospace,monospace">'+esc(ot)+'</h3>'+
+          '<div class="sub">'+esc(otView(ot)||"")+' · '+vronnen.length+' bron'+(vronnen.length===1?"":"nen")+'</div>'+
+          (ov && ov.reden ? '<p>'+esc(ov.reden)+'</p>' : "")+
+          (vronnen.length ? '<div class="sub">Gevuld door</div><div class="otlijst">'+
+            vronnen.map(b => '<span class="ot" data-bron="'+escA(b.id)+'" style="border-color:'+KLEUR[b.openheid]+'">'+
+              esc(kort(b.naam,34))+'</span>').join("")+'</div>'
+            : '<p class="leeg">Geen enkele bron in deze catalogus vult dit objecttype. Het model vraagt erom; '+
+              'het bronnenlandschap levert het niet.</p>');
+      }
+    }
+
+    // ---- dekkingsbalken
+    function tekenDek(){
+      $("dek").innerHTML = DATA.dekking.map(d => {
+        const tot=(d.open+d.semi+d.gesloten)||1;
+        const pct=k=>(100*d[k]/tot).toFixed(1)+"%";
+        return '<div class="dekrij'+(filt.view===d.view?" on":"")+'" data-view="'+escA(d.view)+'">'+
+          '<div class="kop"><h4>'+esc(d.view)+'</h4>'+
+          '<span class="telling">'+d.gedekt+'/'+d.objecttypen+' objecttypen gedekt</span></div>'+
+          '<div class="balk">'+["open","semi","gesloten"].map(k =>
+            d[k] ? '<i style="width:'+pct(k)+';background:'+KLEUR[k]+'" title="'+d[k]+' '+k+'"></i>' : "").join("")+'</div>'+
+          (d.zonder_bron.length ? '<div class="wit">zonder bron: '+esc(d.zonder_bron.join(", "))+'</div>' : "")+
+          '</div>';
+      }).join("");
+    }
+
+    // ---- overlaps
+    function tekenOverlap(){
+      $("overlap").innerHTML = DATA.overlap.map(o =>
+        '<div class="ovl" data-ot="'+escA(o.objecttype)+'"><div class="kop"><h4>'+esc(o.objecttype)+'</h4>'+
+        '<span class="n">'+o.bronnen.length+' bronnen</span><span class="v">'+esc(o.view||"")+'</span></div>'+
+        (o.reden ? '<p>'+esc(o.reden)+'</p>' : "")+'</div>').join("");
+    }
+
+    // ---- bronnentabel
+    function tekenTabel(){
+      const rows = zichtbareBronnen();
+      $("tabel").innerHTML =
+        '<thead><tr><th>Bron</th><th>Houder</th><th>Bestuurslaag</th><th>Standaard</th><th>Vorm</th>'+
+        '<th>Openheid</th><th>Objecttypen</th><th>Endpoint</th></tr></thead><tbody>'+
+        rows.map(b => { const st=checkRes[b.id];
+          return '<tr data-bron="'+escA(b.id)+'"><td>'+esc(b.naam)+'</td><td>'+esc(b.houder)+'</td>'+
+          '<td>'+esc(DATA.lagen[b.laag])+'</td><td class="mono">'+esc(b.standaard)+'</td><td>'+esc(b.vorm)+'</td>'+
+          '<td><span class="pil '+esc(b.openheid)+'">'+esc(b.openheid)+'</span></td>'+
+          '<td class="mono">'+esc(b.objecttypen.join(", "))+'</td>'+
+          '<td>'+(b.endpoint
+            ? (st ? '<span class="dot '+(st.ok?"ok":"nok")+'"></span>'+esc(st.status!=null?"HTTP "+st.status:(st.fout||"fout"))
+                  : '<span class="dot onb"></span>niet gecontroleerd')
+            : '<span class="dot onb"></span>geen publiek endpoint')+'</td></tr>'; }).join("")+
+        '</tbody>';
+    }
+
+    // ---- chips
+    function tekenChips(){
+      $("lagen").innerHTML = '<b>Bestuurslaag</b>' + Object.entries(DATA.lagen).map(([k,v]) =>
+        '<span class="chip laag" data-laag="'+escA(k)+'">'+esc(v.split(" ")[0])+'</span>').join("");
+      $("openheden").innerHTML = '<b>Openheid</b>' + Object.keys(DATA.openheid).map(k =>
+        '<span class="chip" data-open="'+escA(k)+'" data-k="'+escA(k)+'">'+esc(k)+'</span>').join("");
+    }
+
+    function hertekenAlles(){ teken(); tekenDek(); tekenTabel(); }
+
+    // ---- events
+    $("map").addEventListener("mouseover", e => {
+      const n=e.target.closest(".nd"); if(!n || sel) return;
+      hover={type:n.dataset.t, id:n.dataset.id}; pasAccentToe();
+    });
+    $("map").addEventListener("mouseleave", () => { if(!sel){ hover=null; pasAccentToe(); } });
+    $("map").addEventListener("click", e => {
+      const n=e.target.closest(".nd");
+      if(!n){ sel=null; hover=null; pasAccentToe(); return; }
+      const k={type:n.dataset.t, id:n.dataset.id};
+      sel = (sel && sel.type===k.type && sel.id===k.id) ? null : k;
+      hover=null; pasAccentToe();
+    });
+    document.addEventListener("keydown", e => { if(e.key==="Escape"){ sel=null; hover=null; pasAccentToe(); } });
+
+    $("paneel").addEventListener("click", e => {
+      const ot=e.target.closest("[data-ot]"), br=e.target.closest("[data-bron]");
+      if(ot){ sel={type:"ot", id:ot.dataset.ot}; pasAccentToe(); }
+      else if(br){ sel={type:"bron", id:br.dataset.bron}; pasAccentToe(); }
+    });
+    $("overlap").addEventListener("click", e => {
+      const o=e.target.closest("[data-ot]"); if(!o) return;
+      filt.view=null; tekenDek(); teken();
+      sel={type:"ot", id:o.dataset.ot}; pasAccentToe();
+      document.querySelector(".svgbox").scrollIntoView({behavior:"smooth", block:"start"});
+    });
+    $("tabel").addEventListener("click", e => {
+      const r=e.target.closest("[data-bron]"); if(!r) return;
+      sel={type:"bron", id:r.dataset.bron}; pasAccentToe();
+      document.querySelector(".svgbox").scrollIntoView({behavior:"smooth", block:"start"});
+    });
+    $("dek").addEventListener("click", e => {
+      const d=e.target.closest("[data-view]"); if(!d) return;
+      filt.view = filt.view===d.dataset.view ? null : d.dataset.view;
+      sel=null; hover=null; hertekenAlles();
+    });
+    $("lagen").addEventListener("click", e => {
+      const c=e.target.closest("[data-laag]"); if(!c) return;
+      c.classList.toggle("on");
+      filt.lagen.has(c.dataset.laag) ? filt.lagen.delete(c.dataset.laag) : filt.lagen.add(c.dataset.laag);
+      sel=null; hertekenAlles();
+    });
+    $("openheden").addEventListener("click", e => {
+      const c=e.target.closest("[data-open]"); if(!c) return;
+      c.classList.toggle("on");
+      filt.openheid.has(c.dataset.open) ? filt.openheid.delete(c.dataset.open) : filt.openheid.add(c.dataset.open);
+      sel=null; hertekenAlles();
+    });
+    $("zoek").addEventListener("input", e => { filt.zoek=e.target.value; pasAccentToe(); });
+    $("reset").addEventListener("click", () => {
+      filt.lagen.clear(); filt.openheid.clear(); filt.view=null; filt.zoek=""; $("zoek").value="";
+      sel=null; hover=null;
+      document.querySelectorAll(".chip.on").forEach(c => c.classList.remove("on"));
+      hertekenAlles();
+    });
+    $("check").addEventListener("click", async () => {
+      $("check").disabled=true; $("status").textContent="endpoints worden aangeroepen…";
+      try {
+        const d = await (await fetch("/api/vth/bronnen/check")).json();
+        checkRes = d.resultaat || {};
+        const n=Object.keys(checkRes).length, ok=Object.values(checkRes).filter(x=>x.ok).length;
+        $("status").textContent = ok+" van "+n+" endpoints bereikbaar vanaf deze machine · "+
+          new Date(d.gecontroleerd_op).toLocaleTimeString("nl-NL");
+        hertekenAlles();
+      } catch(e){ $("status").textContent="controle mislukt"; }
+      $("check").disabled=false;
+    });
+
+    // ---- start
+    (async () => {
+      try {
+        DATA = await (await fetch("/api/vth/bronnen")).json();
+      } catch(e){
+        $("paneel").innerHTML = '<p class="leeg">Kon de bronnencatalogus niet laden.</p>'; return;
+      }
+      tekenChips(); tekenOverlap(); hertekenAlles(); toonPaneel();
+    })();
+  </script>
+</body>
+</html>

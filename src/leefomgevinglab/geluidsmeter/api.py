@@ -32,6 +32,7 @@ from leefomgevinglab.usecases.vergunningen import omgevingsplan as omgevingsplan
 from leefomgevinglab.usecases.vergunningen import externe_veiligheid as externe_veiligheid_mod
 from leefomgevinglab.connectors.externe_veiligheid import ExterneVeiligheidConnector
 from leefomgevinglab.usecases import wfs_kwaliteit as wfs_kwaliteit_mod
+from leefomgevinglab.usecases import vth_bronnen as vth_bronnen_mod
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -214,6 +215,25 @@ def poc_page():
 def vth_page():
     """Cim-VTH-Flo (Geonovum) als kapstok over de use-cases van het lab, met roadmapvoorstel."""
     return (Path(__file__).parent.parent / "static" / "vth.html").read_text()
+
+
+@app.get("/vth-bronnen", response_class=HTMLResponse)
+def vth_bronnen_page():
+    return (Path(__file__).parent.parent / "static" / "vth-bronnen.html").read_text()
+
+
+@app.get("/api/vth/bronnen")
+def api_vth_bronnen():
+    """Bronnenlandschap gemapt op de kern-objecttypen van het Cim-VTH-Flo."""
+    return vth_bronnen_mod.catalogus()
+
+
+@app.get("/api/vth/bronnen/check")
+async def api_vth_bronnen_check():
+    """Roep de endpoints van de catalogus live aan — maakt open/gesloten verifieerbaar."""
+    res = await vth_bronnen_mod.check_endpoints()
+    return {"gecontroleerd_op": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "resultaat": res}
 
 
 @app.get("/health")
