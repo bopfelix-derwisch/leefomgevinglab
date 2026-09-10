@@ -210,6 +210,12 @@ def poc_page():
     return (Path(__file__).parent.parent / "static" / "poc.html").read_text()
 
 
+@app.get("/vth", response_class=HTMLResponse)
+def vth_page():
+    """Cim-VTH-Flo (Geonovum) als kapstok over de use-cases van het lab, met roadmapvoorstel."""
+    return (Path(__file__).parent.parent / "static" / "vth.html").read_text()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "project": "geluidsmeter", "ts": datetime.now(timezone.utc).isoformat()}

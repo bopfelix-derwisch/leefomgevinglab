@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — VTH-kapstok (Cim-VTH-Flo)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --warn:#ffb74d; --blue:#4fc3f7; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1180px; margin:0 auto; padding:0 20px; }
+    .hero { padding:34px 0 20px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:26px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:880px; font-size:14px; }
+    .hero p + p { margin-top:10px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+      margin:34px 0 12px; }
+    .lead { color:var(--muted); font-size:13.5px; max-width:880px; margin-bottom:14px; }
+
+    .bron { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin:8px 0 4px; }
+    .bron div { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 13px; font-size:12px; }
+    .bron b { display:block; color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
+    .bron a { color:var(--blue); text-decoration:none; word-break:break-all; }
+    .bron a:hover { text-decoration:underline; }
+
+    .views { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:12px; }
+    .view { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px;
+      display:flex; flex-direction:column; gap:8px; }
+    .view h3 { font-size:14px; color:#eafff6; }
+    .view p { font-size:12.5px; color:var(--muted); }
+    .ot { display:flex; flex-wrap:wrap; gap:5px; margin-top:auto; padding-top:4px; }
+    .ot span { font-family:ui-monospace,monospace; font-size:10.5px; letter-spacing:.2px;
+      background:var(--panel2); border:1px solid var(--border); color:#cfe9df; padding:2px 7px; border-radius:9px; }
+
+    table { width:100%; border-collapse:collapse; font-size:12.5px; margin:6px 0 10px; }
+    th, td { border:1px solid var(--border); padding:6px 8px; text-align:center; vertical-align:middle; }
+    th { background:var(--panel); color:#b0c4ce; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; }
+    th.uc, td.uc { text-align:left; }
+    td.uc { color:#eafff6; }
+    td.uc small { display:block; color:var(--dim); font-size:11px; }
+    tr:nth-child(even) td { background:var(--panel2); }
+    .m { display:inline-block; width:20px; height:20px; line-height:19px; border-radius:5px; font-size:11px; font-weight:700; }
+    .m.raakt { background:#11261c; color:#6fe0a8; border:1px solid #1d5c3f; }
+    .m.deels { background:#2c2410; color:#e8c98a; border:1px solid #5a4520; }
+    .m.buiten { background:transparent; color:var(--dim); border:1px solid var(--border); }
+    .legenda { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-bottom:10px; }
+    .legenda span.m { margin-right:5px; }
+    .scroll { overflow-x:auto; }
+
+    .vlek { background:rgba(255,183,77,.07); border:1px solid #5a4520; border-radius:10px; padding:14px 18px; }
+    .vlek h3 { font-size:14px; color:#e8c98a; margin-bottom:8px; }
+    .vlek p { font-size:13px; color:#d8c4a0; max-width:880px; }
+    .vlek ul { margin:9px 0 0 18px; font-size:13px; color:#d8c4a0; }
+    .vlek li { margin-bottom:4px; }
+
+    .sporen { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px; margin-bottom:14px; }
+    .spoor { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:10px; padding:13px 16px; }
+    .spoor.b { border-left-color:var(--blue); }
+    .spoor h3 { font-size:13.5px; color:#eafff6; margin-bottom:5px; }
+    .spoor p { font-size:12.5px; color:var(--muted); }
+
+    .fase { margin-bottom:16px; }
+    .fase > h3 { font-size:12px; text-transform:uppercase; letter-spacing:.7px; color:var(--accent);
+      margin-bottom:8px; display:flex; align-items:center; gap:9px; }
+    .fase > h3 em { font-style:normal; color:var(--dim); text-transform:none; letter-spacing:0; font-size:11.5px; }
+    .stap { background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:11px 14px; margin-bottom:7px; }
+    .stap .kop { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:3px; }
+    .stap .tag { font-size:9.5px; font-weight:700; letter-spacing:.5px; padding:2px 7px; border-radius:9px; }
+    .stap .tag.a { background:rgba(46,204,143,.14); color:var(--accent); border:1px solid var(--accent2); }
+    .stap .tag.b { background:rgba(79,195,247,.12); color:var(--blue); border:1px solid #2a6f97; }
+    .stap h4 { font-size:13px; color:#eafff6; font-weight:700; }
+    .stap p { font-size:12.5px; color:var(--muted); }
+    .stap p.op { font-size:11.5px; color:var(--dim); margin-top:3px; }
+    .stap code { font-family:ui-monospace,monospace; font-size:11.5px; color:#cfe9df; }
+
+    footer { border-top:1px solid var(--border); margin-top:34px; padding:22px 0 48px; color:var(--dim); font-size:12px; }
+    footer p { max-width:880px; }
+    footer a { color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">VTH-kapstok</span>
+    <nav>
+      <a href="/">Home</a><a href="/roadmap">Roadmap</a><a href="/kwaliteit">Kwaliteit</a>
+      <a href="/wfs-kwaliteit">WFS-check</a><a href="/semantiek">Semantiek</a><a href="/viewer">REV-viewer</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Het <span>Cim-VTH-Flo</span> als kapstok over dit lab</h2>
+      <p>Geonovum en het ministerie van IenW werken binnen het programma Digitalisering VTH aan het
+        <b>Conceptueel Informatiemodel VTH Fysieke Leefomgeving</b> — een gemeenschappelijke taal voor
+        gestructureerde gegevensuitwisseling in de keten van vergunningverlening, toezicht en handhaving.
+        De <em>Flo</em> in de naam staat voor <b>fysieke leefomgeving</b>: precies het domein waarin dit lab bouwt.</p>
+      <p>Deze pagina legt dat model als kapstok over de use-cases van het lab: welke <b>views</b> en
+        <b>kern-objecttypen</b> raken we al met echte data, en welke niet. Wat overblijft — de witte vlekken —
+        is minstens zo interessant als wat we wél dekken. Onderaan staat een voorstel voor een roadmap in twee sporen.</p>
+    </div>
+
+    <div class="section-title">De bron</div>
+    <div class="bron">
+      <div><b>Document</b>Conceptueel Informatiemodel VTH Fysieke Leefomgeving (Cim-VTH-Flo)</div>
+      <div><b>Status</b>Geonovum Informatiemodel · werkversie 4 augustus 2026 · CC BY 4.0</div>
+      <div><b>Werkversie</b><a href="https://geonovum.github.io/vth-cim-flo/">geonovum.github.io/vth-cim-flo</a></div>
+      <div><b>Vastgesteld</b><a href="https://docs.geostandaarden.nl/vth/cim-vth-flo/">docs.geostandaarden.nl/vth/cim-vth-flo</a></div>
+      <div><b>Repo &amp; issues</b><a href="https://github.com/Geonovum/vth-cim-flo">github.com/Geonovum/vth-cim-flo</a></div>
+      <div><b>Change requests</b>vth@geonovum.nl</div>
+    </div>
+
+    <div class="section-title">De kapstok — 7 views</div>
+    <p class="lead">Het model wordt uitgelegd via <b>views</b>: thematische doorsneden met elk een handvol
+      <b>kern-objecttypen</b>. Twee daarvan zijn de kern van het hele model: <b>ACTIVITEITUITVOERING</b> en
+      <b>VTH-OBJECT</b>. Objecttypen komen in meerdere views terug; hieronder staan per view de kern-objecttypen
+      zoals het model die zelf aanwijst.</p>
+    <div class="views" id="views"></div>
+
+    <div class="section-title">Dekking — wat raakt het lab?</div>
+    <p class="lead">Negen use-cases tegen de zeven views. Beoordeeld op de data die de use-case daadwerkelijk
+      ophaalt en toont, niet op wat er in principe mee zou kunnen.</p>
+    <div class="legenda">
+      <div><span class="m raakt">●</span>raakt — de use-case werkt met objecten van deze view</div>
+      <div><span class="m deels">◐</span>deels — raakt de view zijdelings of onvolledig</div>
+      <div><span class="m buiten">○</span>buiten beeld</div>
+    </div>
+    <div class="scroll"><table id="matrix"><thead><tr id="mhead"></tr></thead><tbody id="mrows"></tbody></table></div>
+
+    <div class="section-title">Witte vlekken</div>
+    <div class="vlek">
+      <h3>Het lab dekt de voorkant van het stelsel, niet de achterkant</h3>
+      <p>Alles wat het lab raakt zit in <b>Locatie</b>, <b>Activiteit</b> en — mondjesmaat — <b>Betrokkene</b>.
+        Dat is geen toeval: dat zijn precies de delen van het VTH-stelsel die als open data of open API zijn
+        ontsloten (REV, PDOK, DSO). Structureel onaangeroerd blijven:</p>
+      <ul>
+        <li><b>Toezicht- en handhaving-view</b> — CONTROLE, BEVINDING, OVERTREDING, HANDHAVINGSMAATREGEL.
+          Er is geen open bron voor uitgevoerde controles of opgelegde maatregelen.</li>
+        <li><b>Incident-view</b> — INCIDENT, KLACHT, SIGNAAL. Klachten en meldingen zijn persoonsgevoelig en
+          blijven binnen de omgevingsdiensten.</li>
+        <li><b>Zaak- en document-view</b> — ZAAK, BESLUIT, INFORMATIEOBJECT. Zaakdossiers zijn niet ontsloten;
+          alleen het gepubliceerde besluit komt soms naar buiten.</li>
+        <li><b>Verzoek-view</b> — VERZOEK, TOESTEMMINGSAANVRAAG, ACTIVITEITMELDING. Het lab kan wél zien
+          wélke regels gelden, maar niet welke aanvragen en meldingen er feitelijk liggen.</li>
+      </ul>
+      <p style="margin-top:10px">Dat is zelf een bevinding over het stelsel, en het scherpste resultaat van deze
+        oefening: een informatiemodel dat de hele keten beschrijft, staat tegenover een open-datalandschap dat
+        alleen het begin van die keten laat zien.</p>
+    </div>
+
+    <div class="section-title">Voorstel — roadmap in twee sporen</div>
+    <div class="sporen">
+      <div class="spoor">
+        <h3>Spoor A — het lab spreekt de taal van het CIM</h3>
+        <p>De objecttypen van het model als gedeelde taal in de code, de API's en de duiding. Doel: uitleggen
+          wat we tonen in termen die de VTH-keten herkent, in plaats van in bronspecifiek jargon.</p>
+      </div>
+      <div class="spoor b">
+        <h3>Spoor B — het lab als toetssteen voor het CIM</h3>
+        <p>Bouwen op de echte bronnen levert vanzelf bevindingen op over het model én over de data. Doel:
+          die bevindingen expliciet maken en terugleggen bij Geonovum, in plaats van ze te laten verdampen.</p>
+      </div>
+    </div>
+    <div id="roadmap"></div>
+
+    <footer>
+      <p><b>Disclaimer.</b> Deze pagina is een eigen interpretatie binnen LeefomgevingLab en geen product van
+        Geonovum. De views, kern-objecttypen en definities zijn overgenomen uit de werkversie van het
+        <a href="https://geonovum.github.io/vth-cim-flo/">Cim-VTH-Flo</a> (CC BY 4.0); de dekkingsbeoordeling en
+        de roadmap zijn van dit lab. Indicatief, geen operationeel overheidssysteem.</p>
+    </footer>
+  </div>
+
+  <script>
+    // ---- De 7 views met hun kern-objecttypen (Cim-VTH-Flo, Figuur 20 "Views met hun kern-objecttypen").
+    const VIEWS = [
+      {key:"activiteit", naam:"Activiteit-view",
+       tekst:"Activiteiten met effect op de fysieke leefomgeving en de daarvoor gestelde regels. ACTIVITEITUITVOERING is één van de twee kernen van het model: een door een Betrokkene op of in een VTH-object uitgevoerde (of voorgenomen) activiteit.",
+       ot:["ACTIVITEIT","ACTIVITEITUITVOERING","TOESTEMMING","ALGEMEEN VERBINDEND VOORSCHRIFT","SPECIFIEK VOORSCHRIFT","OVERWEGING"]},
+      {key:"locatie", naam:"Locatie-view",
+       tekst:"De ruimtelijke kant. VTH-OBJECT is de tweede kern van het model: een fysieke locatie, opstal, installatie of combinatie daarvan waar activiteiten plaatsvinden waarvoor wet- en regelgeving geldt. GEO-OBJECT verbindt dat met de basisregistraties.",
+       ot:["VTH-OBJECT","GEO-OBJECT","PAND","ADRESSEERBAAR OBJECT","KADASTRALE ONROERENDE ZAAK","TOPOGRAFISCH OBJECT","ANDER GEO-OBJECT"]},
+      {key:"betrokkene", naam:"Betrokkene-view",
+       tekst:"Wie er in welke rol bij betrokken is — bevoegd gezag, initiatiefnemer, handhavende instantie, vergunninghouder. Een organisatie die op wettelijke grondslag VTH-taken uitvoert is een VTH-INSTANTIE.",
+       ot:["BETROKKENE","VTH-INSTANTIE","NATUURLIJK PERSOON","NIET-NATUURLIJK PERSOON","VESTIGING"]},
+      {key:"verzoek", naam:"Verzoek-view",
+       tekst:"Het indienen en behandelen van verzoeken zoals in het DSO bedoeld: vergunningaanvragen, activiteitmeldingen en informatie die wordt ingediend vanwege een informatieplicht.",
+       ot:["VERZOEK","TOESTEMMINGSAANVRAAG","ACTIVITEITMELDING","ACTIVITEITINFORMATIE"]},
+      {key:"toezicht", naam:"Toezicht- en handhaving-view",
+       tekst:"Toezicht krijgt vorm met CONTROLE. Een controle leidt tot BEVINDINGen; daaruit kan een OVERTREDING worden geconstateerd, waarop via de handhavingsstrategie een HANDHAVINGSMAATREGEL volgt.",
+       ot:["CONTROLE","BEVINDING","OVERTREDING","HANDHAVINGSMAATREGEL"]},
+      {key:"incident", naam:"Incident-view",
+       tekst:"Incidenten en handhavingsverzoeken vormen een aanleiding om een controle uit te voeren. Een incident wordt geconstateerd via een signaal, een klacht of verstrekte informatie over een ongewoon voorval.",
+       ot:["INCIDENT","INCIDENTSIGNAAL","KLACHT","SIGNAAL","INFORMATIE ONGEWOON VOORVAL","HANDHAVINGSVERZOEK"]},
+      {key:"zaak", naam:"Zaak- en Document-view",
+       tekst:"Hoe zaken, besluiten en documenten hun rol spelen in uitvoering en documentatie. De uitkomst van een zaak kan een BESLUIT zijn — de vergunning waarmee toestemming wordt verleend, of een handhavingsbesluit.",
+       ot:["ZAAK","BESLUIT","INFORMATIEOBJECT"]},
+    ];
+
+    // ---- Dekking per use-case. r = raakt, d = deels, o = buiten beeld.
+    const USECASES = [
+      {naam:"REV-viewer", href:"/viewer", bron:"REV via PDOK OGC API Features",
+       dek:{activiteit:"d", locatie:"r", betrokkene:"d", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Risicovolle productiefaciliteiten zijn VTH-OBJECTen met een geometrie (GEO-OBJECT); het veld evactiviteit is een ACTIVITEIT, de bronhouder een VTH-INSTANTIE."},
+      {naam:"EV-check op een punt", href:"/chatbot", bron:"REV GeoServer WFS (CQL INTERSECTS)",
+       dek:{activiteit:"d", locatie:"r", betrokkene:"d", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Punt-in-vlak op aandachtsgebieden: welk VTH-OBJECT raakt deze locatie, met welke maatgevende stof en welke exploitant (BETROKKENE)."},
+      {naam:"Vergunningen-chatbot", href:"/chatbot", bron:"DSO Toepasbare Regels + IPLO (RAG)",
+       dek:{activiteit:"r", locatie:"d", betrokkene:"o", verzoek:"d", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Beantwoordt welke regels gelden: ALGEMEEN VERBINDEND VOORSCHRIFT en SPECIFIEK VOORSCHRIFT bij een ACTIVITEIT. Raakt de Verzoek-view alleen conceptueel — er is geen ingediend VERZOEK."},
+      {naam:"Omgevingsplan op locatie", href:"/chatbot", bron:"DSO Ozon Presenteren (regelingen)",
+       dek:{activiteit:"r", locatie:"r", betrokkene:"o", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Welke regelingen gelden op deze plek — AVV gekoppeld aan een locatie. Artikel-niveau is nog een openstaande spike."},
+      {naam:"Datavraag-chatbot", href:"/datavraag", bron:"eigen REV-LD + Kadaster KKG (SPARQL)",
+       dek:{activiteit:"d", locatie:"r", betrokkene:"o", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Nabijheidsvragen over VTH-OBJECTen en GEO-OBJECTen (PAND, ADRESSEERBAAR OBJECT) via linked data."},
+      {naam:"WFS-datakwaliteit", href:"/wfs-kwaliteit", bron:"REV GeoServer WFS, alle lagen",
+       dek:{activiteit:"d", locatie:"r", betrokkene:"d", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Toetst de kwaliteit van precies die VTH-OBJECTen: geometrie-validiteit, lege bronvelden en IMEV-conformiteit per bronhouder."},
+      {naam:"Semantische browser", href:"/semantiek", bron:"IMX-Geo linked data + IMEV-begrippen",
+       dek:{activiteit:"d", locatie:"d", betrokkene:"o", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Werkt op modelniveau in plaats van dataniveau. Hier hoort het Cim-VTH-Flo naast IMX-Geo en IMEV te komen te staan — zie stap A4."},
+      {naam:"Geluidsmeter", href:"/public", bron:"eigen sensor + RIVM / CVGG",
+       dek:{activiteit:"o", locatie:"d", betrokkene:"o", verzoek:"o", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Valt buiten VTH. Wel een haakje: een aanhoudende geluidsoverschrijding is in CIM-termen een SIGNAAL — de opstap naar de Incident-view (stap A5)."},
+      {naam:"Afval & circulariteit", href:"/afval", bron:"CBS 83558NED + CLO / Afvalfonds / LMA",
+       dek:{activiteit:"d", locatie:"o", betrokkene:"o", verzoek:"d", toezicht:"o", incident:"o", zaak:"o"},
+       toel:"Het gesloten LMA/AMICE-aggregaat is naar zijn aard ACTIVITEITINFORMATIE uit een informatieplicht; het lab gebruikt alleen de open proxy op provincieniveau."},
+    ];
+
+    const ROADMAP = [
+      {fase:"Fase 1", horizon:"kapstok aanbrengen", stappen:[
+        {spoor:"a", titel:"Deze pagina, en de mapping machine-leesbaar",
+         wat:"De view/objecttype-mapping ook als <code>GET /api/vth/kapstok</code> aanbieden, zodat andere pagina's van het lab er tegenaan kunnen praten in plaats van de tabel te dupliceren.",
+         op:"Nu: de mapping staat alleen in deze pagina."},
+        {spoor:"a", titel:"CIM-labels op wat de viewer al toont",
+         wat:"Elk REV-feature in <code>/viewer</code> en in de EV-check een expliciet CIM-etiket geven: dit is een VTH-OBJECT, dit veld is een ACTIVITEIT, deze bronhouder is een VTH-INSTANTIE.",
+         op:"Raakt: connectors/rev.py, connectors/externe_veiligheid.py."},
+        {spoor:"b", titel:"WFS-check uitbreiden van IMEV naar CIM",
+         wat:"De datakwaliteit-scan toetst nu IMEV 3.0.2. Daar een CIM-laag naast: zijn de REV-velden überhaupt te mappen op de kern-objecttypen — is er een identificeerbare BETROKKENE, een VTH-INSTANTIE, een ACTIVITEIT?",
+         op:"Raakt: usecases/wfs_kwaliteit.py, /wfs-kwaliteit."},
+      ]},
+      {fase:"Fase 2", horizon:"gedeelde taal in de code", stappen:[
+        {spoor:"a", titel:"Een cim-vocabulaire in de connector-laag",
+         wat:"De 34 objecttypen als vocabulaire naast de connectors, zodat elke connector per feature een <code>cim_type</code> kan meegeven. Eén plek waar de vertaling van bronjargon naar CIM-term staat.",
+         op:"Raakt: src/leefomgevinglab/connectors/."},
+        {spoor:"a", titel:"Cim-VTH-Flo in de semantische browser",
+         wat:"Het model naast IMX-Geo en IMEV zetten, inclusief de overlap: welke IMEV-begrippen dekken welke CIM-objecttypen, en waar wringt het.",
+         op:"Raakt: /semantiek, scripts/09_build_semantiek_graph.py."},
+        {spoor:"b", titel:"De witte vlekken als stelselvraag documenteren",
+         wat:"Per onaangeroerde view vastleggen wáárom er geen open bron is — privacy, geen wettelijke grondslag, of simpelweg niet ontsloten. Dat onderscheid is het interessante deel.",
+         op:"Raakt: /kwaliteit."},
+      ]},
+      {fase:"Fase 3", horizon:"toetsen en terugkoppelen", stappen:[
+        {spoor:"a", titel:"Eén witte vlek aanraken met de data die er wél is",
+         wat:"De Incident-view benaderen via wat open is: geluid- en luchtmetingen als SIGNAAL, met een expliciete grens tussen wat een signaal is en wat een INCIDENT zou zijn. Laat zien hoe ver je komt zonder de gesloten bronnen.",
+         op:"Bouwt op: geluidsmeter, Samen Meten / Luchtmeetnet."},
+        {spoor:"a", titel:"CIM-objecttypen als URI's in de linked-data-laag",
+         wat:"De REV-LD-laag verrijken met CIM-objecttypen, zodat de datavraag-chatbot vragen in CIM-termen kan beantwoorden in plaats van in REV-veldnamen.",
+         op:"Raakt: scripts/10_build_rev_ld.py, /datavraag."},
+        {spoor:"b", titel:"Bevindingen terugleggen bij Geonovum",
+         wat:"Wat het bouwen oplevert — onmapbare velden, ontbrekende kardinaliteiten, begrippen die in de praktijk anders worden gebruikt — bundelen als change requests via de GitHub-issues of vth@geonovum.nl.",
+         op:"Uitkomst van fase 1 en 2."},
+      ]},
+    ];
+
+    const $ = id => document.getElementById(id);
+    function esc(s){ const t=document.createElement("span"); t.textContent=s==null?"":String(s); return t.innerHTML; }
+    function escAttr(s){ return esc(s).replace(/"/g,"&quot;"); }
+
+    // views
+    $("views").innerHTML = VIEWS.map(v =>
+      '<div class="view"><h3>'+esc(v.naam)+'</h3><p>'+esc(v.tekst)+'</p>'+
+      '<div class="ot">'+v.ot.map(o => '<span>'+esc(o)+'</span>').join("")+'</div></div>').join("");
+
+    // dekkingsmatrix
+    const MERK = {r:{c:"raakt", t:"●", l:"raakt"}, d:{c:"deels", t:"◐", l:"deels"}, o:{c:"buiten", t:"○", l:"buiten beeld"}};
+    $("mhead").innerHTML = '<th class="uc">Use-case</th>' +
+      VIEWS.map(v => '<th>'+esc(v.naam.replace("-view","").replace("Toezicht- en handhaving","Toezicht &amp; handh.").replace("Zaak- en Document","Zaak &amp; doc."))+'</th>').join("");
+    $("mrows").innerHTML = USECASES.map(u =>
+      '<tr><td class="uc"><a href="'+escAttr(u.href)+'" style="color:#eafff6;text-decoration:none">'+esc(u.naam)+'</a>'+
+      '<small>'+esc(u.bron)+'</small><small style="color:var(--muted)">'+esc(u.toel)+'</small></td>'+
+      VIEWS.map(v => { const m = MERK[u.dek[v.key]] || MERK.o;
+        return '<td><span class="m '+m.c+'" title="'+escAttr(v.naam+': '+m.l)+'">'+m.t+'</span></td>'; }).join("")+
+      '</tr>').join("");
+
+    // roadmap
+    $("roadmap").innerHTML = ROADMAP.map(f =>
+      '<div class="fase"><h3>'+esc(f.fase)+' <em>— '+esc(f.horizon)+'</em></h3>'+
+      f.stappen.map(s =>
+        '<div class="stap"><div class="kop"><span class="tag '+esc(s.spoor)+'">SPOOR '+esc(s.spoor.toUpperCase())+'</span>'+
+        '<h4>'+esc(s.titel)+'</h4></div><p>'+s.wat+'</p><p class="op">'+esc(s.op)+'</p></div>').join("")+
+      '</div>').join("");
+  </script>
+</body>
+</html>
