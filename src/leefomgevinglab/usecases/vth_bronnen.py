@@ -189,6 +189,22 @@ BRONNEN = [
        "afval, gebruikt voor toezicht en handhaving. Gesloten; dit lab werkt daarom met de open "
        "CBS-proxy op provincieniveau (zie /afval).",
        "https://lma.nl/", "https://amice.lma.nl/Amice.WebApp/Home"),
+    _b("ctd", "CTD — Centraal Toegangspunt Data Rijkswaterstaat", "Rijkswaterstaat", "rws", "semi",
+       "ISO 19115 · Data3Sixty", "datasetcatalogus (beta)",
+       ["INFORMATIEOBJECT"],
+       "RWS bundelt hier zijn eigen data met per dataset een datakwaliteitslabel, ISO 19115-metadata "
+       "en een oordeel-knop voor gebruikers. Toegang verschilt per vertrouwelijkheidsniveau. "
+       "Geen automatische controle: robots.txt van het portaal staat crawlen niet toe.",
+       "https://rijkswaterstaatdata.nl/beta/", None),
+    _b("rws_wegenlijst", "Actuele Wegenlijst (CTD-data-API)", "Rijkswaterstaat", "rws", "open",
+       "PostgREST · GeoJSON EPSG:28992", "REST-API zonder sleutel",
+       ["ANDER GEO-OBJECT", "GEO-OBJECT", "VTH-INSTANTIE"],
+       "246 wegvakken met rijkswegnummer, hectometerbereik, geometrie in RD én de beherende "
+       "RWS-dienst en district. Filteren, sorteren, pagineren en exacte tellingen zitten er "
+       "standaard in. Twee kolommen ctd_update/ctd_update_bron geven per rij de actualiteit — "
+       "precies wat het REV mist. De index van de API staat uit, dus je moet de tabelnaam kennen.",
+       "https://rijkswaterstaatdata.nl/beta/",
+       "https://ctddata.rijkswaterstaatdata.nl/actuele_wegenlijst?limit=1"),
     _b("nwb", "NWB — Nationaal Wegenbestand", "Rijkswaterstaat", "rws", "open",
        "NWB", "WFS",
        ["ANDER GEO-OBJECT"],
@@ -307,8 +323,14 @@ OVERLAP_REDENEN = {
                    "handvol gemeenten als dataset. Wat de een publiceert, houdt de ander binnen.",
     "BETROKKENE": "Het NHR is authentiek maar betaald, het REV heeft een bronhouder-veld zonder "
                   "organisatie-identificatie, en het ROO kent alleen overheden. Drie halve antwoorden.",
-    "VTH-INSTANTIE": "Het ROO beschrijft de organisatie, de NGR-dataset tekent haar gebied. "
-                     "Wie iets mag, en waar dat geldt, staan in verschillende bronnen.",
+    "VTH-INSTANTIE": "Het ROO beschrijft de organisatie, de NGR-dataset tekent het gebied van de "
+                     "omgevingsdiensten, en de Actuele Wegenlijst van RWS zet de beherende dienst "
+                     "per wegvak in een gewone kolom. Wie iets mag, en waar dat geldt, staan in "
+                     "verschillende bronnen — en alleen bij RWS zitten ze in dezelfde rij.",
+    "ANDER GEO-OBJECT": "De restbak van de Locatie-view, en juist daardoor het drukst bezet: BRO "
+                        "(ondergrond), NWB en de Actuele Wegenlijst (wegen), DAMO (water) en "
+                        "bodemlocaties belanden hier allemaal. Het model onderscheidt ze niet, "
+                        "terwijl het in de uitvoering totaal verschillende objecten zijn.",
     "ACTIVITEITINFORMATIE": "Twee informatieplichten, twee stelsels, verschillend open: e-MJV/PRTR "
                             "voor emissies is deels openbaar, LMA/AMICE voor afval is dat niet.",
     "GEO-OBJECT": "Het best geregelde deel van het model: BAG, BGT, BRK en BRT vullen elkaar aan "
