@@ -47,10 +47,50 @@
     .tab.on { background:var(--accent); border-color:var(--accent); color:#042; font-weight:700; }
     .casusinfo { font-size:12.5px; color:var(--muted); margin-bottom:12px; }
 
+    /* kerncijfers */
+    .cijfers { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin:6px 0 4px; }
+    .cijfer { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:13px 16px; }
+    .cijfer .g { font-size:28px; font-weight:800; color:#eafff6; line-height:1.15; }
+    .cijfer .g small { font-size:14px; color:var(--dim); font-weight:400; }
+    .cijfer .l { font-size:11.5px; color:var(--muted); }
+    .cijfer.voldaan .g { color:var(--ok); } .cijfer.deels .g { color:var(--om); }
+    .cijfer.niet .g { color:var(--weg); }
+
+    /* cyclusband */
+    .cyclus { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:7px; }
+    @media (max-width:900px){ .cyclus { grid-template-columns:repeat(2,1fr); } }
+    .cel { background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:10px 11px;
+      display:flex; flex-direction:column; gap:5px; cursor:pointer; min-height:118px; }
+    .cel:hover { border-color:var(--accent2); }
+    .cel.leeg { opacity:.45; border-style:dashed; cursor:default; }
+    .cel.on { border-color:var(--accent); background:#0c1f18; }
+    .cel .code { font-family:ui-monospace,monospace; font-size:12px; color:var(--accent2); font-weight:700; }
+    .cel .nm { font-size:10.5px; color:var(--muted); line-height:1.35; }
+    .cel .bollen { display:flex; flex-wrap:wrap; gap:3px; margin-top:auto; }
+    .bol { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .bol.voldaan { background:var(--ok); } .bol.deels { background:var(--om); }
+    .bol.niet { background:var(--weg); }
+    .cel .geen { font-size:10px; color:var(--dim); margin-top:auto; }
+
     /* vlinder */
-    .rij { display:grid; grid-template-columns:minmax(0,1fr) 84px minmax(0,1fr); gap:0;
+    .rij { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr); gap:0;
       align-items:stretch; margin-bottom:8px; }
-    @media (max-width:900px){ .rij { grid-template-columns:1fr; } .spil { order:-1; } }
+    @media (max-width:900px){ .rij { grid-template-columns:1fr; } .kern { order:-1; } }
+    .kern { background:var(--panel2); border:1px solid var(--border); border-left:none; border-right:none;
+      padding:12px 15px; display:flex; flex-direction:column; gap:6px; }
+    .kern .top { display:flex; align-items:center; gap:8px; }
+    .kern .nr { width:24px; height:24px; line-height:24px; border-radius:50%; background:var(--accent);
+      color:#042; font-weight:700; font-size:11.5px; text-align:center; flex:none; }
+    .kern .w { font-family:ui-monospace,monospace; font-size:10.5px; color:var(--accent2); }
+    .kern .st { margin-left:auto; }
+    .kern .vraag { font-size:14.5px; color:#eafff6; font-weight:600; line-height:1.35; }
+    .kern .wie { font-size:10.5px; color:var(--dim); }
+    .waardeblok { border-left:2px solid var(--ok); padding-left:9px; }
+    .waardeblok b { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ok); }
+    .waardeblok p { font-size:12.5px; color:#cfe9df; }
+    .zonderblok { border-left:2px solid var(--weg); padding-left:9px; }
+    .zonderblok b { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--weg); }
+    .zonderblok p { font-size:12.5px; color:#e6b8b0; }
     .zij { background:var(--panel); border:1px solid var(--border); padding:11px 14px; }
     .zij.l2 { border-radius:10px 0 0 10px; border-right:none; border-top:2px solid var(--rl2); }
     .zij.l3 { border-radius:0 10px 10px 0; border-left:none; border-top:2px solid var(--rl3); }
@@ -60,6 +100,14 @@
     .spil .nr { width:26px; height:26px; line-height:26px; border-radius:50%; background:var(--accent);
       color:#042; font-weight:700; font-size:12px; text-align:center; }
     .spil .w { font-family:ui-monospace,monospace; font-size:10px; color:var(--accent2); }
+    .pil.voldaan { background:rgba(46,204,143,.16); color:var(--ok); border:1px solid #1d5c3f; }
+    .pil.deels { background:rgba(255,183,77,.14); color:var(--om); border:1px solid #5a4520; }
+    .pil.niet { background:rgba(255,122,107,.13); color:var(--weg); border:1px solid #6b2f28; }
+    .blind { background:var(--panel); border:1px solid #5a4520; border-left:3px solid var(--om);
+      border-radius:9px; padding:11px 14px; margin-bottom:7px; }
+    .blind h4 { font-size:12.5px; color:#eafff6; }
+    .blind .m { font-size:10.5px; color:var(--dim); margin-bottom:4px; }
+    .blind p { font-size:12.5px; color:var(--muted); }
     .zij .kop { font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
     .zij.l2 .kop { color:var(--rl2); } .zij.l3 .kop { color:var(--rl3); }
     .zij .behoefte { font-size:13px; color:#eafff6; margin-bottom:7px; }
@@ -154,7 +202,24 @@
         data — informatieobjecten en registers. Waar beide casussen op dezelfde plek vastlopen, zit
         de meeste waarde van een wijziging; onderaan staan de besluiten die daarvoor nodig zijn,
         afgezet tegen wat ze kosten.</p>
+      <p style="margin-top:10px"><b>De informatiebehoefte is de spil.</b> Per ketenstap staat in het
+        midden welke vraag daar beantwoord moet worden, wie hem stelt, wat het oplevert als dat lukt
+        en wat het kost als het niet lukt. Links en rechts staat wat er nodig is om hem te bedienen.</p>
     </div>
+
+    <div class="section-title">De waarde in cijfers</div>
+    <p class="lead">Elke ketenstap heeft één informatiebehoefte: de vraag die op dát moment
+      beantwoord moet worden. Zestien in totaal over de twee casussen. Hoeveel daarvan worden
+      vandaag daadwerkelijk bediend?</p>
+    <div class="cijfers" id="cijfers"></div>
+
+    <div class="section-title">Waar in de cyclus zit de informatiebehoefte?</div>
+    <p class="lead">De acht waardestromen van BALO vormen de cyclus. Elk bolletje is één
+      informatiebehoefte uit een van de casussen, gekleurd naar of hij wordt bediend. Gestippeld
+      betekent: door deze twee casussen niet geraakt. Klik een waardestroom voor de behoeften die
+      er spelen.</p>
+    <div class="cyclus" id="cyclusband"></div>
+    <div id="cyclusdetail" style="margin-top:10px"></div>
 
     <div class="section-title">De twee redeneerlijnen</div>
     <div class="lijnen" id="lijnen"></div>
@@ -189,6 +254,12 @@
       <div class="svgbox"><svg id="kwadrant" role="img" aria-label="Besluiten naar kosten en waarde"></svg></div>
       <div class="detail" id="detail"></div>
     </div>
+
+    <div class="section-title">Blinde vlekken in het besluitenvoorstel</div>
+    <p class="lead">Deze informatiebehoeften worden vandaag niet bediend, en geen van de zeven
+      besluiten hierboven lost ze op. Ze staan er expliciet bij, zodat de lijst geen dekking
+      suggereert die er niet is.</p>
+    <div id="blind"></div>
 
     <div class="section-title">En de vragen die BALO zelf stelt</div>
     <div class="vragen" id="balovragen"></div>
@@ -234,13 +305,22 @@
       $("vlinder").innerHTML = c.stappen.map(s => {
         const w = ws(s.w);
         return '<div class="rij">'+
-          '<div class="zij l2"><div class="kop">Redeneerlijn 2 · business</div>'+
-            '<div class="behoefte">'+esc(s.behoefte)+'</div>'+
-            '<div class="sub">Informatiefuncties</div><div class="chips">'+
+          '<div class="zij l2"><div class="kop">Redeneerlijn 2 · wat de business moet kunnen</div>'+
+            '<div class="sub" style="margin-top:0">Informatiefuncties die deze behoefte bedienen</div>'+
+            '<div class="chips">'+
             s.functies.map(n => '<span class="chip f" title="'+escA(fn(n).wat)+'">'+n+'. '+esc(fn(n).naam)+'</span>').join("")+
             '</div></div>'+
-          '<div class="spil"><span class="nr">'+s.nr+'</span><span class="w" title="'+escA(w.kernvraag)+'">'+esc(s.w)+'</span></div>'+
-          '<div class="zij l3"><div class="kop">Redeneerlijn 3 · data</div>'+
+          '<div class="kern">'+
+            '<div class="top"><span class="nr">'+s.nr+'</span>'+
+              '<span class="w" title="'+escA(w.kernvraag)+'">'+esc(s.w)+' · '+esc(w.naam.slice(0,42))+'…</span>'+
+              '<span class="st"><span class="pil '+esc(s.status)+'" title="'+escA(D.status_behoefte[s.status])+'">'+
+              esc(s.status)+'</span></span></div>'+
+            '<div class="vraag">'+esc(s.behoefte)+'</div>'+
+            '<div class="wie">nodig door: '+esc(s.wie)+'</div>'+
+            '<div class="waardeblok"><b>Waarde als dit lukt</b><p>'+esc(s.waarde)+'</p></div>'+
+            '<div class="zonderblok"><b>Wat het kost als het niet lukt</b><p>'+esc(s.zonder)+'</p></div>'+
+          '</div>'+
+          '<div class="zij l3"><div class="kop">Redeneerlijn 3 · welke data dat vraagt</div>'+
             '<div class="sub" style="margin-top:0">Informatieobjecten</div><div class="chips">'+
             s.objecten.map(o => '<span class="chip o">'+esc(o)+'</span>').join("")+'</div>'+
             '<div class="sub">Registers</div><div class="chips">'+
@@ -340,7 +420,8 @@
           '<span class="pil om">oranje</span> beperkte waarde</p>';
         return;
       }
-      const b = D.besluiten.find(x => x.id===besluit);
+      const bw = D.besluitwaarde.find(x => x.id===besluit);
+      const b = bw;
       $("detail").innerHTML =
         '<h3>'+esc(b.id)+' · '+esc(b.titel)+'</h3>'+
         '<div class="vraag">'+esc(b.vraag)+'</div>'+
@@ -352,7 +433,63 @@
         '<div class="sub">Raakt informatiefuncties</div><div class="chips">'+
         b.functies.map(n => '<span class="chip f">'+n+'. '+esc(fn(n).naam)+'</span>').join("")+'</div>'+
         '<div class="sub">Raakt registers</div><div class="chips">'+
-        b.registers.map(regChip).join("")+'</div>';
+        b.registers.map(regChip).join("")+'</div>'+
+        '<div class="sub">Bedient '+bw.aantal_behoeften+' informatiebehoefte'+(bw.aantal_behoeften===1?"":"n")+
+          ' in '+bw.waardestromen.length+' waardestroom'+(bw.waardestromen.length===1?"":"en")+'</div>'+
+        bw.bedient.map(x => '<div style="margin-bottom:6px"><span class="pil '+esc(x.status)+'">'+
+          esc(x.status)+'</span> <span style="font-size:12px;color:var(--dim)">'+esc(x.casus_kort)+
+          ' · stap '+x.stap+' · '+esc(x.w)+'</span><br><span style="font-size:12.5px;color:#eafff6">'+
+          esc(x.vraag)+'</span></div>').join("");
+    }
+
+    function tekenCijfers(){
+      const o = D.waardeoverzicht, s = o.per_status;
+      $("cijfers").innerHTML =
+        '<div class="cijfer"><div class="g">'+o.totaal+'</div>'+
+          '<div class="l">informatiebehoeften over beide casussen</div></div>'+
+        '<div class="cijfer voldaan"><div class="g">'+s.voldaan+' <small>/ '+o.totaal+'</small></div>'+
+          '<div class="l">volledig bediend — de informatie is er, op tijd en bruikbaar</div></div>'+
+        '<div class="cijfer deels"><div class="g">'+s.deels+' <small>/ '+o.totaal+'</small></div>'+
+          '<div class="l">half bediend — er is iets, maar niet vindbaar, compleet of op tijd</div></div>'+
+        '<div class="cijfer niet"><div class="g">'+s.niet+' <small>/ '+o.totaal+'</small></div>'+
+          '<div class="l">niet bediend — de informatie ontstaat wel, maar verdwijnt</div></div>'+
+        '<div class="cijfer"><div class="g">'+o.waardestromen_geraakt+' <small>/ '+o.waardestromen_totaal+'</small></div>'+
+          '<div class="l">waardestromen geraakt; '+esc(o.niet_geraakt.join(", "))+' blijven buiten beeld</div></div>';
+    }
+
+    let wsel = null;
+    function tekenCyclus(){
+      $("cyclusband").innerHTML = D.cyclus.map(w =>
+        '<div class="cel'+(w.geraakt?"":" leeg")+(wsel===w.code?" on":"")+'" data-w="'+escA(w.code)+'" '+
+        'title="'+escA(w.kernvraag)+'">'+
+        '<div class="code">'+esc(w.code)+'</div><div class="nm">'+esc(w.naam)+'</div>'+
+        (w.geraakt
+          ? '<div class="bollen">'+w.behoeften.map(b =>
+              '<span class="bol '+esc(b.status)+'" title="'+escA(b.casus_kort+" stap "+b.stap+": "+b.vraag)+'"></span>').join("")+
+            '</div>'
+          : '<div class="geen">niet geraakt door deze casussen</div>')+
+        '</div>').join("");
+      tekenCyclusDetail();
+    }
+
+    function tekenCyclusDetail(){
+      const w = D.cyclus.find(x => x.code===wsel);
+      if(!w || !w.geraakt){ $("cyclusdetail").innerHTML = ""; return; }
+      $("cyclusdetail").innerHTML = w.behoeften.map(b =>
+        '<div class="blind" style="border-left-color:var(--'+
+          (b.status==="voldaan"?"ok":b.status==="deels"?"om":"weg")+');border-color:var(--border)">'+
+        '<div class="m">'+esc(b.casus_kort)+' · stap '+b.stap+' · '+esc(b.w)+
+          ' <span class="pil '+esc(b.status)+'">'+esc(b.status)+'</span></div>'+
+        '<h4>'+esc(b.vraag)+'</h4>'+
+        '<p style="color:#cfe9df"><b style="color:var(--ok)">Waarde:</b> '+esc(b.waarde)+'</p>'+
+        '<p style="color:#e6b8b0"><b style="color:var(--weg)">Zonder:</b> '+esc(b.zonder)+'</p></div>').join("");
+    }
+
+    function tekenBlind(){
+      $("blind").innerHTML = D.onbediend.map(b =>
+        '<div class="blind"><div class="m">'+esc(b.casus_kort)+' · stap '+b.stap+' · '+esc(b.w)+
+        ' <span class="pil '+esc(b.status)+'">'+esc(b.status)+'</span></div>'+
+        '<h4>'+esc(b.vraag)+'</h4><p>'+esc(b.zonder)+'</p></div>').join("");
     }
 
     function tekenBaloVragen(){
@@ -368,6 +505,11 @@
       const t=e.target.closest("[data-casus]"); if(!t) return;
       casus = t.dataset.casus; tekenTabs(); tekenVlinder();
     });
+    $("cyclusband").addEventListener("click", e => {
+      const c=e.target.closest("[data-w]"); if(!c || c.classList.contains("leeg")) return;
+      wsel = wsel===c.dataset.w ? null : c.dataset.w;
+      tekenCyclus();
+    });
     $("kwadrant").addEventListener("click", e => {
       const p=e.target.closest(".punt");
       besluit = p ? (besluit===p.dataset.b ? null : p.dataset.b) : null;
@@ -377,8 +519,8 @@
     (async () => {
       try { D = await (await fetch("/api/balo/overzicht")).json(); }
       catch(e){ $("vlinder").innerHTML = '<p style="color:var(--dim)">Kon het overzicht niet laden.</p>'; return; }
-      tekenLijnen(); tekenTabs(); tekenVlinder(); tekenGedeeld();
-      tekenDekking(); tekenRegisters(); tekenKwadrant(); tekenBaloVragen();
+      tekenCijfers(); tekenCyclus(); tekenLijnen(); tekenTabs(); tekenVlinder(); tekenGedeeld();
+      tekenDekking(); tekenRegisters(); tekenKwadrant(); tekenBlind(); tekenBaloVragen();
     })();
   </script>
 </body>

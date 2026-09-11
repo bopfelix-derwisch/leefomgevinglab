@@ -133,3 +133,78 @@ def test_balo_pagina(monkeypatch):
     r = _client(monkeypatch).get("/balo")
     assert r.status_code == 200
     assert "balo/overzicht" in r.text
+
+
+# ---------- informatiebehoefte en waarde ----------
+
+def test_elke_behoefte_heeft_id_eigenaar_waarde_en_gemis():
+    b = balo.behoeften()
+    assert len(b) == 16
+    for x in b:
+        assert x["id"] and x["wie"] and x["waarde"] and x["zonder"], x
+        assert x["status"] in balo.STATUS_BEHOEFTE
+
+
+def test_behoefte_ids_zijn_uniek():
+    ids = [x["id"] for x in balo.behoeften()]
+    assert len(ids) == len(set(ids))
+
+
+def test_een_stap_met_knelpunt_kan_niet_voldaan_zijn():
+    for k, c in balo.CASUSSEN.items():
+        for s in c["stappen"]:
+            if s["knelpunt"]:
+                assert s["status"] != "voldaan", f"{k} stap {s['nr']}"
+
+
+def test_cyclus_dekt_alle_waardestromen_en_telt_kloppend():
+    c = balo.cyclus()
+    assert len(c) == 8
+    assert sum(w["aantal"] for w in c) == len(balo.behoeften())
+    for w in c:
+        assert sum(w["per_status"].values()) == w["aantal"]
+
+
+def test_cyclus_laat_zien_welke_waardestromen_buiten_beeld_blijven():
+    o = balo.waardeoverzicht()
+    assert o["waardestromen_geraakt"] < o["waardestromen_totaal"]
+    assert set(o["niet_geraakt"]) == {"W1", "W3", "W8"}
+
+
+def test_waardeoverzicht_telt_de_statussen_kloppend():
+    o = balo.waardeoverzicht()
+    assert sum(o["per_status"].values()) == o["totaal"] == 16
+    assert len(o["onvervuld"]) == o["totaal"] - o["per_status"]["voldaan"]
+
+
+def test_publiceren_is_het_zwartste_gat_in_de_cyclus():
+    """W5 draagt de meeste onvervulde behoeften — daar zit het ontbrekende TPOD-profiel."""
+    w5 = next(w for w in balo.cyclus() if w["code"] == "W5")
+    onvervuld = {w["code"]: w["per_status"]["niet"] for w in balo.cyclus()}
+    assert w5["per_status"]["niet"] == max(onvervuld.values())
+
+
+def test_elk_besluit_bedient_bestaande_behoeften():
+    ids = {b["id"] for b in balo.behoeften()}
+    for b in balo.besluitwaarde():
+        assert b["lost_op"], f"{b['id']} bedient geen enkele informatiebehoefte"
+        assert set(b["lost_op"]) <= ids, b["id"]
+        assert b["aantal_behoeften"] == len(b["lost_op"])
+
+
+def test_waardeoordeel_is_onderbouwd_met_behoeften():
+    """Een hoge waarde moet je kunnen aanwijzen, niet alleen beweren."""
+    for b in balo.besluitwaarde():
+        if b["waarde"] == 3:
+            assert b["aantal_behoeften"] >= 2, f"{b['id']}: waarde hoog, maar {b['aantal_behoeften']} behoefte(n)"
+        if b["waarde"] >= 2:
+            assert b["aantal_behoeften"] >= 1, b["id"]
+
+
+def test_blinde_vlekken_worden_benoemd():
+    """Behoeften die geen enkel besluit oplost, moeten zichtbaar zijn."""
+    ob = balo.onbediend()
+    assert ob, "verwacht minstens één onbediende behoefte — anders suggereert de lijst volledigheid"
+    bediend = {i for b in balo.BESLUITEN for i in b["lost_op"]}
+    for x in ob:
+        assert x["id"] not in bediend and x["status"] != "voldaan"
