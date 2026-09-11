@@ -242,102 +242,102 @@ STAPPEN = [
 
 ROADMAP = [
     {"fase": "Fase 1", "titel": "Fundament: casus, objecten en ketenmotor", "features": [
-        {"id": "F1.1", "naam": "Synthetische Seveso-casus",
+        {"id": "F1.1", "gereed": "gebouwd", "naam": "Synthetische Seveso-casus",
          "wat": "Eén verzonnen hogedrempelinrichting met stoffen, installaties en een RD-punt, plus de "
                 "aanvraaggegevens. Vast en reproduceerbaar, zodat elke stap hetzelfde vertrekpunt heeft.",
          "componenten": ["initiatiefnemer"], "stap": 1},
-        {"id": "F1.2", "naam": "CIM-objectbibliotheek in code",
+        {"id": "F1.2", "gereed": "gebouwd", "naam": "CIM-objectbibliotheek in code",
          "wat": "De objecttypen die deze keten raakt als dataklassen, met de attributen die het CIM "
                 "voorschrijft — de contractlaag waar elke stap in- en uitgaand aan voldoet.",
          "componenten": ["cim"], "stap": 1},
-        {"id": "F1.3", "naam": "Ketenmotor met stap-protocol",
+        {"id": "F1.3", "gereed": "gebouwd", "naam": "Ketenmotor met stap-protocol",
          "wat": "Elke stap is een functie die invoer, uitvoer, ontstane CIM-objecten en een duiding "
                 "teruggeeft. De motor voert ze op volgorde uit en bewaart het spoor.",
          "componenten": ["cim"], "stap": 1},
     ]},
     {"fase": "Fase 2", "titel": "Indienen en behandelen", "features": [
-        {"id": "F2.1", "naam": "Aanvraagobject conform het DSO",
+        {"id": "F2.1", "gereed": "gebouwd", "naam": "Aanvraagobject conform het DSO",
          "wat": "Een aanvraag voor het exploiteren van een Seveso-inrichting, met de activiteit uit de "
                 "Bal-structuur en de initiatiefnemer als BETROKKENE.",
          "componenten": ["dso_loket"], "stap": 1},
-        {"id": "F2.2", "naam": "Verzoek ophalen en zaak starten",
+        {"id": "F2.2", "gereed": "gebouwd", "naam": "Verzoek ophalen en zaak starten",
          "wat": "Het verzoek via de samenwerkfunctionaliteit omzetten naar een ZAAK met "
                 "INFORMATIEOBJECTen, in de vorm van de ZGW-API's.",
          "componenten": ["dso_samenwerken", "zaaksysteem"], "stap": 2},
-        {"id": "F2.3", "naam": "Data.OD-connector: contextset op het punt",
+        {"id": "F2.3", "gereed": "gebouwd", "naam": "Data.OD-connector: contextset op het punt",
          "wat": "Live bevraging van de echte bronnen rond het RD-punt — REV-WFS voor omliggende "
                 "aandachtsgebieden, PDOK voor panden en adressen — en dat bundelen tot één contextset.",
          "componenten": ["bronnen", "dataod"], "stap": 3},
-        {"id": "F2.4", "naam": "Afstandstoets en aandachtsgebieden",
+        {"id": "F2.4", "gereed": "vereenvoudigd", "gereed_noot": "Indicatieve afstandstabel per stofcategorie; een echte QRA rekent met scenario's, weerklassen en faalfrequenties.", "naam": "Afstandstoets en aandachtsgebieden",
          "wat": "Brand-, explosie- en gifwolkaandachtsgebied afleiden en toetsen tegen wat er binnen "
                 "die afstanden werkelijk staat.",
          "componenten": ["analyse"], "stap": 4},
-        {"id": "F2.5", "naam": "Beoordeling met onderbouwing",
+        {"id": "F2.5", "gereed": "gebouwd", "naam": "Beoordeling met onderbouwing",
          "wat": "De OVERWEGING samenstellen: wat is getoetst, wat is de uitkomst, welke voorschriften "
                 "volgen eruit. Het objecttype waar nergens een bron voor bestaat, hier wél gevuld.",
          "componenten": ["beoordeling"], "stap": 4},
     ]},
     {"fase": "Fase 3", "titel": "Publiceren: van IMEV naar TPOD", "features": [
-        {"id": "F3.1", "naam": "IMEV → TPOD-annotatieset",
+        {"id": "F3.1", "gereed": "gebouwd", "naam": "IMEV → TPOD-annotatieset",
          "wat": "De objecten en attributen van IMEV 3.0.2 omzetten naar een annotatiewoordenschat die "
                 "binnen TPOD past. Het inhoudelijke hart van de ombouw.",
          "componenten": ["imev_tpod"], "stap": 5},
-        {"id": "F3.2", "naam": "Besluitgenerator STOP/TPOD",
+        {"id": "F3.2", "gereed": "gebouwd", "naam": "Besluitgenerator STOP/TPOD",
          "wat": "Het vergunningbesluit als geannoteerd document, met de risicobron, de "
                 "aandachtsgebieden en de maatgevende stof als annotaties op de tekst.",
          "componenten": ["plansysteem"], "stap": 5},
-        {"id": "F3.3", "naam": "Validatie van het besluitdocument",
+        {"id": "F3.3", "gereed": "gebouwd", "naam": "Validatie van het besluitdocument",
          "wat": "Controleren of het gegenereerde document voldoet aan de annotatieset en of elke "
                 "verplichte IMEV-eigenschap een plek heeft gekregen.",
          "componenten": ["plansysteem", "imev_tpod"], "stap": 5},
-        {"id": "F3.4", "naam": "Bekendmaking via de LVBB",
+        {"id": "F3.4", "gereed": "vereenvoudigd", "gereed_noot": 'De bekendmaking is een stap in het model, geen echte levering aan de LVBB.', "naam": "Bekendmaking via de LVBB",
          "wat": "De publicatiestap: het besluit als officiële publicatie, zodat de route naar de "
                 "bekendmakingen dezelfde blijft als vandaag.",
          "componenten": ["lvbb"], "stap": 5},
-        {"id": "F3.5", "naam": "REV-adapter op TPOD",
+        {"id": "F3.5", "gereed": "gebouwd", "naam": "REV-adapter op TPOD",
          "wat": "Het TPOD-deel omzetten naar registerobjecten en tonen dat het besluit de aanlevering "
                 "kan zijn.",
          "componenten": ["rev_nieuw"], "stap": 6},
-        {"id": "F3.6", "naam": "Vergelijking oude en nieuwe route",
+        {"id": "F3.6", "gereed": "gebouwd", "naam": "Vergelijking oude en nieuwe route",
          "wat": "Naast elkaar: wat het REV vandaag via IMEV binnenkrijgt tegenover wat het besluit "
                 "zelf al draagt. Maakt de winst van de ombouw meetbaar.",
          "componenten": ["rev_nieuw", "imev_tpod"], "stap": 6},
     ]},
     {"fase": "Fase 4", "titel": "Toezien en handhaven", "features": [
-        {"id": "F4.1", "naam": "Inspectie-object in GIR-vorm",
+        {"id": "F4.1", "gereed": "gebouwd", "naam": "Inspectie-object in GIR-vorm",
          "wat": "De CONTROLE met aanleiding, team, datum en het risicobeeld waarop is voorbereid.",
          "componenten": ["gir"], "stap": 7},
-        {"id": "F4.2", "naam": "Bevindingen langs de LBR-pijlers",
+        {"id": "F4.2", "gereed": "gebouwd", "naam": "Bevindingen langs de LBR-pijlers",
          "wat": "BEVINDINGen gestructureerd naar Systeem, Techniek en Cultuur in plaats van vrije "
                 "tekst — zo worden ze vergelijkbaar tussen inspecties en tussen diensten.",
          "componenten": ["lbr"], "stap": 7},
-        {"id": "F4.3", "naam": "Overtreding afleiden uit bevindingen",
+        {"id": "F4.3", "gereed": "gebouwd", "naam": "Overtreding afleiden uit bevindingen",
          "wat": "Van constatering naar OVERTREDING, met verwijzing naar het voorschrift uit het "
                 "besluit dat wordt overtreden — de lus terug naar fase 3.",
          "componenten": ["lbr", "lhso"], "stap": 8},
-        {"id": "F4.4", "naam": "LHSO-interventiematrix",
+        {"id": "F4.4", "gereed": "vereenvoudigd", "gereed_noot": 'Eén interventie per cel; de LHSO laat binnen een segment ruimte voor een gemotiveerde keuze.', "naam": "LHSO-interventiematrix",
          "wat": "Gedrag van de overtreder tegen de mogelijke gevolgen, met de matrix die de interventie "
                 "aanwijst en de motivering vastlegt.",
          "componenten": ["lhso"], "stap": 8},
-        {"id": "F4.5", "naam": "Handhavingsbesluit en terugkoppeling",
+        {"id": "F4.5", "gereed": "vereenvoudigd", "gereed_noot": 'De terugkoppeling naar het risicobeeld is als uitvoer gemodelleerd; er is geen register dat hem ontvangt.', "naam": "Handhavingsbesluit en terugkoppeling",
          "wat": "De maatregel als besluit, bekendgemaakt langs dezelfde route, met terugkoppeling naar "
                 "het risicobeeld in het register.",
          "componenten": ["handhavingsbesluit", "rev_nieuw"], "stap": 8},
     ]},
     {"fase": "Fase 5", "titel": "De keten zichtbaar maken", "features": [
-        {"id": "F5.1", "naam": "Ketenviewer in deze tab",
+        {"id": "F5.1", "gereed": "gebouwd", "naam": "Ketenviewer in deze tab",
          "wat": "Stap voor stap doorlopen, met per stap de in- en uitgaande payload en de ontstane "
                 "CIM-objecten. Dit is het werkende ketentje.",
          "componenten": ["cim"], "stap": 1},
-        {"id": "F5.2", "naam": "CIM-dekkingsmeter over de keten",
+        {"id": "F5.2", "gereed": "gebouwd", "naam": "CIM-dekkingsmeter over de keten",
          "wat": "Welke objecttypen van het CIM raakt deze ene casus, en welke blijven onaangeroerd — "
                 "de tegenhanger van de dekkingsanalyse op de bronnenkaart.",
          "componenten": ["cim"], "stap": 8},
-        {"id": "F5.3", "naam": "Impactanalyse CIM-Flo × TPOD",
+        {"id": "F5.3", "gereed": "gebouwd", "naam": "Impactanalyse CIM-Flo × TPOD",
          "wat": "Waar het CIM en de TPOD-annotatieset elkaar niet dekken: welke objecttypen laten zich "
                 "niet annoteren, welke annotaties passen in geen objecttype.",
          "componenten": ["cim", "imev_tpod"], "stap": 5},
-        {"id": "F5.4", "naam": "Keten exporteren",
+        {"id": "F5.4", "gereed": "gebouwd", "naam": "Keten exporteren",
          "wat": "De hele doorloop als één JSON, zodat de uitkomst buiten het lab te beoordelen is.",
          "componenten": ["cim"], "stap": 8},
     ]},

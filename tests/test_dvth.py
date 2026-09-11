@@ -103,3 +103,15 @@ def test_casus_is_een_seveso_mba_met_rd_punt():
     assert "Seveso" in c["activiteit"]
     x, y = c["rd"]
     assert 0 < x < 300000 and 300000 < y < 620000       # binnen het RD-bereik van Nederland
+
+
+def test_elke_feature_heeft_een_bouwstatus():
+    toegestaan = {"gebouwd", "vereenvoudigd", "nog niet"}
+    fout = [f["id"] for f in dvth.features() if f.get("gereed") not in toegestaan]
+    assert fout == []
+
+
+def test_vereenvoudigde_features_zeggen_waarom():
+    zonder = [f["id"] for f in dvth.features()
+              if f.get("gereed") == "vereenvoudigd" and not f.get("gereed_noot")]
+    assert zonder == [], f"vereenvoudigd zonder toelichting: {zonder}"

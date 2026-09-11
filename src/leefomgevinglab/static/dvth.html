@@ -113,6 +113,40 @@
     .feat .stapbadge { font-size:9.5px; color:var(--dim); }
     .feat p { font-size:12px; color:var(--muted); }
 
+    /* ketenrun */
+    .uitkomst { border-top:1px solid var(--border); margin-top:9px; padding-top:8px; }
+    .uitkomst .rij { display:flex; gap:10px; flex-wrap:wrap; font-size:11px; color:var(--dim); margin-bottom:5px; }
+    .uitkomst .duiding { font-size:12px; color:#cfe9df; margin-bottom:6px; }
+    details { margin-top:5px; }
+    details > summary { font-size:11px; color:var(--dim); cursor:pointer; list-style:none; }
+    details > summary::before { content:"▸ "; }
+    details[open] > summary::before { content:"▾ "; }
+    details > summary:hover { color:var(--accent); }
+    pre { background:var(--panel2); border:1px solid var(--border); border-radius:7px; padding:8px 10px;
+      font-size:10.5px; line-height:1.45; color:#cfe9df; overflow:auto; max-height:280px; margin-top:5px;
+      font-family:ui-monospace,monospace; white-space:pre-wrap; word-break:break-word; }
+    .paneelblok { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; margin-bottom:10px; }
+    .paneelblok h4 { font-size:13px; color:#eafff6; margin-bottom:7px; }
+    .paneelblok p { font-size:12.5px; color:var(--muted); margin-bottom:8px; }
+    .tweekolom { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:10px; }
+    .meter { display:flex; height:10px; border-radius:5px; overflow:hidden; background:var(--panel2); margin:6px 0; }
+    .meter i { display:block; background:var(--accent); }
+    table.k { width:100%; border-collapse:collapse; font-size:11.5px; }
+    table.k th, table.k td { border:1px solid var(--border); padding:4px 7px; text-align:left; }
+    table.k th { background:var(--panel2); color:#b0c4ce; font-size:10px; text-transform:uppercase; }
+    table.k td.mono { font-family:ui-monospace,monospace; }
+    .mx td { text-align:center; font-size:10.5px; }
+    .mx td.gekozen { background:#2a1414; color:#ff9a8a; font-weight:700; border-color:#6b2f28; }
+    .mx td.as { background:var(--panel2); color:var(--dim); text-align:left; }
+    .doc .deel { border-left:2px solid var(--border); padding-left:11px; margin-bottom:10px; }
+    .doc .deel h5 { font-size:12px; color:#eafff6; }
+    .doc .deel p { font-size:12px; color:var(--muted); margin:3px 0 5px; }
+    .ann { display:inline-block; font-family:ui-monospace,monospace; font-size:9.5px; padding:2px 7px;
+      border-radius:8px; background:rgba(79,195,247,.1); border:1px solid #2a6f97; color:var(--nieuw);
+      margin:2px 3px 0 0; }
+    .ok { color:var(--bestaat); } .nok { color:#ff7a6b; }
+
     .let { background:rgba(79,195,247,.07); border:1px solid #2a6f97; border-radius:10px; padding:14px 18px; }
     .let h3 { font-size:13.5px; color:var(--nieuw); margin-bottom:8px; }
     .let ul { margin:0 0 0 18px; font-size:13px; color:#bcd8e6; }
@@ -161,7 +195,20 @@
     <div class="section-title">De keten in acht stappen</div>
     <p class="lead">Dit is wat er straks daadwerkelijk gaat lopen op de synthetische casus. Klik een stap
       om te zien welke componenten hij raakt; onderaan staat per stap welke features ervoor nodig zijn.</p>
+    <div class="bar">
+      <div class="grp"><button class="prim" id="start" style="background:var(--accent);border-color:var(--accent);color:#042;font-weight:700">Laat de keten lopen</button></div>
+      <div class="grp"><label style="font-size:12px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="live" checked /> echte bronnen bevragen</label></div>
+      <div class="grp"><label style="font-size:12px;color:var(--muted)">straal
+        <select id="straal" style="background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:3px 7px;font-size:12px;font-family:inherit">
+          <option value="500">500 m</option><option value="1000" selected>1000 m</option>
+          <option value="2500">2500 m</option><option value="5000">5000 m</option>
+        </select></label></div>
+      <div class="grp"><button id="download" disabled>Download als JSON</button></div>
+      <div class="grp"><span style="font-size:11.5px;color:var(--dim)" id="runstatus"></span></div>
+    </div>
     <div class="stappen" id="stappen"></div>
+    <div id="resultaat"></div>
 
     <div class="section-title">Wat hier nieuw is — en dus nog niet bestaat</div>
     <div class="let">
@@ -441,7 +488,10 @@
         b.features.map(f =>
           '<div class="feat" data-fid="'+escA(f.id)+'"><div class="kop">'+
           '<span class="fid">'+esc(f.id)+'</span><h4>'+esc(f.naam)+'</h4>'+
-          '<span class="stapbadge">→ stap '+f.stap+'</span></div><p>'+esc(f.wat)+'</p>'+
+          '<span class="stapbadge">→ stap '+f.stap+'</span>'+
+          (f.gereed ? '<span class="pil '+(f.gereed==="gebouwd"?"bestaat":"wijzigt")+'">'+esc(f.gereed)+'</span>' : '')+
+          '</div><p>'+esc(f.wat)+'</p>'+
+          (f.gereed_noot ? '<p style="font-size:11.5px;color:var(--wijzigt)">'+esc(f.gereed_noot)+'</p>' : '')+
           '<div class="lijst">'+f.componenten.map(c =>
             '<span class="tag">'+esc(comp(c).naam)+'</span>').join("")+'</div></div>').join("")+
         '</div>').join("");
@@ -503,6 +553,113 @@
       filt.clear(); sel=null; hover=null;
       document.querySelectorAll(".chip.on").forEach(c => c.classList.remove("on"));
       accent();
+    });
+
+    // ---------- de keten laten lopen ----------
+    let RUN = null;
+    const js = o => JSON.stringify(o, null, 2);
+
+    function vulStappen(r){
+      r.stappen.forEach(s => {
+        const kaart = document.querySelector('.stap[data-nr="'+s.nr+'"]'); if(!kaart) return;
+        const oud = kaart.querySelector(".uitkomst"); if(oud) oud.remove();
+        const d = document.createElement("div");
+        d.className = "uitkomst";
+        d.innerHTML =
+          '<div class="rij"><span>'+s.duur_ms+' ms</span><span>'+s.cim.length+' CIM-objecten</span>'+
+          '<span>'+esc(s.standaard)+'</span></div>'+
+          '<div class="duiding">'+esc(s.duiding)+'</div>'+
+          '<div class="lijst">'+s.cim.map(o =>
+            '<span class="tag mono">'+esc(o.type)+'</span>').filter((v,i,a)=>a.indexOf(v)===i).join("")+'</div>'+
+          '<details><summary>invoer en uitvoer</summary><pre>'+esc(js({invoer:s.invoer, uitvoer:s.uitvoer}))+'</pre></details>';
+        d.querySelectorAll("details").forEach(el => el.addEventListener("click", e => e.stopPropagation()));
+        kaart.appendChild(d);
+      });
+    }
+
+    function vulResultaat(r){
+      const d = r.dekking, i = r.impact, v = r.validatie, rev = r.rev;
+      const pct = (100*d.geraakt/d.totaal).toFixed(0);
+      const bronrijen = r.bronnen.length ? r.bronnen.map(b =>
+        '<tr><td>'+esc(b.bron)+'</td><td>'+esc(b.wat)+'</td>'+
+        '<td class="'+(b.status==="ok"?"ok":(b.status==="overgeslagen"?"":"nok"))+'">'+esc(b.status)+'</td>'+
+        '<td class="mono">'+(b.aantal==null?"–":Number(b.aantal).toLocaleString("nl-NL"))+'</td></tr>').join("")
+        : '<tr><td colspan="4" style="color:var(--dim)">geen bronnen bevraagd</td></tr>';
+
+      const matrix = '<table class="k mx"><tr><td class="as"></td>'+
+        A_GEDRAG.map(g => '<th>'+esc(g)+'</th>').join("")+'</tr>'+
+        r.matrix.map(rij => '<tr><td class="as">'+esc(rij.gevolgen)+'</td>'+
+          rij.cellen.map(c => '<td class="'+(GEKOZEN.has(c.cel)?"gekozen":"")+'" title="'+escA(c.interventie)+'">'+
+            esc(c.cel)+'</td>').join("")+'</tr>').join("")+'</table>';
+
+      $("resultaat").innerHTML =
+        '<div class="tweekolom">'+
+          '<div class="paneelblok"><h4>Bronnen die de keten bevroeg</h4>'+
+            '<p>Stap 3 is de enige stap die het lab verlaat. Dit is wat er terugkwam.</p>'+
+            '<table class="k"><tr><th>Bron</th><th>Wat</th><th>Status</th><th>Aantal</th></tr>'+bronrijen+'</table></div>'+
+          '<div class="paneelblok"><h4>Dekking over het informatiemodel</h4>'+
+            '<p>Deze ene casus raakt <b>'+d.geraakt+' van de '+d.totaal+'</b> objecttypen van het Cim-VTH-Flo.</p>'+
+            '<div class="meter"><i style="width:'+pct+'%"></i></div>'+
+            '<p style="font-size:11.5px;color:var(--dim)">Niet geraakt: '+esc(d.niet_geraakt.join(", "))+'</p></div>'+
+        '</div>'+
+        '<div class="tweekolom">'+
+          '<div class="paneelblok"><h4>Het besluit als geannoteerd document</h4>'+
+            '<p>Validatie: <b class="'+(v.ok?"ok":"nok")+'">'+(v.ok?"alle "+v.verplicht+" verplichte annotaties geplaatst":"ontbreekt: "+esc(v.ontbrekend.join(", ")))+'</b></p>'+
+            '<div class="doc">'+r.document.tekstdelen.map(t =>
+              '<div class="deel"><h5>'+esc(t.kop)+'</h5><p>'+esc(t.tekst)+'</p>'+
+              t.annotaties.map(a => '<span class="ann">'+esc(a.annotatie)+
+                (a.waarde!=null?': '+esc(String(a.waarde).slice(0,40)):'')+'</span>').join("")+'</div>').join("")+
+            '</div></div>'+
+          '<div class="paneelblok"><h4>Wat het REV uit het besluit krijgt</h4>'+
+            '<p>Het scharnierpunt van het doelbeeld, gemeten: welke IMEV-eigenschappen komen '+
+            'rechtstreeks uit het besluit, en wat zou nog apart geleverd moeten worden?</p>'+
+            '<p><b class="ok">'+rev.uit_besluit.length+' uit het besluit</b> · '+
+            (rev.los_aan_te_leveren.length
+              ? '<b class="nok">'+rev.los_aan_te_leveren.length+' nog los aan te leveren</b>'
+              : '<b class="ok">niets meer los aan te leveren</b>')+'</p>'+
+            '<div class="lijst">'+rev.uit_besluit.map(x => '<span class="tag mono">'+esc(x)+'</span>').join("")+'</div>'+
+            '<details><summary>registerrecord</summary><pre>'+esc(js(rev.record))+'</pre></details></div>'+
+        '</div>'+
+        '<div class="tweekolom">'+
+          '<div class="paneelblok"><h4>LHSO-interventiematrix</h4>'+
+            '<p>Gedrag van de overtreder tegen de mogelijke gevolgen. De rood gemarkeerde cellen zijn '+
+            'de uitkomst voor deze inspectie.</p>'+matrix+'</div>'+
+          '<div class="paneelblok"><h4>Impact CIM-Flo × TPOD-annotatieset</h4>'+
+            '<p>'+esc(i.toelichting)+'</p>'+
+            '<p><b>'+i.geannoteerd+'</b> geraakte objecttypen hebben een annotatie; '+
+            '<b>'+i.zonder_annotatie.length+'</b> niet.</p>'+
+            '<p style="font-size:11.5px;color:var(--dim)">Zonder annotatie: '+esc(i.zonder_annotatie.join(", "))+'</p>'+
+            '<p style="font-size:11.5px;color:var(--dim)">Annotaties zonder objecttype: '+
+              esc(i.annotaties_zonder_objecttype.join(", "))+'</p></div>'+
+        '</div>';
+      $("resultaat").querySelectorAll("details").forEach(el => el.addEventListener("click", e => e.stopPropagation()));
+    }
+
+    let A_GEDRAG = [], GEKOZEN = new Set();
+
+    async function loop(){
+      $("start").disabled = true;
+      $("runstatus").textContent = $("live").checked ? "bronnen worden bevraagd…" : "keten loopt…";
+      try {
+        const q = new URLSearchParams({live: $("live").checked ? "1":"0", straal: $("straal").value});
+        RUN = await (await fetch("/api/dvth/keten?"+q.toString())).json();
+        A_GEDRAG = RUN.matrix[0].cellen.map(c => c.gedrag);
+        GEKOZEN = new Set(RUN.objecten.filter(o => o.type==="HANDHAVINGSMAATREGEL").map(o => o.attributen.cel));
+        vulStappen(RUN); vulResultaat(RUN);
+        $("runstatus").textContent = RUN.stappen.length+" stappen · "+RUN.objecten.length+" CIM-objecten · "+
+          RUN.duur_ms+" ms"+(RUN.live ? " · live" : " · zonder bronbevraging");
+        $("download").disabled = false;
+      } catch(e){ $("runstatus").textContent = "de keten liep vast"; }
+      $("start").disabled = false;
+    }
+
+    $("start").addEventListener("click", loop);
+    $("download").addEventListener("click", () => {
+      if(!RUN) return;
+      const a=document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([js(RUN)], {type:"application/json"}));
+      a.download = "dvth-keten-"+(RUN.gestart_op||"").replace(/[:]/g,"")+".json";
+      a.click(); URL.revokeObjectURL(a.href);
     });
 
     // ---------- start ----------

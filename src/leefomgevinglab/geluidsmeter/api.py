@@ -34,6 +34,7 @@ from leefomgevinglab.connectors.externe_veiligheid import ExterneVeiligheidConne
 from leefomgevinglab.usecases import wfs_kwaliteit as wfs_kwaliteit_mod
 from leefomgevinglab.usecases import vth_bronnen as vth_bronnen_mod
 from leefomgevinglab.usecases import dvth as dvth_mod
+from leefomgevinglab.usecases.dvth_keten import motor as dvth_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -232,6 +233,17 @@ def dvth_page():
 def api_dvth_architectuur():
     """Doelarchitectuur D-VTH voor één MBA Seveso: componenten, koppelvlakken, keten en roadmap."""
     return dvth_mod.architectuur()
+
+
+@app.get("/api/dvth/keten")
+def api_dvth_keten(live: int = 1, straal: int = 1000):
+    """Doorloop de D-VTH-keten op de synthetische Seveso-casus.
+
+    live=1 bevraagt de echte REV-WFS en BAG rond het RD-punt; live=0 slaat dat over.
+    De straal is begrensd zodat de publieke bronnen niet onbeperkt bevraagd worden.
+    """
+    straal_m = max(100, min(int(straal), 5000))
+    return dvth_keten_motor.run_keten(live=bool(live), straal_m=straal_m)
 
 
 @app.get("/api/vth/bronnen")
