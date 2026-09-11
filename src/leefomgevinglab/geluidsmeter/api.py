@@ -36,6 +36,7 @@ from leefomgevinglab.usecases import vth_bronnen as vth_bronnen_mod
 from leefomgevinglab.usecases import dvth as dvth_mod
 from leefomgevinglab.usecases.dvth_keten import motor as dvth_keten_motor
 from leefomgevinglab.usecases import lozing as lozing_mod
+from leefomgevinglab.usecases import balo as balo_mod
 from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
@@ -240,6 +241,17 @@ def dvth_page():
 @app.get("/lozing", response_class=HTMLResponse)
 def lozing_page():
     return _keten_tab("lozing")
+
+
+@app.get("/balo", response_class=HTMLResponse)
+def balo_page():
+    return (Path(__file__).parent.parent / "static" / "balo.html").read_text()
+
+
+@app.get("/api/balo/overzicht")
+def api_balo_overzicht():
+    """De twee casussen geplot op redeneerlijn 2 en 3 van de BALO-businessarchitectuur."""
+    return balo_mod.overzicht()
 
 
 @app.get("/api/lozing/architectuur")

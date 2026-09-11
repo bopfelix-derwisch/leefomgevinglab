@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — De casussen langs de BALO-redeneerlijnen</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --rl2:#4fc3f7; --rl3:#c792ea; --ok:#2ecc8f; --om:#ffb74d; --weg:#ff7a6b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1320px; margin:0 auto; padding:0 20px; }
+    .hero { padding:30px 0 18px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:960px; font-size:14px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+      margin:30px 0 10px; }
+    .lead { color:var(--muted); font-size:13.5px; max-width:960px; margin-bottom:14px; }
+
+    .lijnen { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px; }
+    .lijn { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 17px; }
+    .lijn.l2 { border-left:3px solid var(--rl2); }
+    .lijn.l3 { border-left:3px solid var(--rl3); }
+    .lijn h3 { font-size:13.5px; color:#eafff6; margin-bottom:5px; }
+    .lijn code { display:block; font-family:ui-monospace,monospace; font-size:11.5px; color:#cfe9df;
+      background:var(--panel2); border:1px solid var(--border); border-radius:7px; padding:7px 10px; margin:7px 0; }
+    .lijn p { font-size:12.5px; color:var(--muted); }
+
+    .tabs { display:flex; gap:7px; flex-wrap:wrap; margin:14px 0 10px; }
+    .tab { font-size:12.5px; padding:6px 14px; border-radius:9px; cursor:pointer; user-select:none;
+      border:1px solid var(--border); background:var(--panel2); color:var(--muted); }
+    .tab.on { background:var(--accent); border-color:var(--accent); color:#042; font-weight:700; }
+    .casusinfo { font-size:12.5px; color:var(--muted); margin-bottom:12px; }
+
+    /* vlinder */
+    .rij { display:grid; grid-template-columns:minmax(0,1fr) 84px minmax(0,1fr); gap:0;
+      align-items:stretch; margin-bottom:8px; }
+    @media (max-width:900px){ .rij { grid-template-columns:1fr; } .spil { order:-1; } }
+    .zij { background:var(--panel); border:1px solid var(--border); padding:11px 14px; }
+    .zij.l2 { border-radius:10px 0 0 10px; border-right:none; border-top:2px solid var(--rl2); }
+    .zij.l3 { border-radius:0 10px 10px 0; border-left:none; border-top:2px solid var(--rl3); }
+    @media (max-width:900px){ .zij.l2,.zij.l3 { border-radius:10px; border:1px solid var(--border); } }
+    .spil { display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:var(--panel2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); gap:3px; }
+    .spil .nr { width:26px; height:26px; line-height:26px; border-radius:50%; background:var(--accent);
+      color:#042; font-weight:700; font-size:12px; text-align:center; }
+    .spil .w { font-family:ui-monospace,monospace; font-size:10px; color:var(--accent2); }
+    .zij .kop { font-size:9.5px; text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
+    .zij.l2 .kop { color:var(--rl2); } .zij.l3 .kop { color:var(--rl3); }
+    .zij .behoefte { font-size:13px; color:#eafff6; margin-bottom:7px; }
+    .zij .sub { font-size:10.5px; color:var(--dim); margin:6px 0 3px; }
+    .chips { display:flex; flex-wrap:wrap; gap:4px; }
+    .chip { font-size:10.5px; padding:2px 8px; border-radius:9px; border:1px solid var(--border);
+      background:var(--panel2); color:#cfe9df; }
+    .chip.f { border-color:#2a6f97; color:var(--rl2); }
+    .chip.o { border-color:#5b3f7a; color:var(--rl3); }
+    .chip.r { font-weight:600; }
+    .chip.r.bestaat { border-color:#1d5c3f; color:var(--ok); }
+    .chip.r.om { border-color:#5a4520; color:var(--om); }
+    .chip.r.weg { border-color:#6b2f28; color:var(--weg); }
+    .knel { grid-column:1/-1; background:rgba(255,122,107,.07); border:1px solid #6b2f28;
+      border-top:none; border-radius:0 0 10px 10px; padding:7px 14px; font-size:12px; color:#f0b4ab; }
+    .knel b { color:var(--weg); }
+
+    /* dekking */
+    .dek { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:8px; }
+    .fn { background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:10px 13px; }
+    .fn.beide { border-color:var(--accent2); }
+    .fn .kop { display:flex; align-items:baseline; gap:8px; margin-bottom:3px; }
+    .fn h4 { font-size:12.5px; color:#eafff6; }
+    .fn .cons { font-size:9.5px; color:var(--dim); margin-left:auto; }
+    .fn p { font-size:11.5px; color:var(--muted); margin-bottom:6px; }
+    .stapjes { display:flex; gap:10px; font-size:11px; color:var(--dim); flex-wrap:wrap; }
+    .stapjes b { color:var(--muted); font-weight:400; }
+    .dot { display:inline-block; width:17px; height:17px; line-height:16px; text-align:center;
+      border-radius:4px; font-size:9.5px; background:var(--panel2); border:1px solid var(--border);
+      color:#cfe9df; margin-right:2px; }
+
+    /* registers */
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th, td { border:1px solid var(--border); padding:6px 10px; text-align:left; vertical-align:top; }
+    th { background:var(--panel); color:#b0c4ce; font-size:10px; text-transform:uppercase; letter-spacing:.3px; }
+    tr:nth-child(even) td { background:var(--panel2); }
+    .pil { display:inline-block; font-size:10px; font-weight:700; padding:2px 9px; border-radius:9px; }
+    .pil.bestaat { background:rgba(46,204,143,.16); color:var(--ok); border:1px solid #1d5c3f; }
+    .pil.om { background:rgba(255,183,77,.14); color:var(--om); border:1px solid #5a4520; }
+    .pil.weg { background:rgba(255,122,107,.13); color:var(--weg); border:1px solid #6b2f28; }
+
+    /* kwadrant */
+    .kw { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:14px; align-items:start; }
+    @media (max-width:1000px){ .kw { grid-template-columns:1fr; } }
+    .svgbox { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:8px; }
+    svg { display:block; width:100%; height:auto; }
+    svg text { font-family:'Segoe UI',system-ui,sans-serif; }
+    .qv { fill:#0a1220; }
+    .qlbl { font-size:10px; fill:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
+    .aslbl { font-size:10.5px; fill:var(--muted); }
+    .punt { cursor:pointer; }
+    .punt circle { transition:r .12s, stroke-width .12s; }
+    .punt.on circle { stroke:#fff; stroke-width:2.5; }
+    .puntlbl { font-size:10.5px; font-weight:700; fill:#042; pointer-events:none; }
+
+    .detail { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:15px 17px; position:sticky; top:12px; }
+    .detail h3 { font-size:14.5px; color:#eafff6; margin-bottom:3px; }
+    .detail .vraag { font-size:13px; color:var(--accent); margin-bottom:9px; }
+    .detail .sub { font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); margin:9px 0 3px; }
+    .detail p { font-size:12.5px; color:var(--muted); }
+    .kb { display:flex; gap:10px; margin:8px 0 4px; }
+    .kb div { flex:1; background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+      padding:7px 10px; font-size:11.5px; }
+    .kb b { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); }
+
+    .vragen { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:9px; }
+    .vraagkaart { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent2);
+      border-radius:9px; padding:11px 14px; }
+    .vraagkaart h4 { font-size:12px; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    .vraagkaart p { font-size:12.5px; color:var(--muted); }
+
+    footer { border-top:1px solid var(--border); margin-top:32px; padding:20px 0 46px; color:var(--dim); font-size:12px; }
+    footer p { max-width:960px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">BALO-redeneerlijnen</span>
+    <nav>
+      <a href="/">Home</a><a href="/dvth">Doelbeeld D-VTH</a><a href="/lozing">Doelbeeld lozing</a>
+      <a href="/vth">VTH-kapstok</a><a href="/vth-bronnen">Bronnenkaart</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Twee casussen, twee <span>redeneerlijnen</span></h2>
+      <p>De Seveso-vergunning en de directe lozing, uitgelegd langs het redeneermodel van de
+        BALO-businessarchitectuur. Links van elke stap staat wat de business nodig heeft —
+        waardestroom, informatiebehoefte, informatiefuncties. Rechts staat wat dat betekent voor
+        data — informatieobjecten en registers. Waar beide casussen op dezelfde plek vastlopen, zit
+        de meeste waarde van een wijziging; onderaan staan de besluiten die daarvoor nodig zijn,
+        afgezet tegen wat ze kosten.</p>
+    </div>
+
+    <div class="section-title">De twee redeneerlijnen</div>
+    <div class="lijnen" id="lijnen"></div>
+
+    <div class="section-title">De keten, van beide kanten bekeken</div>
+    <p class="lead">Kies een casus. De acht stappen zijn dezelfde als op de doelbeeldpagina's; hier
+      staan ze tussen de business- en de dataroute in. Een rode balk betekent dat de stap op dat punt
+      vastloopt.</p>
+    <div class="tabs" id="casustabs"></div>
+    <div class="casusinfo" id="casusinfo"></div>
+    <div id="vlinder"></div>
+
+    <div class="section-title">Waar beide ketens op hetzelfde punt vastlopen</div>
+    <p class="lead">Twee onafhankelijke dossiers, hetzelfde knelpunt. Dit is de scherpste
+      onderbouwing voor een wijziging: hij werkt twee keer.</p>
+    <div id="gedeeld"></div>
+
+    <div class="section-title">Redeneerlijn 2 — welke informatiefuncties raken de casussen?</div>
+    <p class="lead">De negen informatiefuncties van BALO vormen een gesloten set. Een functie die in
+      beide casussen terugkomt, is een kandidaat voor een gemeenschappelijke bouwsteen.</p>
+    <div class="dek" id="dekking"></div>
+
+    <div class="section-title">Redeneerlijn 3 — informatieobjecten en registers</div>
+    <p class="lead">Dezelfde informatieobjecten komen in beide ketens terug; de registers erachter
+      verschillen in volwassenheid. Eén ervan bestaat niet.</p>
+    <div style="overflow-x:auto"><table id="registers"></table></div>
+
+    <div class="section-title">Welke besluiten, en wat leveren ze op?</div>
+    <p class="lead">Elk besluit geplaatst naar wat het kost en wat het oplevert. Klik een bolletje
+      voor de onderbouwing — wat we in de twee casussen zagen, en waarom de afweging zo uitvalt.</p>
+    <div class="kw">
+      <div class="svgbox"><svg id="kwadrant" role="img" aria-label="Besluiten naar kosten en waarde"></svg></div>
+      <div class="detail" id="detail"></div>
+    </div>
+
+    <div class="section-title">En de vragen die BALO zelf stelt</div>
+    <div class="vragen" id="balovragen"></div>
+
+    <footer>
+      <p id="verantwoording"></p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
+    const escA = s => esc(s).replace(/"/g,"&quot;");
+    const KLASSE = {"bestaat":"bestaat", "moet om":"om", "bestaat niet":"weg"};
+    let D = null, casus = "dvth", besluit = null;
+
+    const fn = nr => D.informatiefuncties.find(f => f.nr === nr);
+    const ws = code => D.waardestromen.find(w => w.code === code);
+
+    function tekenLijnen(){
+      $("lijnen").innerHTML = [2,3].map(n => {
+        const l = D.redeneerlijnen[n];
+        return '<div class="lijn l'+n+'"><h3>'+esc(l.naam)+'</h3>'+
+          '<code>'+esc(l.route)+'</code><p>'+esc(l.vraag)+'</p></div>';
+      }).join("");
+    }
+
+    function tekenTabs(){
+      $("casustabs").innerHTML = Object.entries(D.casussen).map(([k,c]) =>
+        '<span class="tab'+(k===casus?' on':'')+'" data-casus="'+escA(k)+'">'+esc(c.naam)+'</span>').join("");
+      const c = D.casussen[casus];
+      $("casusinfo").innerHTML = esc(c.samenvatting)+' — <a href="'+escA(c.pad)+
+        '" style="color:var(--accent)">open het doelbeeld</a>';
+    }
+
+    function regChip(naam){
+      const m = D.registers[naam] || {status:"bestaat"};
+      return '<span class="chip r '+KLASSE[m.status]+'" title="'+escA(m.status+" · "+m.wat)+'">'+esc(naam)+'</span>';
+    }
+
+    function tekenVlinder(){
+      const c = D.casussen[casus];
+      $("vlinder").innerHTML = c.stappen.map(s => {
+        const w = ws(s.w);
+        return '<div class="rij">'+
+          '<div class="zij l2"><div class="kop">Redeneerlijn 2 · business</div>'+
+            '<div class="behoefte">'+esc(s.behoefte)+'</div>'+
+            '<div class="sub">Informatiefuncties</div><div class="chips">'+
+            s.functies.map(n => '<span class="chip f" title="'+escA(fn(n).wat)+'">'+n+'. '+esc(fn(n).naam)+'</span>').join("")+
+            '</div></div>'+
+          '<div class="spil"><span class="nr">'+s.nr+'</span><span class="w" title="'+escA(w.kernvraag)+'">'+esc(s.w)+'</span></div>'+
+          '<div class="zij l3"><div class="kop">Redeneerlijn 3 · data</div>'+
+            '<div class="sub" style="margin-top:0">Informatieobjecten</div><div class="chips">'+
+            s.objecten.map(o => '<span class="chip o">'+esc(o)+'</span>').join("")+'</div>'+
+            '<div class="sub">Registers</div><div class="chips">'+
+            (s.registers.length ? s.registers.map(regChip).join("")
+              : '<span class="chip r weg">geen register</span>')+'</div></div>'+
+          (s.knelpunt ? '<div class="knel"><b>Knelpunt:</b> '+esc(s.knelpunt)+'</div>' : '')+
+          '</div>';
+      }).join("");
+    }
+
+    function tekenGedeeld(){
+      $("gedeeld").innerHTML = D.gedeelde_knelpunten.map(g => {
+        const s = D.casussen.dvth.stappen.find(x => x.nr===g.stap);
+        return '<div class="rij" style="grid-template-columns:84px minmax(0,1fr)">'+
+          '<div class="spil" style="border-radius:10px 0 0 10px;border:1px solid var(--border);border-right:none">'+
+            '<span class="nr">'+g.stap+'</span><span class="w">'+esc(s.w)+'</span></div>'+
+          '<div class="zij" style="border-radius:0 10px 10px 0;border-left:none;border-top:2px solid var(--weg)">'+
+            Object.entries(g.knelpunten).map(([k,v]) =>
+              '<div style="margin-bottom:5px"><span class="chip" style="border-color:var(--accent2);color:var(--accent)">'+
+              esc(D.casussen[k].kort)+'</span> <span style="font-size:12.5px;color:var(--muted)">'+esc(v)+'</span></div>').join("")+
+          '</div></div>';
+      }).join("");
+    }
+
+    function tekenDekking(){
+      $("dekking").innerHTML = D.dekking.map(f =>
+        '<div class="fn'+(f.in_beide?' beide':'')+'"><div class="kop"><h4>'+f.nr+'. '+esc(f.naam)+'</h4>'+
+        '<span class="cons">consolidatie '+esc(f.consolidatie)+'</span></div>'+
+        '<p>'+esc(f.wat)+'</p><div class="stapjes">'+
+        Object.entries(f.per_casus).map(([k,v]) =>
+          '<span><b>'+esc(D.casussen[k].kort)+':</b> '+
+          (v.length ? v.map(n => '<span class="dot">'+n+'</span>').join("") : '<span style="color:var(--dim)">–</span>')+
+          '</span>').join("")+'</div></div>').join("");
+    }
+
+    function tekenRegisters(){
+      $("registers").innerHTML =
+        '<thead><tr><th>Register / voorziening</th><th>Status</th><th>Wat</th>'+
+        Object.values(D.casussen).map(c => '<th>'+esc(c.kort)+'</th>').join("")+'</tr></thead><tbody>'+
+        D.registergebruik.map(r => '<tr><td><b>'+esc(r.naam)+'</b></td>'+
+          '<td><span class="pil '+KLASSE[r.status]+'">'+esc(r.status)+'</span></td>'+
+          '<td style="color:var(--muted)">'+esc(r.wat)+'</td>'+
+          Object.keys(D.casussen).map(k => '<td>'+
+            (r.per_casus[k].length ? r.per_casus[k].map(n => '<span class="dot">'+n+'</span>').join("")
+             : '<span style="color:var(--dim)">–</span>')+'</td>').join("")+
+          '</tr>').join("")+'</tbody>';
+    }
+
+    function tekenKwadrant(){
+      const W=560, H=430, L=62, R=26, T=26, B=52;
+      const x = k => L + (k-1)/2 * (W-L-R);
+      const y = w => (H-B) - (w-1)/2 * (H-T-B);
+      const kleur = b => b.waarde>=3 ? (b.kosten<=2 ? "#2ecc8f" : "#4fc3f7")
+                                     : (b.kosten<=2 ? "#ffb74d" : "#ff7a6b");
+      // gelijke posities uit elkaar schuiven
+      const tel = {};
+      const punten = D.besluiten.map(b => {
+        const s = b.kosten+"-"+b.waarde; tel[s]=(tel[s]||0)+1;
+        const i = tel[s]-1, off = i===0 ? 0 : (i%2 ? 1 : -1) * Math.ceil(i/2) * 26;
+        return {b, cx: x(b.kosten)+off, cy: y(b.waarde)+(i? (i%2?-14:14) : 0)};
+      });
+      const q = [
+        {x:L, y:T, w:(W-L-R)/2, h:(H-T-B)/2, lbl:"nu doen"},
+        {x:L+(W-L-R)/2, y:T, w:(W-L-R)/2, h:(H-T-B)/2, lbl:"programmeren"},
+        {x:L, y:T+(H-T-B)/2, w:(W-L-R)/2, h:(H-T-B)/2, lbl:"meenemen"},
+        {x:L+(W-L-R)/2, y:T+(H-T-B)/2, w:(W-L-R)/2, h:(H-T-B)/2, lbl:"niet doen"},
+      ];
+      $("kwadrant").setAttribute("viewBox","0 0 "+W+" "+H);
+      $("kwadrant").innerHTML =
+        q.map(z => '<rect class="qv" x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.h+
+          '" stroke="#1a3a5c"/><text class="qlbl" x="'+(z.x+10)+'" y="'+(z.y+17)+'">'+esc(z.lbl)+'</text>').join("")+
+        '<text class="aslbl" x="'+(L+(W-L-R)/2)+'" y="'+(H-16)+'" text-anchor="middle">kosten en impact van de wijziging →</text>'+
+        '<text class="aslbl" transform="translate(16,'+(T+(H-T-B)/2)+') rotate(-90)" text-anchor="middle">waarde →</text>'+
+        [1,2,3].map(k => '<text class="aslbl" x="'+x(k)+'" y="'+(H-B+18)+'" text-anchor="middle">'+esc(D.schaal[k])+'</text>').join("")+
+        [1,2,3].map(w => '<text class="aslbl" x="'+(L-10)+'" y="'+(y(w)+4)+'" text-anchor="end">'+esc(D.schaal[w])+'</text>').join("")+
+        punten.map(p => '<g class="punt" data-b="'+escA(p.b.id)+'">'+
+          '<circle cx="'+p.cx+'" cy="'+p.cy+'" r="15" fill="'+kleur(p.b)+'" fill-opacity=".9" stroke="'+kleur(p.b)+'"/>'+
+          '<text class="puntlbl" x="'+p.cx+'" y="'+(p.cy+4)+'" text-anchor="middle">'+esc(p.b.id)+'</text>'+
+          '<title>'+escA(p.b.titel)+'</title></g>').join("");
+      markeer();
+    }
+
+    function markeer(){
+      document.querySelectorAll("#kwadrant .punt").forEach(n =>
+        n.classList.toggle("on", !!besluit && n.dataset.b===besluit));
+      tekenDetail();
+    }
+
+    function tekenDetail(){
+      if(!besluit){
+        $("detail").innerHTML = '<h3>'+D.besluiten.length+' besluiten</h3>'+
+          '<p>Linksboven staat wat weinig kost en veel oplevert; rechtsboven wat duur is maar het '+
+          'waard. Klik een bolletje voor de onderbouwing.</p>'+
+          '<div class="sub">Kleur</div><p style="color:var(--muted)">'+
+          '<span class="pil bestaat">groen</span> goedkoop en waardevol · '+
+          '<span class="pil" style="background:rgba(79,195,247,.13);color:var(--rl2);border:1px solid #2a6f97">blauw</span> duur maar waardevol · '+
+          '<span class="pil om">oranje</span> beperkte waarde</p>';
+        return;
+      }
+      const b = D.besluiten.find(x => x.id===besluit);
+      $("detail").innerHTML =
+        '<h3>'+esc(b.id)+' · '+esc(b.titel)+'</h3>'+
+        '<div class="vraag">'+esc(b.vraag)+'</div>'+
+        '<div class="kb"><div><b>Kosten</b>'+esc(D.schaal[b.kosten])+'</div>'+
+        '<div><b>Waarde</b>'+esc(D.schaal[b.waarde])+'</div></div>'+
+        '<div class="sub">Wie besluit</div><p>'+esc(b.wie)+'</p>'+
+        '<div class="sub">Wat we in de casussen zagen</div><p>'+esc(b.bewijs)+'</p>'+
+        '<div class="sub">De afweging</div><p>'+esc(b.afweging)+'</p>'+
+        '<div class="sub">Raakt informatiefuncties</div><div class="chips">'+
+        b.functies.map(n => '<span class="chip f">'+n+'. '+esc(fn(n).naam)+'</span>').join("")+'</div>'+
+        '<div class="sub">Raakt registers</div><div class="chips">'+
+        b.registers.map(regChip).join("")+'</div>';
+    }
+
+    function tekenBaloVragen(){
+      $("balovragen").innerHTML = D.balo_besluiten.map(v =>
+        '<div class="vraagkaart"><h4>'+esc(v.besluit)+'</h4><p>'+esc(v.vraag)+'</p></div>').join("");
+      $("verantwoording").innerHTML = '<b>Verantwoording.</b> '+esc(D.bron)+
+        ' De casussen staan uitgewerkt op <a href="/dvth">/dvth</a> en <a href="/lozing">/lozing</a>; '+
+        'de registerstatus sluit aan op de <a href="/vth-bronnen">bronnenkaart</a>. '+
+        'Indicatief, geen operationeel overheidssysteem.';
+    }
+
+    $("casustabs").addEventListener("click", e => {
+      const t=e.target.closest("[data-casus]"); if(!t) return;
+      casus = t.dataset.casus; tekenTabs(); tekenVlinder();
+    });
+    $("kwadrant").addEventListener("click", e => {
+      const p=e.target.closest(".punt");
+      besluit = p ? (besluit===p.dataset.b ? null : p.dataset.b) : null;
+      markeer();
+    });
+
+    (async () => {
+      try { D = await (await fetch("/api/balo/overzicht")).json(); }
+      catch(e){ $("vlinder").innerHTML = '<p style="color:var(--dim)">Kon het overzicht niet laden.</p>'; return; }
+      tekenLijnen(); tekenTabs(); tekenVlinder(); tekenGedeeld();
+      tekenDekking(); tekenRegisters(); tekenKwadrant(); tekenBaloVragen();
+    })();
+  </script>
+</body>
+</html>
