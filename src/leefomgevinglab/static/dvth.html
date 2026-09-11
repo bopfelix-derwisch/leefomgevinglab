@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Doelbeeld D-VTH</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --bestaat:#2ecc8f; --wijzigt:#ffb74d; --nieuw:#4fc3f7; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1400px; margin:0 auto; padding:0 20px; }
+    .hero { padding:30px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:940px; font-size:14px; }
+    .casus { margin-top:14px; background:var(--panel); border:1px solid var(--border);
+      border-left:3px solid var(--accent); border-radius:9px; padding:12px 16px; }
+    .casus h3 { font-size:13px; color:#eafff6; margin-bottom:4px; }
+    .casus .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:2px 16px;
+      font-size:12px; margin-top:6px; }
+    .casus .kv div { color:var(--muted); }
+    .casus .kv b { color:var(--dim); font-weight:400; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+      margin:28px 0 10px; }
+    .lead { color:var(--muted); font-size:13.5px; max-width:940px; margin-bottom:12px; }
+
+    .bar { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:12px 0 8px;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:10px 14px; }
+    .grp { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .grp > b { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); margin-right:2px; }
+    .chip { font-size:11.5px; padding:3px 10px; border-radius:12px; cursor:pointer; user-select:none;
+      border:1px solid var(--border); background:var(--panel2); color:var(--muted); }
+    .chip.on[data-k="bestaat"] { background:var(--bestaat); border-color:var(--bestaat); color:#042; font-weight:700; }
+    .chip.on[data-k="wijzigt"] { background:var(--wijzigt); border-color:var(--wijzigt); color:#3a2700; font-weight:700; }
+    .chip.on[data-k="nieuw"]   { background:var(--nieuw);   border-color:var(--nieuw);   color:#02303f; font-weight:700; }
+    button { padding:6px 13px; border-radius:8px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); font-size:12px; cursor:pointer; font-family:inherit; }
+    button:hover { color:var(--accent); border-color:var(--accent2); }
+
+    .kaart { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:14px; align-items:start; }
+    @media (max-width:1080px) { .kaart { grid-template-columns:1fr; } }
+    .svgbox { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:6px; overflow:auto; }
+    svg { display:block; width:100%; height:auto; }
+    svg text { font-family:'Segoe UI',system-ui,sans-serif; }
+    .cmp { cursor:pointer; }
+    .cmp rect { transition:opacity .12s; }
+    .cmp.uit { opacity:.18; }
+    .cmp.hi rect.body { stroke-width:2.4; }
+    .cmpnaam { font-size:11.5px; fill:#eafff6; font-weight:600; pointer-events:none; }
+    .cmpsub { font-size:9.5px; fill:var(--dim); pointer-events:none; }
+    .baankop { fill:var(--dim); font-size:10px; letter-spacing:.8px; text-transform:uppercase; }
+    .flw { fill:none; stroke-width:1.5; opacity:.4; transition:opacity .12s, stroke-width .12s; cursor:pointer; }
+    .flw.hi { opacity:1; stroke-width:2.8; }
+    .flw.uit { opacity:.07; }
+    .flwlbl { font-size:9px; fill:var(--muted); pointer-events:none; }
+    .band { cursor:pointer; }
+    .bandlbl { font-size:11px; fill:#cfe9df; font-weight:600; pointer-events:none; }
+    .bandsub { font-size:9.5px; fill:var(--dim); pointer-events:none; }
+
+    .paneel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:15px 16px;
+      position:sticky; top:12px; max-height:80vh; overflow:auto; }
+    .paneel h3 { font-size:14.5px; color:#eafff6; margin-bottom:3px; }
+    .paneel .sub { font-size:11.5px; color:var(--dim); margin-bottom:10px; }
+    .paneel p { font-size:12.5px; color:var(--muted); margin-bottom:9px; }
+    .kv2 { display:grid; grid-template-columns:80px 1fr; gap:3px 9px; font-size:11.5px; margin-bottom:10px; }
+    .kv2 b { color:var(--dim); font-weight:400; }
+    .lijst { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+    .tag { font-size:10px; background:var(--panel2); border:1px solid var(--border); color:#cfe9df;
+      padding:2px 8px; border-radius:9px; cursor:pointer; }
+    .tag.mono { font-family:ui-monospace,monospace; }
+    .pil { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:9px; }
+    .pil.bestaat { background:rgba(46,204,143,.16); color:var(--bestaat); border:1px solid #1d5c3f; }
+    .pil.wijzigt { background:rgba(255,183,77,.14); color:var(--wijzigt); border:1px solid #5a4520; }
+    .pil.nieuw   { background:rgba(79,195,247,.13); color:var(--nieuw);   border:1px solid #2a6f97; }
+
+    .stappen { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:9px; }
+    .stap { background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:11px 14px; cursor:pointer; }
+    .stap:hover { border-color:var(--accent2); }
+    .stap.on { border-color:var(--accent); background:#0c1f18; }
+    .stap .kop { display:flex; align-items:baseline; gap:8px; margin-bottom:4px; }
+    .stap .nr { font-size:10px; font-weight:700; color:#042; background:var(--accent);
+      border-radius:50%; width:18px; height:18px; line-height:18px; text-align:center; flex:none; }
+    .stap h4 { font-size:12.5px; color:#eafff6; }
+    .stap p { font-size:12px; color:var(--muted); margin-bottom:6px; }
+
+    .fase { margin-bottom:18px; }
+    .fase > h3 { font-size:12px; text-transform:uppercase; letter-spacing:.7px; color:var(--accent);
+      margin-bottom:8px; }
+    .fase > h3 em { font-style:normal; color:var(--dim); text-transform:none; letter-spacing:0; font-size:11.5px; }
+    .feat { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:10px 14px; margin-bottom:7px; cursor:pointer; }
+    .feat:hover { border-color:var(--accent2); }
+    .feat.on { border-color:var(--accent); background:#0c1f18; }
+    .feat .kop { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:3px; }
+    .feat .fid { font-family:ui-monospace,monospace; font-size:11px; color:var(--accent); font-weight:700; }
+    .feat h4 { font-size:12.5px; color:#eafff6; }
+    .feat .stapbadge { font-size:9.5px; color:var(--dim); }
+    .feat p { font-size:12px; color:var(--muted); }
+
+    .let { background:rgba(79,195,247,.07); border:1px solid #2a6f97; border-radius:10px; padding:14px 18px; }
+    .let h3 { font-size:13.5px; color:var(--nieuw); margin-bottom:8px; }
+    .let ul { margin:0 0 0 18px; font-size:13px; color:#bcd8e6; }
+    .let li { margin-bottom:6px; }
+
+    footer { border-top:1px solid var(--border); margin-top:30px; padding:20px 0 46px; color:var(--dim); font-size:12px; }
+    footer p { max-width:940px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">doelbeeld D-VTH</span>
+    <nav>
+      <a href="/">Home</a><a href="/vth">VTH-kapstok</a><a href="/vth-bronnen">Bronnenkaart</a>
+      <a href="/wfs-kwaliteit">WFS-check</a><a href="/kwaliteit">Kwaliteit</a><a href="/roadmap">Roadmap</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Doelbeeld <span>D-VTH</span> — één Seveso-inrichting, van aanvraag tot handhaving</h2>
+      <p>De doelarchitectuur voor de digitale VTH-keten, uitgewerkt op precies één geval: een
+        milieubelastende activiteit van het type Seveso-inrichting. Het CIM-VTH-Flo ligt als
+        informatiemodel onder elk koppelvlak; de aanvraag komt via het DSO-loket binnen, wordt door het
+        zaaksysteem van de omgevingsdienst opgehaald, beoordeeld op data die via Data.OD naar de
+        analysesystemen komt, en het besluit wordt als STOP/TPOD-document gepubliceerd met een uit IMEV
+        afgeleid objectmodel — dat vervolgens in een omgebouwd REV landt. Toezicht gebeurt in GIR
+        volgens de LBR-methodiek, handhaving volgens de LHSO.</p>
+      <div class="casus" id="casus"></div>
+    </div>
+
+    <div class="section-title">De architectuurplaat</div>
+    <p class="lead">Vier banen van links naar rechts. Randkleur zegt of een component vandaag bestaat,
+      moet worden omgebouwd of nieuw is. Klik op een component of koppelvlak om vast te zetten wat
+      eromheen loopt; klik in het wit om los te laten.</p>
+    <div class="bar">
+      <div class="grp" id="statusfilter"><b>Toon</b></div>
+      <div class="grp"><button id="reset">Alles tonen</button></div>
+      <div class="grp"><span style="font-size:11.5px;color:var(--dim)" id="tellingen"></span></div>
+    </div>
+    <div class="kaart">
+      <div class="svgbox"><svg id="plaat" role="img" aria-label="Doelarchitectuur D-VTH"></svg></div>
+      <div class="paneel" id="paneel"></div>
+    </div>
+
+    <div class="section-title">De keten in acht stappen</div>
+    <p class="lead">Dit is wat er straks daadwerkelijk gaat lopen op de synthetische casus. Klik een stap
+      om te zien welke componenten hij raakt; onderaan staat per stap welke features ervoor nodig zijn.</p>
+    <div class="stappen" id="stappen"></div>
+
+    <div class="section-title">Wat hier nieuw is — en dus nog niet bestaat</div>
+    <div class="let">
+      <h3>Drie aannames die het doelbeeld expliciet maakt</h3>
+      <ul>
+        <li><b>Het besluit als TPOD-document.</b> STOP/TPOD kent toepassingsprofielen voor
+          omgevingsdocumenten — omgevingsplan, omgevingsverordening, omgevingsvisie, instructie — maar
+          niet voor een vergunningbesluit. De stap van beoordeling naar plansysteem vraagt dus een nieuw
+          toepassingsprofiel; dat is geen implementatiedetail maar een standaardisatietraject.</li>
+        <li><b>Het REV moet om.</b> Het register wordt nu gevuld via een eigen aanleverketen op
+          IMEV 3.0.2, los van het besluit. In het doelbeeld ís het besluit de aanlevering. Dat haalt de
+          dubbele registratie eruit — en daarmee ook het kwaliteitsverschil per bronhouder dat de
+          <a href="/wfs-kwaliteit" style="color:var(--nieuw)">WFS-check</a> nu meet.</li>
+        <li><b>Data.OD bestaat nog niet als voorziening.</b> Het Datapunt Omgevingsdiensten is een
+          initiatief van DCMR en Omgevingsdienst De Vallei, met steun van Omgevingsdienst NL. In dit
+          doelbeeld is het de plek die de contextset samenstelt; vandaag doet elke dienst dat zelf.</li>
+      </ul>
+    </div>
+
+    <div class="section-title">Roadmap — alle features, afgeleid uit de plaat</div>
+    <p class="lead">Elke feature hoort bij een component en levert bewijs voor één stap in de keten.
+      Klik een feature om te zien welk deel van de architectuur ermee gaat werken.</p>
+    <div id="roadmap"></div>
+
+    <footer>
+      <p><b>Verantwoording.</b> Dit is een doelbeeld van dit lab, geen vastgesteld architectuurdocument
+        van enige organisatie. De objecttypen komen uit het
+        <a href="https://geonovum.github.io/vth-cim-flo/">Cim-VTH-Flo</a> (werkversie, CC BY 4.0). Feiten
+        over Seveso als milieubelastende activiteit, de LBR-inspectiemethodiek en de LHSO zijn nagelopen
+        op IPLO, bij SEVESO+ en bij Geonovum; wat niet bestaat, staat als <em>nieuw</em> gemarkeerd. Het
+        bedrijf in de casus is verzonnen.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
+    const escA = s => esc(s).replace(/"/g,"&quot;");
+    const KLEUR = { bestaat:"#2ecc8f", wijzigt:"#ffb74d", nieuw:"#4fc3f7" };
+    const BAND = ["bronnen", "cim"];        // spannen alle banen; buiten de kolommen getekend
+
+    let A = null, sel = null, hover = null;
+    const filt = new Set();
+
+    const comp = id => A.componenten.find(c => c.id === id);
+    const kort = (s,n) => { s=String(s); return s.length>n ? s.slice(0,n-1)+"…" : s; };
+    const zichtbaar = c => !filt.size || filt.has(c.status);
+
+    // ---------- plaat ----------
+    const POS = {};
+    function teken(){
+      const W=1240, KOLB=290, BOXH=66, GAP=14, TOP=104;
+      const kolommen = Object.keys(A.banen);
+      const xVan = i => 16 + i*(KOLB+18);
+      const parts=[], flowParts=[];
+      Object.keys(POS).forEach(k => delete POS[k]);
+
+      // bovenband: bronnen
+      const bronnen = comp("bronnen");
+      POS["bronnen"] = {x:16, y:8, w:W-32, h:44, band:true};
+      // componenten per kolom
+      let maxY = TOP;
+      kolommen.forEach((baan, i) => {
+        const inBaan = A.componenten.filter(c => c.baan===baan && !BAND.includes(c.id));
+        let y = TOP;
+        inBaan.forEach(c => { POS[c.id] = {x:xVan(i), y, w:KOLB, h:BOXH}; y += BOXH+GAP; });
+        maxY = Math.max(maxY, y);
+      });
+      const cimY = maxY + 16;
+      POS["cim"] = {x:16, y:cimY, w:W-32, h:50, band:true};
+      const H = cimY + 50 + 14;
+
+      // --- verbindingen
+      A.flows.forEach(f => {
+        const p=POS[f.van], q=POS[f.naar];
+        if(!p||!q) return;
+        const k=KLEUR[f.status];
+        let d, lx, ly;
+        if (p.band || q.band) {                       // band ↔ kolom: verticaal
+          const px = p.band ? q.x + q.w/2 : p.x + p.w/2;
+          const y1 = p.band ? p.y + p.h : p.y + p.h/2;
+          const y2 = q.band ? q.y : q.y + q.h/2;
+          d = `M${px},${y1} L${px},${y2}`; lx = px+6; ly = (y1+y2)/2;
+        } else if (Math.abs(p.x - q.x) < 1) {          // zelfde kolom: verticaal
+          const px=p.x+p.w/2, y1=p.y+p.h, y2=q.y;
+          d = `M${px},${y1} L${px},${y2}`; lx = px+6; ly = (y1+y2)/2 + 3;
+        } else if (q.x > p.x) {                        // naar rechts: bezier
+          const x1=p.x+p.w, y1=p.y+p.h/2, x2=q.x, y2=q.y+q.h/2, dx=(x2-x1)*.5;
+          d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+          lx=(x1+x2)/2; ly=(y1+y2)/2-5;
+        } else {                                       // terug naar links: onderlangs
+          const x1=p.x+p.w/2, y1=p.y+p.h, x2=q.x+q.w/2, y2=q.y+q.h, dip=cimY-12;
+          d = `M${x1},${y1} C${x1},${dip} ${x2},${dip} ${x2},${y2}`;
+          lx=(x1+x2)/2; ly=dip-2;
+        }
+        flowParts.push('<path class="flw" data-f="'+escA(f.id)+'" d="'+d+'" stroke="'+k+'"'+
+          (f.status==="nieuw" ? ' stroke-dasharray="6 4"' : '')+' marker-end="url(#pijl-'+f.status+')"/>');
+        flowParts.push('<text class="flwlbl" x="'+lx+'" y="'+ly+'" text-anchor="middle">'+esc(kort(f.label,30))+'</text>');
+      });
+
+      // --- banen-koppen
+      kolommen.forEach((baan,i) =>
+        parts.push('<text class="baankop" x="'+(xVan(i)+2)+'" y="'+(TOP-14)+'">'+esc(A.banen[baan])+'</text>'));
+
+      // --- banden
+      [["bronnen",bronnen],["cim",comp("cim")]].forEach(([id,c]) => {
+        const p=POS[id], k=KLEUR[c.status];
+        parts.push('<g class="band cmp" data-id="'+escA(id)+'">'+
+          '<rect class="body" x="'+p.x+'" y="'+p.y+'" width="'+p.w+'" height="'+p.h+'" rx="8" '+
+          'fill="#0a1220" stroke="'+k+'" stroke-opacity=".6"/>'+
+          '<text class="bandlbl" x="'+(p.x+14)+'" y="'+(p.y+20)+'">'+esc(c.naam)+'</text>'+
+          '<text class="bandsub" x="'+(p.x+14)+'" y="'+(p.y+35)+'">'+esc(c.standaard)+' · '+esc(c.systeem)+'</text>'+
+          '</g>');
+      });
+
+      // --- componenten
+      A.componenten.filter(c => !BAND.includes(c.id)).forEach(c => {
+        const p=POS[c.id]; if(!p) return;
+        const k=KLEUR[c.status];
+        parts.push('<g class="cmp" data-id="'+escA(c.id)+'">'+
+          '<rect class="body" x="'+p.x+'" y="'+p.y+'" width="'+p.w+'" height="'+p.h+'" rx="8" '+
+          'fill="#0d1b2a" stroke="'+k+'" stroke-opacity=".75"/>'+
+          '<rect x="'+p.x+'" y="'+p.y+'" width="4" height="'+p.h+'" rx="2" fill="'+k+'"/>'+
+          '<text class="cmpnaam" x="'+(p.x+14)+'" y="'+(p.y+24)+'">'+esc(kort(c.naam,38))+'</text>'+
+          '<text class="cmpsub" x="'+(p.x+14)+'" y="'+(p.y+41)+'">'+esc(kort(c.standaard,44))+'</text>'+
+          '<text class="cmpsub" x="'+(p.x+14)+'" y="'+(p.y+55)+'" fill="'+k+'">'+esc(A.status[c.status])+'</text>'+
+          '</g>');
+      });
+
+      const defs = '<defs>'+Object.keys(KLEUR).map(s =>
+        '<marker id="pijl-'+s+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" '+
+        'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="'+KLEUR[s]+'"/></marker>').join("")+'</defs>';
+
+      const svg=$("plaat");
+      svg.setAttribute("viewBox","0 0 "+W+" "+H);
+      svg.style.minHeight = Math.min(H,900)+"px";
+      svg.innerHTML = defs + flowParts.join("") + parts.join("");
+      accent();
+    }
+
+    function accent(){
+      const svg=$("plaat"), a = sel || hover;
+      const raakt = new Set();
+      if (a && a.type==="component") {
+        raakt.add(a.id);
+        A.flows.forEach(f => { if(f.van===a.id) raakt.add(f.naar); if(f.naar===a.id) raakt.add(f.van); });
+      } else if (a && a.type==="flow") {
+        const f = A.flows.find(x => x.id===a.id); if(f){ raakt.add(f.van); raakt.add(f.naar); }
+      } else if (a && a.type==="stap") {
+        (A.stappen.find(s => s.nr===a.id)||{componenten:[]}).componenten.forEach(c => raakt.add(c));
+      } else if (a && a.type==="feature") {
+        (alleFeatures().find(f => f.id===a.id)||{componenten:[]}).componenten.forEach(c => raakt.add(c));
+      }
+      svg.querySelectorAll(".cmp").forEach(n => {
+        const c = comp(n.dataset.id);
+        n.classList.remove("hi","uit");
+        if (!zichtbaar(c)) { n.classList.add("uit"); return; }
+        if (!a) return;
+        n.classList.add(raakt.has(n.dataset.id) ? "hi" : "uit");
+      });
+      svg.querySelectorAll(".flw").forEach(l => {
+        const f = A.flows.find(x => x.id===l.dataset.f);
+        l.classList.remove("hi","uit");
+        if (!zichtbaar({status:f.status}) && filt.size) { l.classList.add("uit"); return; }
+        if (!a) return;
+        const bij = (a.type==="flow" && a.id===f.id) ||
+                    (a.type==="component" && (f.van===a.id || f.naar===a.id)) ||
+                    ((a.type==="stap"||a.type==="feature") && raakt.has(f.van) && raakt.has(f.naar));
+        l.classList.add(bij ? "hi" : "uit");
+      });
+      toonPaneel();
+      merkActief();
+    }
+
+    function merkActief(){
+      const a = sel;
+      document.querySelectorAll(".stap").forEach(n =>
+        n.classList.toggle("on", !!a && a.type==="stap" && String(a.id)===n.dataset.nr));
+      document.querySelectorAll(".feat").forEach(n =>
+        n.classList.toggle("on", !!a && a.type==="feature" && a.id===n.dataset.fid));
+    }
+
+    const alleFeatures = () => A.roadmap.flatMap(b => b.features.map(f => Object.assign({}, f, {fase:b.fase})));
+
+    // ---------- paneel ----------
+    function toonPaneel(){
+      const a = sel || hover;
+      if (!a){
+        const n = {bestaat:0, wijzigt:0, nieuw:0};
+        A.componenten.forEach(c => n[c.status]++);
+        A.flows.forEach(f => n[f.status]++);
+        $("paneel").innerHTML = '<h3>Lees de plaat</h3>'+
+          '<div class="sub">'+A.componenten.length+' componenten · '+A.flows.length+' koppelvlakken · 8 ketenstappen</div>'+
+          '<p>Beweeg over een component of lijn om te zien wat ermee samenhangt, <b>klik</b> om het vast '+
+          'te zetten. Een stap of feature aanklikken licht het bijbehorende deel van de plaat op.</p>'+
+          '<p><span class="pil bestaat">bestaat</span> '+n.bestaat+' · '+
+          '<span class="pil wijzigt">moet om</span> '+n.wijzigt+' · '+
+          '<span class="pil nieuw">nieuw</span> '+n.nieuw+'</p>'+
+          '<p style="color:var(--dim)">Gestippelde lijnen zijn koppelvlakken die vandaag niet bestaan. '+
+          'De lijn die onderlangs terugloopt is de naleving die terugkoppelt naar het risicobeeld — de '+
+          'lus die vandaag nergens sluit.</p>';
+        return;
+      }
+      if (a.type==="component"){
+        const c = comp(a.id); if(!c) return;
+        const inFlows = A.flows.filter(f => f.naar===c.id), uitFlows = A.flows.filter(f => f.van===c.id);
+        const stappen = A.stappen.filter(s => s.componenten.includes(c.id));
+        const feats = alleFeatures().filter(f => f.componenten.includes(c.id));
+        $("paneel").innerHTML =
+          '<h3>'+esc(c.naam)+'</h3><div class="sub">'+esc(A.banen[c.baan])+'</div>'+
+          '<div class="kv2"><b>Status</b><span><span class="pil '+esc(c.status)+'">'+esc(A.status[c.status])+'</span></span>'+
+          '<b>Systeem</b><span>'+esc(c.systeem)+'</span><b>Standaard</b><span>'+esc(c.standaard)+'</span></div>'+
+          '<p>'+esc(c.toelichting)+'</p>'+
+          (inFlows.length ? '<div class="sub">Krijgt binnen</div><div class="lijst">'+inFlows.map(f =>
+            '<span class="tag" data-flow="'+escA(f.id)+'">'+esc(f.label)+'</span>').join("")+'</div>' : '')+
+          (uitFlows.length ? '<div class="sub">Levert</div><div class="lijst">'+uitFlows.map(f =>
+            '<span class="tag" data-flow="'+escA(f.id)+'">'+esc(f.label)+'</span>').join("")+'</div>' : '')+
+          (stappen.length ? '<div class="sub">Ketenstappen</div><div class="lijst">'+stappen.map(s =>
+            '<span class="tag" data-stap="'+s.nr+'">'+s.nr+'. '+esc(kort(s.naam,26))+'</span>').join("")+'</div>' : '')+
+          (feats.length ? '<div class="sub">Features</div><div class="lijst">'+feats.map(f =>
+            '<span class="tag mono" data-feat="'+escA(f.id)+'">'+esc(f.id)+'</span>').join("")+'</div>' : '');
+      } else if (a.type==="flow"){
+        const f = A.flows.find(x => x.id===a.id); if(!f) return;
+        $("paneel").innerHTML =
+          '<h3>'+esc(f.label)+'</h3>'+
+          '<div class="sub">'+esc(comp(f.van).naam)+' → '+esc(comp(f.naar).naam)+'</div>'+
+          '<div class="kv2"><b>Status</b><span><span class="pil '+esc(f.status)+'">'+esc(A.status[f.status])+'</span></span>'+
+          '<b>Standaard</b><span>'+esc(f.standaard)+'</span></div>'+
+          (f.toelichting ? '<p>'+esc(f.toelichting)+'</p>' : '')+
+          '<div class="lijst"><span class="tag" data-id="'+escA(f.van)+'">'+esc(comp(f.van).naam)+'</span>'+
+          '<span class="tag" data-id="'+escA(f.naar)+'">'+esc(comp(f.naar).naam)+'</span></div>';
+      } else if (a.type==="stap"){
+        const s = A.stappen.find(x => x.nr===a.id); if(!s) return;
+        const feats = alleFeatures().filter(f => f.stap===s.nr);
+        $("paneel").innerHTML =
+          '<h3>'+s.nr+'. '+esc(s.naam)+'</h3><div class="sub">ketenstap</div><p>'+esc(s.beschrijving)+'</p>'+
+          '<div class="sub">Raakt deze componenten</div><div class="lijst">'+s.componenten.map(c =>
+            '<span class="tag" data-id="'+escA(c)+'">'+esc(comp(c).naam)+'</span>').join("")+'</div>'+
+          '<div class="sub">Levert deze CIM-objecttypen</div><div class="lijst">'+s.cim.map(o =>
+            '<span class="tag mono">'+esc(o)+'</span>').join("")+'</div>'+
+          '<div class="sub">Features hiervoor</div><div class="lijst">'+feats.map(f =>
+            '<span class="tag mono" data-feat="'+escA(f.id)+'">'+esc(f.id)+'</span>').join("")+'</div>';
+      } else if (a.type==="feature"){
+        const f = alleFeatures().find(x => x.id===a.id); if(!f) return;
+        const s = A.stappen.find(x => x.nr===f.stap);
+        $("paneel").innerHTML =
+          '<h3><span style="font-family:ui-monospace,monospace;color:var(--accent)">'+esc(f.id)+'</span> '+esc(f.naam)+'</h3>'+
+          '<div class="sub">'+esc(f.fase)+'</div><p>'+esc(f.wat)+'</p>'+
+          '<div class="sub">Bouwt aan</div><div class="lijst">'+f.componenten.map(c =>
+            '<span class="tag" data-id="'+escA(c)+'">'+esc(comp(c).naam)+'</span>').join("")+'</div>'+
+          '<div class="sub">Bewijst ketenstap</div><div class="lijst">'+
+            '<span class="tag" data-stap="'+f.stap+'">'+f.stap+'. '+esc(s ? s.naam : "")+'</span></div>';
+      }
+    }
+
+    // ---------- overige secties ----------
+    function tekenCasus(){
+      const c = A.casus;
+      $("casus").innerHTML = '<h3>De casus</h3><div class="kv">'+
+        '<div><b>Inrichting</b><br>'+esc(c.naam)+'</div>'+
+        '<div><b>Activiteit</b><br>'+esc(c.activiteit)+'</div>'+
+        '<div><b>Grondslag</b><br>'+esc(c.grondslag)+'</div>'+
+        '<div><b>Bevoegd gezag</b><br>'+esc(c.bevoegd_gezag)+'</div>'+
+        '<div><b>Locatie (RD)</b><br>'+esc(c.rd[0])+', '+esc(c.rd[1])+'</div>'+
+        '</div><p style="font-size:11.5px;color:var(--dim);margin-top:7px">'+esc(c.toelichting)+'</p>';
+    }
+    function tekenStappen(){
+      $("stappen").innerHTML = A.stappen.map(s =>
+        '<div class="stap" data-nr="'+s.nr+'"><div class="kop"><span class="nr">'+s.nr+'</span>'+
+        '<h4>'+esc(s.naam)+'</h4></div><p>'+esc(s.beschrijving)+'</p>'+
+        '<div class="lijst">'+s.cim.slice(0,4).map(o => '<span class="tag mono">'+esc(o)+'</span>').join("")+
+        (s.cim.length>4 ? '<span class="tag mono">+'+(s.cim.length-4)+'</span>' : '')+'</div></div>').join("");
+    }
+    function tekenRoadmap(){
+      $("roadmap").innerHTML = A.roadmap.map(b =>
+        '<div class="fase"><h3>'+esc(b.fase)+' <em>— '+esc(b.titel)+'</em></h3>'+
+        b.features.map(f =>
+          '<div class="feat" data-fid="'+escA(f.id)+'"><div class="kop">'+
+          '<span class="fid">'+esc(f.id)+'</span><h4>'+esc(f.naam)+'</h4>'+
+          '<span class="stapbadge">→ stap '+f.stap+'</span></div><p>'+esc(f.wat)+'</p>'+
+          '<div class="lijst">'+f.componenten.map(c =>
+            '<span class="tag">'+esc(comp(c).naam)+'</span>').join("")+'</div></div>').join("")+
+        '</div>').join("");
+    }
+    function tekenFilter(){
+      $("statusfilter").innerHTML = '<b>Toon</b>' + Object.entries(A.status).map(([k,v]) =>
+        '<span class="chip" data-status="'+escA(k)+'" data-k="'+escA(k)+'">'+esc(v)+'</span>').join("");
+      const n = {bestaat:0, wijzigt:0, nieuw:0};
+      A.componenten.forEach(c => n[c.status]++);
+      $("tellingen").textContent = A.componenten.length+" componenten · "+A.flows.length+
+        " koppelvlakken · "+alleFeatures().length+" features";
+    }
+
+    // ---------- events ----------
+    $("plaat").addEventListener("mouseover", e => {
+      if (sel) return;
+      const c=e.target.closest(".cmp"), f=e.target.closest(".flw");
+      hover = c ? {type:"component", id:c.dataset.id} : (f ? {type:"flow", id:f.dataset.f} : null);
+      if (hover) accent();
+    });
+    $("plaat").addEventListener("mouseleave", () => { if(!sel){ hover=null; accent(); } });
+    $("plaat").addEventListener("click", e => {
+      const c=e.target.closest(".cmp"), f=e.target.closest(".flw");
+      const k = c ? {type:"component", id:c.dataset.id} : (f ? {type:"flow", id:f.dataset.f} : null);
+      sel = (k && sel && sel.type===k.type && sel.id===k.id) ? null : k;
+      hover=null; accent();
+    });
+    document.addEventListener("keydown", e => { if(e.key==="Escape"){ sel=null; hover=null; accent(); } });
+    $("paneel").addEventListener("click", e => {
+      const t = e.target.closest("[data-id],[data-flow],[data-stap],[data-feat]"); if(!t) return;
+      if (t.dataset.id) sel={type:"component", id:t.dataset.id};
+      else if (t.dataset.flow) sel={type:"flow", id:t.dataset.flow};
+      else if (t.dataset.stap) sel={type:"stap", id:Number(t.dataset.stap)};
+      else sel={type:"feature", id:t.dataset.feat};
+      hover=null; accent();
+    });
+    $("stappen").addEventListener("click", e => {
+      const s=e.target.closest("[data-nr]"); if(!s) return;
+      const nr=Number(s.dataset.nr);
+      sel = (sel && sel.type==="stap" && sel.id===nr) ? null : {type:"stap", id:nr};
+      hover=null; accent();
+      document.querySelector(".svgbox").scrollIntoView({behavior:"smooth", block:"nearest"});
+    });
+    $("roadmap").addEventListener("click", e => {
+      const f=e.target.closest("[data-fid]"); if(!f) return;
+      const id=f.dataset.fid;
+      sel = (sel && sel.type==="feature" && sel.id===id) ? null : {type:"feature", id};
+      hover=null; accent();
+      document.querySelector(".svgbox").scrollIntoView({behavior:"smooth", block:"nearest"});
+    });
+    $("statusfilter").addEventListener("click", e => {
+      const c=e.target.closest("[data-status]"); if(!c) return;
+      c.classList.toggle("on");
+      filt.has(c.dataset.status) ? filt.delete(c.dataset.status) : filt.add(c.dataset.status);
+      // selectie loslaten: anders stapelen filter en selectie en zie je de uitkomst van beide
+      sel=null; hover=null; accent();
+    });
+    $("reset").addEventListener("click", () => {
+      filt.clear(); sel=null; hover=null;
+      document.querySelectorAll(".chip.on").forEach(c => c.classList.remove("on"));
+      accent();
+    });
+
+    // ---------- start ----------
+    (async () => {
+      try { A = await (await fetch("/api/dvth/architectuur")).json(); }
+      catch(e){ $("paneel").innerHTML = '<p style="color:var(--dim)">Kon de architectuur niet laden.</p>'; return; }
+      tekenCasus(); tekenFilter(); tekenStappen(); tekenRoadmap(); teken();
+    })();
+  </script>
+</body>
+</html>

@@ -33,6 +33,7 @@ from leefomgevinglab.usecases.vergunningen import externe_veiligheid as externe_
 from leefomgevinglab.connectors.externe_veiligheid import ExterneVeiligheidConnector
 from leefomgevinglab.usecases import wfs_kwaliteit as wfs_kwaliteit_mod
 from leefomgevinglab.usecases import vth_bronnen as vth_bronnen_mod
+from leefomgevinglab.usecases import dvth as dvth_mod
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -220,6 +221,17 @@ def vth_page():
 @app.get("/vth-bronnen", response_class=HTMLResponse)
 def vth_bronnen_page():
     return (Path(__file__).parent.parent / "static" / "vth-bronnen.html").read_text()
+
+
+@app.get("/dvth", response_class=HTMLResponse)
+def dvth_page():
+    return (Path(__file__).parent.parent / "static" / "dvth.html").read_text()
+
+
+@app.get("/api/dvth/architectuur")
+def api_dvth_architectuur():
+    """Doelarchitectuur D-VTH voor één MBA Seveso: componenten, koppelvlakken, keten en roadmap."""
+    return dvth_mod.architectuur()
 
 
 @app.get("/api/vth/bronnen")
