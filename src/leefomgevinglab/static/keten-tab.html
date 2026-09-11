@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LeefomgevingLab — Doelbeeld D-VTH</title>
+  <title>LeefomgevingLab — doelbeeld</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
@@ -158,23 +158,17 @@
 </head>
 <body>
   <header>
-    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">doelbeeld D-VTH</span>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge" id="badge"></span>
     <nav>
       <a href="/">Home</a><a href="/vth">VTH-kapstok</a><a href="/vth-bronnen">Bronnenkaart</a>
-      <a href="/wfs-kwaliteit">WFS-check</a><a href="/kwaliteit">Kwaliteit</a><a href="/roadmap">Roadmap</a>
+      <a href="/dvth">Doelbeeld D-VTH</a><a href="/lozing">Doelbeeld lozing</a><a href="/kwaliteit">Kwaliteit</a>
     </nav>
   </header>
 
   <div class="wrap">
     <div class="hero">
-      <h2>Doelbeeld <span>D-VTH</span> — één Seveso-inrichting, van aanvraag tot handhaving</h2>
-      <p>De doelarchitectuur voor de digitale VTH-keten, uitgewerkt op precies één geval: een
-        milieubelastende activiteit van het type Seveso-inrichting. Het CIM-VTH-Flo ligt als
-        informatiemodel onder elk koppelvlak; de aanvraag komt via het DSO-loket binnen, wordt door het
-        zaaksysteem van de omgevingsdienst opgehaald, beoordeeld op data die via Data.OD naar de
-        analysesystemen komt, en het besluit wordt als STOP/TPOD-document gepubliceerd met een uit IMEV
-        afgeleid objectmodel — dat vervolgens in een omgebouwd REV landt. Toezicht gebeurt in GIR
-        volgens de LBR-methodiek, handhaving volgens de LHSO.</p>
+      <h2 id="kop"></h2>
+      <p id="intro"></p>
       <div class="casus" id="casus"></div>
     </div>
 
@@ -211,22 +205,7 @@
     <div id="resultaat"></div>
 
     <div class="section-title">Wat hier nieuw is — en dus nog niet bestaat</div>
-    <div class="let">
-      <h3>Drie aannames die het doelbeeld expliciet maakt</h3>
-      <ul>
-        <li><b>Het besluit als TPOD-document.</b> STOP/TPOD kent toepassingsprofielen voor
-          omgevingsdocumenten — omgevingsplan, omgevingsverordening, omgevingsvisie, instructie — maar
-          niet voor een vergunningbesluit. De stap van beoordeling naar plansysteem vraagt dus een nieuw
-          toepassingsprofiel; dat is geen implementatiedetail maar een standaardisatietraject.</li>
-        <li><b>Het REV moet om.</b> Het register wordt nu gevuld via een eigen aanleverketen op
-          IMEV 3.0.2, los van het besluit. In het doelbeeld ís het besluit de aanlevering. Dat haalt de
-          dubbele registratie eruit — en daarmee ook het kwaliteitsverschil per bronhouder dat de
-          <a href="/wfs-kwaliteit" style="color:var(--nieuw)">WFS-check</a> nu meet.</li>
-        <li><b>Data.OD bestaat nog niet als voorziening.</b> Het Datapunt Omgevingsdiensten is een
-          initiatief van DCMR en Omgevingsdienst De Vallei, met steun van Omgevingsdienst NL. In dit
-          doelbeeld is het de plek die de contextset samenstelt; vandaag doet elke dienst dat zelf.</li>
-      </ul>
-    </div>
+    <div class="let" id="aannames"></div>
 
     <div class="section-title">Roadmap — alle features, afgeleid uit de plaat</div>
     <p class="lead">Elke feature hoort bij een component en levert bewijs voor één stap in de keten.
@@ -234,12 +213,7 @@
     <div id="roadmap"></div>
 
     <footer>
-      <p><b>Verantwoording.</b> Dit is een doelbeeld van dit lab, geen vastgesteld architectuurdocument
-        van enige organisatie. De objecttypen komen uit het
-        <a href="https://geonovum.github.io/vth-cim-flo/">Cim-VTH-Flo</a> (werkversie, CC BY 4.0). Feiten
-        over Seveso als milieubelastende activiteit, de LBR-inspectiemethodiek en de LHSO zijn nagelopen
-        op IPLO, bij SEVESO+ en bij Geonovum; wat niet bestaat, staat als <em>nieuw</em> gemarkeerd. Het
-        bedrijf in de casus is verzonnen.</p>
+      <p id="verantwoording"></p>
     </footer>
   </div>
 
@@ -248,7 +222,7 @@
     const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
     const escA = s => esc(s).replace(/"/g,"&quot;");
     const KLEUR = { bestaat:"#2ecc8f", wijzigt:"#ffb74d", nieuw:"#4fc3f7" };
-    const BAND = ["bronnen", "cim"];        // spannen alle banen; buiten de kolommen getekend
+    const isBand = c => !!c.band;           // spant alle banen; buiten de kolommen getekend
 
     let A = null, sel = null, hover = null;
     const filt = new Set();
@@ -266,19 +240,20 @@
       const parts=[], flowParts=[];
       Object.keys(POS).forEach(k => delete POS[k]);
 
-      // bovenband: bronnen
-      const bronnen = comp("bronnen");
-      POS["bronnen"] = {x:16, y:8, w:W-32, h:44, band:true};
+      // banden: boven de kolommen de bronnenband, onder de kolommen het informatiemodel
+      const banden = A.componenten.filter(isBand);
+      const bovenband = banden[0], onderband = banden[banden.length-1];
+      POS[bovenband.id] = {x:16, y:8, w:W-32, h:44, band:true};
       // componenten per kolom
       let maxY = TOP;
       kolommen.forEach((baan, i) => {
-        const inBaan = A.componenten.filter(c => c.baan===baan && !BAND.includes(c.id));
+        const inBaan = A.componenten.filter(c => c.baan===baan && !isBand(c));
         let y = TOP;
         inBaan.forEach(c => { POS[c.id] = {x:xVan(i), y, w:KOLB, h:BOXH}; y += BOXH+GAP; });
         maxY = Math.max(maxY, y);
       });
       const cimY = maxY + 16;
-      POS["cim"] = {x:16, y:cimY, w:W-32, h:50, band:true};
+      POS[onderband.id] = {x:16, y:cimY, w:W-32, h:50, band:true};
       const H = cimY + 50 + 14;
 
       // --- verbindingen
@@ -314,8 +289,8 @@
         parts.push('<text class="baankop" x="'+(xVan(i)+2)+'" y="'+(TOP-14)+'">'+esc(A.banen[baan])+'</text>'));
 
       // --- banden
-      [["bronnen",bronnen],["cim",comp("cim")]].forEach(([id,c]) => {
-        const p=POS[id], k=KLEUR[c.status];
+      [bovenband, onderband].forEach(c => {
+        const id=c.id, p=POS[id], k=KLEUR[c.status];
         parts.push('<g class="band cmp" data-id="'+escA(id)+'">'+
           '<rect class="body" x="'+p.x+'" y="'+p.y+'" width="'+p.w+'" height="'+p.h+'" rx="8" '+
           'fill="#0a1220" stroke="'+k+'" stroke-opacity=".6"/>'+
@@ -325,7 +300,7 @@
       });
 
       // --- componenten
-      A.componenten.filter(c => !BAND.includes(c.id)).forEach(c => {
+      A.componenten.filter(c => !isBand(c)).forEach(c => {
         const p=POS[c.id]; if(!p) return;
         const k=KLEUR[c.status];
         parts.push('<g class="cmp" data-id="'+escA(c.id)+'">'+
@@ -465,6 +440,20 @@
     }
 
     // ---------- overige secties ----------
+    function tekenPresentatie(){
+      const p = A.presentatie;
+      document.title = "LeefomgevingLab — " + p.titel;
+      $("badge").textContent = p.badge;
+      $("kop").innerHTML = esc(p.kop_voor)+'<span>'+esc(p.kop_accent)+'</span>'+esc(p.kop_na);
+      $("intro").textContent = p.intro;
+      $("aannames").innerHTML = '<h3>'+esc(p.aannames_kop)+'</h3><ul>'+
+        p.aannames.map(a => '<li><b>'+esc(a.kop)+'</b> '+esc(a.tekst)+'</li>').join("")+'</ul>';
+      $("verantwoording").innerHTML = '<b>Verantwoording.</b> '+esc(p.verantwoording)+
+        ' De objecttypen komen uit het <a href="https://geonovum.github.io/vth-cim-flo/">Cim-VTH-Flo</a>'+
+        ' (werkversie, CC BY 4.0). Wat niet bestaat, staat als <em>nieuw</em> gemarkeerd.'+
+        ' Indicatief, geen operationeel overheidssysteem.';
+    }
+
     function tekenCasus(){
       const c = A.casus;
       $("casus").innerHTML = '<h3>De casus</h3><div class="kv">'+
@@ -578,7 +567,7 @@
     }
 
     function vulResultaat(r){
-      const d = r.dekking, i = r.impact, v = r.validatie, rev = r.rev;
+      const d = r.dekking, i = r.impact, v = r.validatie, rev = r.register;
       const pct = (100*d.geraakt/d.totaal).toFixed(0);
       const bronrijen = r.bronnen.length ? r.bronnen.map(b =>
         '<tr><td>'+esc(b.bron)+'</td><td>'+esc(b.wat)+'</td>'+
@@ -642,7 +631,7 @@
       $("runstatus").textContent = $("live").checked ? "bronnen worden bevraagd…" : "keten loopt…";
       try {
         const q = new URLSearchParams({live: $("live").checked ? "1":"0", straal: $("straal").value});
-        RUN = await (await fetch("/api/dvth/keten?"+q.toString())).json();
+        RUN = await (await fetch("/api/__DOSSIER__/keten?"+q.toString())).json();
         A_GEDRAG = RUN.matrix[0].cellen.map(c => c.gedrag);
         GEKOZEN = new Set(RUN.objecten.filter(o => o.type==="HANDHAVINGSMAATREGEL").map(o => o.attributen.cel));
         vulStappen(RUN); vulResultaat(RUN);
@@ -658,15 +647,15 @@
       if(!RUN) return;
       const a=document.createElement("a");
       a.href = URL.createObjectURL(new Blob([js(RUN)], {type:"application/json"}));
-      a.download = "dvth-keten-"+(RUN.gestart_op||"").replace(/[:]/g,"")+".json";
+      a.download = "__DOSSIER__-keten-"+(RUN.gestart_op||"").replace(/[:]/g,"")+".json";
       a.click(); URL.revokeObjectURL(a.href);
     });
 
     // ---------- start ----------
     (async () => {
-      try { A = await (await fetch("/api/dvth/architectuur")).json(); }
+      try { A = await (await fetch("/api/__DOSSIER__/architectuur")).json(); }
       catch(e){ $("paneel").innerHTML = '<p style="color:var(--dim)">Kon de architectuur niet laden.</p>'; return; }
-      tekenCasus(); tekenFilter(); tekenStappen(); tekenRoadmap(); teken();
+      tekenPresentatie(); tekenCasus(); tekenFilter(); tekenStappen(); tekenRoadmap(); teken();
     })();
   </script>
 </body>

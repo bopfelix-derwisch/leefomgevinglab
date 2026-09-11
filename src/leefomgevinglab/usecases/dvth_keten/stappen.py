@@ -4,8 +4,9 @@ Protocol per stap: nr, naam, componenten (uit de architectuurplaat), standaard, 
 uitvoer, cim (de objecten die ontstaan) en een duiding in gewone taal.
 """
 from . import bronnen as bronnen_mod
-from . import lbr, lhso, tpod
-from .cim import obj
+from ..ketenkern import lhso
+from ..ketenkern.cim import obj
+from . import lbr, tpod
 
 KENMERK = "OD-2026-SEV-0417"
 
@@ -160,7 +161,7 @@ def stap5_besluit(ctx):
 
 def stap6_rev(ctx):
     rev = tpod.naar_rev(ctx["document"])
-    ctx["rev"] = rev
+    ctx["register"] = rev
     c = ctx["casus"]
     x, y = c["rd"]
     objecten = [

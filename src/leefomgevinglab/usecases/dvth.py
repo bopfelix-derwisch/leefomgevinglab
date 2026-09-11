@@ -45,8 +45,9 @@ CASUS = {
 }
 
 
-def _c(id, naam, baan, status, systeem, standaard, toelichting):
-    return {"id": id, "naam": naam, "baan": baan, "status": status,
+def _c(id, naam, baan, status, systeem, standaard, toelichting, band=False):
+    """band=True: component die alle banen overspant en als balk wordt getekend."""
+    return {"id": id, "naam": naam, "baan": baan, "status": status, "band": band,
             "systeem": systeem, "standaard": standaard, "toelichting": toelichting}
 
 
@@ -78,7 +79,7 @@ COMPONENTEN = [
     _c("bronnen", "Basisregistraties & landelijke bronnen", "behandelen", "bestaat",
        "diverse", "WFS/OGC API · REST · SRU",
        "BAG, BGT, BRK, NHR, REV, BRO, PRTR/e-MJV en LMA. Wat hiervan open is, staat op de "
-       "bronnenkaart; de contextset van Data.OD wordt hieruit opgebouwd."),
+       "bronnenkaart; de contextset van Data.OD wordt hieruit opgebouwd.", band=True),
     _c("analyse", "Analysesystemen omgevingsdienst", "behandelen", "bestaat",
        "OD", "QRA · GIS · rekenmodellen",
        "Kwantitatieve risicoanalyse, afstandsberekening en de bepaling van brand-, explosie- "
@@ -133,7 +134,7 @@ COMPONENTEN = [
        "Geonovum / IenW", "conceptueel informatiemodel",
        "Het overkoepelende informatiemodel: de gedeelde taal waarin elk koppelvlak in deze keten "
        "wordt uitgedrukt. Vandaag een werkversie zonder implementatie; in het doelbeeld de "
-       "contractlaag tussen alle systemen hierboven."),
+       "contractlaag tussen alle systemen hierboven.", band=True),
 ]
 
 
@@ -359,8 +360,46 @@ def dekking_per_component() -> dict:
     return uit
 
 
+PRESENTATIE = {
+    "api": "dvth",
+    "titel": "Doelbeeld D-VTH",
+    "badge": "doelbeeld D-VTH",
+    "kop_voor": "Doelbeeld ", "kop_accent": "D-VTH",
+    "kop_na": " — één Seveso-inrichting, van aanvraag tot handhaving",
+    "intro": "De doelarchitectuur voor de digitale VTH-keten, uitgewerkt op precies één geval: een "
+             "milieubelastende activiteit van het type Seveso-inrichting. Het CIM-VTH-Flo ligt als "
+             "informatiemodel onder elk koppelvlak; de aanvraag komt via het DSO-loket binnen, wordt "
+             "door het zaaksysteem van de omgevingsdienst opgehaald, beoordeeld op data die via "
+             "Data.OD naar de analysesystemen komt, en het besluit wordt als STOP/TPOD-document "
+             "gepubliceerd met een uit IMEV afgeleid objectmodel — dat vervolgens in een omgebouwd "
+             "REV landt. Toezicht gebeurt in GIR volgens de LBR-methodiek, handhaving volgens de LHSO.",
+    "aannames_kop": "Drie aannames die het doelbeeld expliciet maakt",
+    "aannames": [
+        {"kop": "Het besluit als TPOD-document.",
+         "tekst": "STOP/TPOD kent toepassingsprofielen voor omgevingsdocumenten — omgevingsplan, "
+                  "omgevingsverordening, omgevingsvisie, instructie — maar niet voor een "
+                  "vergunningbesluit. De stap van beoordeling naar plansysteem vraagt dus een nieuw "
+                  "toepassingsprofiel; dat is geen implementatiedetail maar een standaardisatietraject."},
+        {"kop": "Het REV moet om.",
+         "tekst": "Het register wordt nu gevuld via een eigen aanleverketen op IMEV 3.0.2, los van "
+                  "het besluit. In het doelbeeld ís het besluit de aanlevering. Dat haalt de dubbele "
+                  "registratie eruit — en daarmee ook het kwaliteitsverschil per bronhouder dat de "
+                  "WFS-check nu meet."},
+        {"kop": "Data.OD bestaat nog niet als voorziening.",
+         "tekst": "Het Datapunt Omgevingsdiensten is een initiatief van DCMR en Omgevingsdienst De "
+                  "Vallei, met steun van Omgevingsdienst NL. In dit doelbeeld is het de plek die de "
+                  "contextset samenstelt; vandaag doet elke dienst dat zelf."},
+    ],
+    "verantwoording": "Dit is een doelbeeld van dit lab, geen vastgesteld architectuurdocument van "
+                      "enige organisatie. Feiten over Seveso als milieubelastende activiteit, de "
+                      "LBR-inspectiemethodiek en de LHSO zijn nagelopen op IPLO, bij SEVESO+ en bij "
+                      "Geonovum; wat niet bestaat, staat als nieuw gemarkeerd. Het bedrijf in de "
+                      "casus is verzonnen.",
+}
+
+
 def architectuur() -> dict:
     """Alles wat de plaat en de roadmap nodig hebben, in één payload."""
-    return {"banen": BANEN, "status": STATUS, "casus": CASUS,
+    return {"presentatie": PRESENTATIE, "banen": BANEN, "status": STATUS, "casus": CASUS,
             "componenten": COMPONENTEN, "flows": FLOWS, "stappen": STAPPEN,
             "roadmap": ROADMAP, "dekking": dekking_per_component()}

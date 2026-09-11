@@ -1,15 +1,15 @@
-"""Seveso-dossier: bindt de casus, de stappen en de annotatieset aan de gedeelde ketenmotor."""
+"""Lozingsdossier: bindt casus, stappen en annotatieset aan de gedeelde ketenmotor."""
 from types import SimpleNamespace
 
 from ..ketenkern import motor as kern
-from . import stappen, tpod
+from . import aquo, stappen
 from .casus import CASUS
 
-DOSSIER = {"id": "dvth", "naam": "MBA Seveso-inrichting",
-           "afgeleid_van": "IMEV 3.0.2", "register": "REV (omgebouwd naar TPOD)"}
+DOSSIER = {"id": "lozing", "naam": "Directe lozing op een rijkswater",
+           "afgeleid_van": "Aquo", "register": "Register Lozingen (bestaat niet)"}
 
 _dossier = SimpleNamespace(DOSSIER=DOSSIER, CASUS=CASUS, STAPPEN=stappen.ALLE,
-                           ANNOTATIES=tpod.ANNOTATIES)
+                           ANNOTATIES=aquo.ANNOTATIES)
 
 
 def run_keten(live: bool = True, straal_m: int = 1000, _haal=None) -> dict:

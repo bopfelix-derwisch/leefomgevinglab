@@ -35,6 +35,8 @@ from leefomgevinglab.usecases import wfs_kwaliteit as wfs_kwaliteit_mod
 from leefomgevinglab.usecases import vth_bronnen as vth_bronnen_mod
 from leefomgevinglab.usecases import dvth as dvth_mod
 from leefomgevinglab.usecases.dvth_keten import motor as dvth_keten_motor
+from leefomgevinglab.usecases import lozing as lozing_mod
+from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -224,9 +226,33 @@ def vth_bronnen_page():
     return (Path(__file__).parent.parent / "static" / "vth-bronnen.html").read_text()
 
 
+def _keten_tab(dossier: str) -> str:
+    """Eén template voor alle doelbeeld-tabs; de dossiernaam bepaalt welke API hij bevraagt."""
+    sjabloon = (Path(__file__).parent.parent / "static" / "keten-tab.html").read_text()
+    return sjabloon.replace("__DOSSIER__", dossier)
+
+
 @app.get("/dvth", response_class=HTMLResponse)
 def dvth_page():
-    return (Path(__file__).parent.parent / "static" / "dvth.html").read_text()
+    return _keten_tab("dvth")
+
+
+@app.get("/lozing", response_class=HTMLResponse)
+def lozing_page():
+    return _keten_tab("lozing")
+
+
+@app.get("/api/lozing/architectuur")
+def api_lozing_architectuur():
+    """Doelarchitectuur voor één directe lozing op een rijkswater."""
+    return lozing_mod.architectuur()
+
+
+@app.get("/api/lozing/keten")
+def api_lozing_keten(live: int = 1, straal: int = 1000):
+    """Doorloop de lozingsketen op de synthetische casus; live bevraagt RWS-KRW en PDOK."""
+    straal_m = max(100, min(int(straal), 5000))
+    return lozing_keten_motor.run_keten(live=bool(live), straal_m=straal_m)
 
 
 @app.get("/api/dvth/architectuur")

@@ -1,7 +1,8 @@
 import pytest
 
 from leefomgevinglab.usecases import dvth
-from leefomgevinglab.usecases.dvth_keten import casus, cim, lbr, lhso, motor, tpod
+from leefomgevinglab.usecases.dvth_keten import casus, lbr, motor, tpod
+from leefomgevinglab.usecases.ketenkern import cim, lhso
 
 
 # ---------- CIM-objectbibliotheek (F1.2) ----------
@@ -165,3 +166,10 @@ def test_live_stap_degradeert_als_een_bron_onbereikbaar_is():
     assert any(b["status"] == "onbereikbaar" for b in run["bronnen"])
     stap3 = next(s for s in run["stappen"] if s["nr"] == 3)
     assert stap3["uitvoer"]["contextset"]["volledig"] is False
+
+
+def test_ketenuitkomst_gebruikt_een_dossierneutrale_registersleutel():
+    # de motor is gedeeld; 'rev' is Seveso-jargon en hoort niet in de kern
+    run = motor.run_keten(live=False)
+    assert "register" in run and "rev" not in run
+    assert run["dossier"]["id"] == "dvth"
