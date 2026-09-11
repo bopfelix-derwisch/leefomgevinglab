@@ -59,11 +59,15 @@ def werking(type_: str) -> str:
     return WERKING.get(type_, "onbekend")
 
 
-def duiding(regeling: dict, rijkswater: bool) -> dict:
-    """Eén regeling, geclassificeerd en geduid voor dit voornemen."""
+def duiding(regeling: dict, rijkswater: bool, tabel: dict | None = None) -> dict:
+    """Eén regeling, geclassificeerd en geduid voor dit voornemen.
+
+    `tabel` laat een andere case (zoals externe veiligheid) zijn eigen duiding meegeven;
+    de classificatie naar werking is gedeeld.
+    """
     t = regeling.get("type") or "onbekend"
-    tekst, van_toepassing = _DUIDING.get(t, _ONBEKEND)
-    if t == "Waterschapsverordening" and not rijkswater:
+    tekst, van_toepassing = (tabel or _DUIDING).get(t, _ONBEKEND)
+    if tabel is None and t == "Waterschapsverordening" and not rijkswater:
         tekst = ("Regionaal water: dan is het waterschap de waterbeheerder, en geldt deze "
                  "verordening wél voor de lozing.")
         van_toepassing = True
@@ -73,7 +77,7 @@ def duiding(regeling: dict, rijkswater: bool) -> dict:
 
 
 def regels_op_locatie(x: float, y: float, rijkswater: bool = True, live: bool = True,
-                      _haal=None, maximaal: int = 25) -> dict:
+                      _haal=None, maximaal: int = 25, tabel: dict | None = None) -> dict:
     """Haal de geldende regelingen op en classificeer ze. Valt een bron weg, dan gaat de case door."""
     if not live:
         return {"live": False, "status": "overgeslagen", "regelingen": [], "bron": BRON,
@@ -84,7 +88,7 @@ def regels_op_locatie(x: float, y: float, rijkswater: bool = True, live: bool = 
         return {"live": True, "status": "onbereikbaar", "regelingen": [], "bron": BRON,
                 "fout": type(exc).__name__, "telling": {}}
 
-    uit = [duiding(r, rijkswater) for r in ruw[:maximaal]]
+    uit = [duiding(r, rijkswater, tabel) for r in ruw[:maximaal]]
     uit.sort(key=lambda r: (r["werking"] != "direct", not r["van_toepassing"], r["type"]))
     telling = {}
     for r in uit:

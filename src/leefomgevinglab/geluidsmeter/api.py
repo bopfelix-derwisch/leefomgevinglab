@@ -38,6 +38,7 @@ from leefomgevinglab.usecases.dvth_keten import motor as dvth_keten_motor
 from leefomgevinglab.usecases import lozing as lozing_mod
 from leefomgevinglab.usecases import balo as balo_mod
 from leefomgevinglab.usecases.gebruiksruimte import service as gebruiksruimte_service
+from leefomgevinglab.usecases.evruimte import service as evruimte_service
 from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from functools import partial
@@ -242,6 +243,20 @@ def dvth_page():
 @app.get("/lozing", response_class=HTMLResponse)
 def lozing_page():
     return _keten_tab("lozing")
+
+
+@app.get("/evruimte", response_class=HTMLResponse)
+def evruimte_page():
+    return (Path(__file__).parent.parent / "static" / "evruimte.html").read_text()
+
+
+@app.get("/api/evruimte")
+def api_evruimte(locatie: str = "botlek", live: int = 1):
+    """Kan hier nog een Seveso-inrichting bij? Contouren, wat eronder valt, en wat er al ligt."""
+    try:
+        return evruimte_service.beeld(locatie, live=bool(live))
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"onbekende locatie: {locatie}")
 
 
 @app.get("/gebruiksruimte", response_class=HTMLResponse)

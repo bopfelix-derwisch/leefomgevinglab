@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Kan hier nog een Seveso-inrichting bij?</title>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --gif:#c792ea; --brand:#ffb74d; --explosie:#ff7a6b; --ok:#2ecc8f; --blauw:#4fc3f7; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1400px; margin:0 auto; padding:0 20px; }
+    .hero { padding:26px 0 14px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:7px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:960px; font-size:14px; }
+
+    .bar { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:14px 0 10px;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:11px 14px; }
+    .grp { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .grp > b { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); }
+    .tab { font-size:12.5px; padding:5px 13px; border-radius:9px; cursor:pointer; user-select:none;
+      border:1px solid var(--border); background:var(--panel2); color:var(--muted); }
+    .tab.on { background:var(--accent); border-color:var(--accent); color:#042; font-weight:700; }
+    label { font-size:12px; color:var(--muted); cursor:pointer; }
+    .status { font-size:11.5px; color:var(--dim); }
+
+    .vlak { display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:14px; align-items:start; }
+    @media (max-width:1050px){ .vlak { grid-template-columns:1fr; } }
+    #map { height:620px; border-radius:10px; border:1px solid var(--border); }
+    .maplibregl-popup-content { background:#0d1b2a; color:#e0e6ed; border:1px solid #1a3a5c;
+      border-radius:8px; font-family:'Segoe UI',system-ui,sans-serif; font-size:12px; }
+    .maplibregl-popup-tip { border-top-color:#0d1b2a !important; border-bottom-color:#0d1b2a !important; }
+
+    .zij { display:flex; flex-direction:column; gap:12px; max-height:620px; overflow:auto; }
+    @media (max-width:1050px){ .zij { max-height:none; } }
+    .kaart { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:13px 16px; }
+    .kaart h3 { font-size:13.5px; color:#eafff6; margin-bottom:3px; }
+    .kaart .sub { font-size:11px; color:var(--dim); margin-bottom:9px; }
+
+    .oordeel { border-radius:10px; padding:14px 17px; border:1px solid var(--border); }
+    .oordeel.ja { background:rgba(46,204,143,.09); border-color:#1d5c3f; }
+    .oordeel.jamits { background:rgba(255,183,77,.09); border-color:#5a4520; }
+    .oordeel.neetenzij { background:rgba(255,122,107,.09); border-color:#6b2f28; }
+    .oordeel .ant { font-size:22px; font-weight:800; line-height:1.2; }
+    .oordeel.ja .ant { color:var(--ok); } .oordeel.jamits .ant { color:var(--brand); }
+    .oordeel.neetenzij .ant { color:var(--explosie); }
+    .oordeel .kop { font-size:13.5px; color:#eafff6; margin-top:2px; }
+    .punt { border-left:2px solid var(--border); padding-left:9px; margin-top:9px; }
+    .punt.blok { border-left-color:var(--explosie); }
+    .punt.weeg { border-left-color:var(--brand); }
+    .punt .r { font-size:12.5px; color:#eafff6; }
+    .punt p { font-size:11.5px; color:var(--muted); }
+
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border:1px solid var(--border); padding:5px 7px; text-align:right; }
+    th:first-child, td:first-child { text-align:left; }
+    th { background:var(--panel2); color:#b0c4ce; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; }
+    td.k { color:#eafff6; }
+    td.nul { color:var(--dim); }
+    td.raak { color:var(--explosie); font-weight:700; }
+    .zk { color:var(--explosie); } .kw { color:var(--brand); }
+
+    .legenda { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--muted); margin-top:8px; }
+    .legenda span i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px;
+      vertical-align:-1px; }
+
+    .groep { margin-bottom:10px; }
+    .groep > .lbl { font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    .groep.direct > .lbl { color:var(--ok); }
+    .groep.indirect > .lbl { color:var(--blauw); }
+    .groep.niet > .lbl { color:var(--dim); }
+    .regel { border-left:2px solid var(--border); padding:3px 0 3px 9px; margin-bottom:5px; }
+    .groep.direct .regel { border-left-color:var(--ok); }
+    .groep.indirect .regel { border-left-color:var(--blauw); }
+    .groep.niet .regel { border-left-color:var(--dim); opacity:.75; }
+    .regel .t { font-size:11.5px; color:#eafff6; }
+    .regel .m { font-size:10px; color:var(--dim); }
+
+    .bronnen { font-size:11px; color:var(--dim); }
+    .bronnen .r { display:flex; justify-content:space-between; gap:8px; padding:1px 0; }
+    .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
+    .dot.ok { background:var(--ok); } .dot.nok { background:var(--explosie); } .dot.over { background:var(--dim); }
+
+    footer { border-top:1px solid var(--border); margin-top:26px; padding:18px 0 44px; color:var(--dim); font-size:12px; }
+    footer p { max-width:960px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">EV-gebruiksruimte</span>
+    <nav>
+      <a href="/">Home</a><a href="/gebruiksruimte">Wat kan hier nog? (water)</a>
+      <a href="/dvth">Doelbeeld D-VTH</a><a href="/balo">BALO-lijnen</a><a href="/viewer">REV-viewer</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Kan hier nog een <span>Seveso-inrichting</span> bij?</h2>
+      <p>Bij een lozing is de gebruiksruimte een budget. Bij externe veiligheid is ze ruimtelijk: de
+        inrichting legt aandachtsgebieden over haar omgeving, en de vraag is wat daar binnen valt.
+        Daarom is dit een kaart. De contouren van het voornemen liggen over de bestaande
+        aandachtsgebieden uit het REV, en de gebouwen eronder worden live in de BAG geteld en naar
+        kwetsbaarheid ingedeeld.</p>
+    </div>
+
+    <div class="bar">
+      <div class="grp"><b>Locatie</b><span id="locaties" style="display:flex;gap:6px;flex-wrap:wrap"></span></div>
+      <div class="grp"><label><input type="checkbox" id="live" checked /> live tellen</label></div>
+      <div class="grp"><span class="status" id="status"></span></div>
+    </div>
+
+    <div class="vlak">
+      <div>
+        <div id="map"></div>
+        <div class="legenda" id="legenda"></div>
+      </div>
+      <div class="zij">
+        <div id="oordeel"></div>
+        <div class="kaart" id="tellingen"></div>
+        <div class="kaart" id="bestaand"></div>
+        <div class="kaart" id="regels"></div>
+        <div class="kaart" id="bronnen"></div>
+      </div>
+    </div>
+
+    <footer><p id="verantwoording"></p></footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
+    const escA = s => esc(s).replace(/"/g,"&quot;");
+    const nl = n => n==null ? "–" : Number(n).toLocaleString("nl-NL");
+    let D = null, locatie = "botlek", marker = null, kaartKlaar = false;
+
+    const map = new maplibregl.Map({
+      container: "map",
+      style: { version: 8,
+        sources: { brt: { type:"raster",
+          tiles:["https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png"],
+          tileSize:256, attribution:"PDOK BRT-achtergrondkaart" } },
+        layers: [{ id:"brt", type:"raster", source:"brt" }] },
+      center: [4.30, 51.88], zoom: 12
+    });
+    map.addControl(new maplibregl.NavigationControl(), "top-right");
+    map.on("load", () => { kaartKlaar = true; if(D) tekenKaart(); });
+
+    // cirkel als polygoon: straal in meters rond een lon/lat
+    function cirkel(lon, lat, meters, punten=72){
+      const co=[], dLat = meters/111320, dLon = meters/(111320*Math.cos(lat*Math.PI/180));
+      for(let i=0;i<=punten;i++){
+        const a = 2*Math.PI*i/punten;
+        co.push([lon + dLon*Math.cos(a), lat + dLat*Math.sin(a)]);
+      }
+      return {type:"Feature", geometry:{type:"Polygon", coordinates:[co]}, properties:{}};
+    }
+
+    function weg(id){ if(map.getLayer(id)) map.removeLayer(id); if(map.getSource(id)) map.removeSource(id); }
+
+    function tekenKaart(){
+      const [lon, lat] = D.locatie.wgs84;
+      // bestaande aandachtsgebieden uit het REV
+      Object.entries(D.contouren.reduce((a,c)=>(a[c.soort]=c.kleur,a),{})).forEach(([soort,kleur]) => {
+        const id = "rev-"+soort;
+        weg(id);
+        const fc = (D.lagen||{})[soort];
+        if(fc && fc.features && fc.features.length){
+          map.addSource(id, {type:"geojson", data:fc});
+          map.addLayer({id, type:"fill", source:id,
+            paint:{"fill-color":kleur, "fill-opacity":0.16, "fill-outline-color":kleur}});
+        }
+      });
+      // contouren van het voornemen, groot naar klein zodat de kleine bovenop liggen
+      D.contouren.forEach(c => {
+        const id = "voornemen-"+c.soort;
+        weg(id); weg(id+"-lijn");
+        map.addSource(id, {type:"geojson", data:cirkel(lon, lat, c.straal_m)});
+        map.addLayer({id, type:"fill", source:id,
+          paint:{"fill-color":c.kleur, "fill-opacity":0.10}});
+        map.addLayer({id:id+"-lijn", type:"line", source:id,
+          paint:{"line-color":c.kleur, "line-width":2, "line-dasharray":[3,2]}});
+      });
+      if(marker) marker.remove();
+      marker = new maplibregl.Marker({color:"#2ecc8f"}).setLngLat([lon,lat])
+        .setPopup(new maplibregl.Popup().setHTML(
+          "<b>"+esc(D.voornemen.naam)+"</b><br>"+esc(D.locatie.naam))).addTo(map);
+      map.easeTo({center:[lon,lat], zoom: 12.4, duration: 700});
+      $("legenda").innerHTML = D.contouren.map(c =>
+        '<span><i style="background:'+c.kleur+'"></i>'+esc(c.soort)+' — '+c.straal_m+' m</span>').join("")+
+        '<span style="color:var(--dim)">gestippeld = voornemen · vlak = bestaand uit het REV</span>';
+    }
+
+    function tekenOordeel(){
+      const o = D.oordeel, kl = o.antwoord==="ja" ? "ja" : (o.antwoord==="ja, mits" ? "jamits" : "neetenzij");
+      $("oordeel").innerHTML = '<div class="oordeel '+kl+'"><div class="ant">'+esc(o.antwoord)+'</div>'+
+        '<div class="kop">'+esc(o.kop)+'</div>'+
+        o.blokkades.map(b => '<div class="punt blok"><div class="r">'+esc(b.reden)+'</div>'+
+          '<p>'+esc(b.toelichting)+'</p></div>').join("")+
+        o.wegingen.map(b => '<div class="punt weeg"><div class="r">'+esc(b.reden)+'</div>'+
+          '<p>'+esc(b.toelichting)+'</p></div>').join("")+
+        (!o.blokkades.length && !o.wegingen.length
+          ? '<div class="punt"><p>Geen gebouwen in de klassen die tellen, en geen bestaande '+
+            'risicobronnen binnen de grootste contour.</p></div>' : '')+
+        '</div>';
+    }
+
+    function tekenTellingen(){
+      const klassen = Object.keys(D.kwetsbaarheid);
+      $("tellingen").innerHTML = '<h3>Gebouwen binnen de contouren</h3>'+
+        '<div class="sub">verblijfsobjecten uit de BAG, ingedeeld naar gebruiksdoel</div>'+
+        '<table><tr><th>Contour</th>'+klassen.map(k =>
+          '<th class="'+(k==="zeer kwetsbaar"?"zk":(k==="kwetsbaar"?"kw":""))+'" title="'+
+          escA(D.klasse_uitleg[k])+'">'+esc(k)+'</th>').join("")+'</tr>'+
+        D.contouren.map(c => {
+          const t = D.tellingen[c.soort] || {};
+          return '<tr><td class="k">'+esc(c.soort.replace("aandachtsgebied",""))+
+            ' <span style="color:var(--dim)">'+c.straal_m+' m</span></td>'+
+            klassen.map(k => { const v=t[k];
+              const raak = k==="zeer kwetsbaar" && v>0 && c.soort!=="gifwolkaandachtsgebied";
+              return '<td class="'+(v?(raak?"raak":""):"nul")+'">'+nl(v)+'</td>'; }).join("")+'</tr>';
+        }).join("")+'</table>'+
+        '<p style="font-size:11px;color:var(--dim);margin-top:7px">Zeer kwetsbaar = onderwijs, zorg '+
+        'en celfunctie. Afgeleid uit het BAG-gebruiksdoel en dus indicatief.</p>';
+    }
+
+    function tekenBestaand(){
+      const rijen = Object.entries(D.bestaand);
+      $("bestaand").innerHTML = '<h3>Wat er al ligt</h3>'+
+        '<div class="sub">binnen '+Math.max(...D.contouren.map(c=>c.straal_m))+' m, uit het REV</div>'+
+        '<table>'+rijen.map(([k,v]) =>
+          '<tr><td class="k">'+esc(k)+'</td><td class="'+(v?"":"nul")+'">'+nl(v)+'</td></tr>').join("")+
+        '</table>';
+    }
+
+    function tekenRegels(){
+      const r = D.regels;
+      if(r.status !== "ok"){
+        $("regels").innerHTML = '<h3>Regels op deze locatie</h3><div class="sub">'+esc(r.bron)+'</div>'+
+          '<p style="font-size:11.5px;color:var(--dim)">'+
+          (r.status==="overgeslagen" ? "Niet opgehaald." : "Het DSO antwoordde niet.")+'</p>';
+        return;
+      }
+      const groepen = [
+        ["direct","Direct werkend", r.regelingen.filter(x=>x.van_toepassing&&x.werking==="direct")],
+        ["indirect","Indirect werkend", r.regelingen.filter(x=>x.van_toepassing&&x.werking!=="direct")],
+        ["niet","Raakt dit voornemen niet", r.regelingen.filter(x=>!x.van_toepassing)],
+      ];
+      $("regels").innerHTML = '<h3>Regels op deze locatie</h3>'+
+        '<div class="sub">'+r.regelingen.length+' regelingen live uit het DSO</div>'+
+        groepen.filter(g=>g[2].length).map(([k,lbl,rs]) =>
+          '<div class="groep '+k+'"><div class="lbl">'+esc(lbl)+' ('+rs.length+')</div>'+
+          rs.slice(0,6).map(x => '<div class="regel"><div class="t">'+esc(x.titel)+'</div>'+
+            '<div class="m">'+esc(x.type)+'</div></div>').join("")+
+          (rs.length>6 ? '<div class="m" style="color:var(--dim)">+'+(rs.length-6)+' meer</div>' : '')+
+          '</div>').join("");
+    }
+
+    function tekenBronnen(){
+      $("bronnen").innerHTML = '<h3>Bronnen</h3><div class="bronnen">'+
+        D.bronnen.map(b => '<div class="r"><span><span class="dot '+
+          (b.status==="ok"?"ok":(b.status==="overgeslagen"?"over":"nok"))+'"></span>'+
+          esc(b.bron)+' · '+esc(b.wat)+'</span><span>'+nl(b.aantal)+'</span></div>').join("")+'</div>';
+      $("verantwoording").innerHTML = '<b>Verantwoording.</b> '+esc(D.verantwoording)+
+        ' De casus sluit aan op <a href="/dvth">het Seveso-doelbeeld</a>; de watertegenhanger staat op '+
+        '<a href="/gebruiksruimte">/gebruiksruimte</a>. Indicatief, geen operationeel overheidssysteem.';
+    }
+
+    function tekenLocaties(){
+      $("locaties").innerHTML = (D.locaties||[]).map(l =>
+        '<span class="tab'+(l.id===locatie?' on':'')+'" data-loc="'+escA(l.id)+'" title="'+
+        escA(l.karakter)+'">'+esc(l.naam.split(" — ")[0])+'</span>').join("");
+    }
+
+    async function laad(){
+      $("status").textContent = $("live").checked ? "tellen in BAG en REV…" : "laden…";
+      try {
+        const q = new URLSearchParams({locatie, live:$("live").checked?"1":"0"});
+        D = await (await fetch("/api/evruimte?"+q.toString())).json();
+        tekenLocaties(); tekenOordeel(); tekenTellingen(); tekenBestaand();
+        tekenRegels(); tekenBronnen();
+        if(kaartKlaar) tekenKaart();
+        const ok = D.bronnen.filter(b=>b.status==="ok").length;
+        $("status").textContent = D.live ? (ok+" van "+D.bronnen.length+" bevragingen geslaagd")
+                                         : "zonder live tellingen";
+      } catch(e){ $("status").textContent = "ophalen mislukt"; }
+    }
+
+    $("locaties").addEventListener("click", e => {
+      const t=e.target.closest("[data-loc]"); if(!t) return;
+      locatie = t.dataset.loc; laad();
+    });
+    $("live").addEventListener("change", laad);
+    laad();
+  </script>
+</body>
+</html>
