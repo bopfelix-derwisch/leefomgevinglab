@@ -41,6 +41,8 @@ from leefomgevinglab.usecases.gebruiksruimte import service as gebruiksruimte_se
 from leefomgevinglab.usecases.evruimte import service as evruimte_service
 from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
+from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
+from leefomgevinglab.usecases import begrippen as begrippen_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -243,6 +245,40 @@ def dvth_page():
 @app.get("/lozing", response_class=HTMLResponse)
 def lozing_page():
     return _keten_tab("lozing")
+
+
+def _stelselcatalogus() -> StelselcatalogusConnector:
+    ll = _config.get("leefomgevinglab", {})
+    sc = ll.get("stelselcatalogus", {})
+    return StelselcatalogusConnector(
+        base_url=sc.get("base_url", ""),
+        api_key=os.environ.get("DSO_API_KEY_PROD") or os.environ.get("DSO_API_KEY"),
+        api_key_header=sc.get("api_key_header", "x-api-key"),
+        cache_dir=ll.get("cache_dir", "/tmp/llab_cache"),
+        cache_ttl=sc.get("cache_ttl_s", 86400),
+    )
+
+
+@app.get("/begrippen", response_class=HTMLResponse)
+def begrippen_page():
+    return (Path(__file__).parent.parent / "static" / "begrippen.html").read_text()
+
+
+@app.get("/api/begrippen")
+def api_begrippen():
+    """De termen die dit lab gebruikt, opgezocht in de Stelselcatalogus Omgevingswet."""
+    return begrippen_mod.los_op(_stelselcatalogus())
+
+
+@app.get("/api/begrip")
+def api_begrip(term: str):
+    """Eén term opzoeken in de Stelselcatalogus."""
+    try:
+        treffers = _stelselcatalogus().zoek(term)
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"term": term, "treffers": treffers, "aantal": len(treffers),
+            "bron": "Stelselcatalogus Omgevingswet"}
 
 
 @app.get("/evruimte", response_class=HTMLResponse)

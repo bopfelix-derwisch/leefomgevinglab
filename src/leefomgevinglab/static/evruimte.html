@@ -237,7 +237,14 @@
               return '<td class="'+(v?(raak?"raak":""):"nul")+'">'+nl(v)+'</td>'; }).join("")+'</tr>';
         }).join("")+'</table>'+
         '<p style="font-size:11px;color:var(--dim);margin-top:7px">Zeer kwetsbaar = onderwijs, zorg '+
-        'en celfunctie. Afgeleid uit het BAG-gebruiksdoel en dus indicatief.</p>';
+        'en celfunctie. Afgeleid uit het BAG-gebruiksdoel en dus indicatief.</p>'+
+        (D.kloof ? '<div style="margin-top:9px;border-left:2px solid var(--brand);padding-left:10px">'+
+          '<div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--brand)">'+
+          'Onze afleiding is niet de definitie</div>'+
+          '<p style="font-size:11.5px;color:var(--muted);margin-top:3px">Juridisch is dit: <i>'+
+          esc(D.kloof.juridisch)+'</i> — uit de Stelselcatalogus. Onze telling is een signaal om '+
+          'naar te kijken, geen toets. <a href="/begrippen" style="color:var(--brand)">Zie de '+
+          'begrippen</a>.</p></div>' : '');
     }
 
     function tekenBestaand(){

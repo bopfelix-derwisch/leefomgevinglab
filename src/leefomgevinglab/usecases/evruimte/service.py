@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pyproj import Transformer
 
+from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases.gebruiksruimte import regels as regels_mod
 
 from . import bronnen, gebied, oordeel
@@ -124,6 +125,9 @@ def beeld(locatie_id: str, live: bool = True, _post=None, _get=None, _haal_regel
         "gemeente": bg, "voornemen": gebied.VOORNEMEN,
         "contouren": gebied.CONTOUREN, "kwetsbaarheid": gebied.KWETSBAARHEID,
         "klasse_uitleg": gebied.KLASSE_UITLEG,
+        # De indeling hierboven is ónze afleiding uit het BAG-gebruiksdoel; de catalogus heeft de
+        # juridische definitie. Dat verschil hoort op de pagina te staan, niet in een voetnoot.
+        "kloof": begrippen_mod.KLOOF,
         "tellingen": tellingen, "bestaand": bestaand, "lagen": lagen,
         "bronnen": bronstatus, "regels": r,
         "oordeel": oordeel.beoordeel(tellingen, bestaand),

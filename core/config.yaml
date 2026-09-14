@@ -281,6 +281,14 @@ leefomgevinglab:
       - "bevoegdgezag"       # bevoegdGezagCode; alleen geëvalueerd waar ontsloten (o.a. ev_activiteiten)
       - "begin_geldigheid"
       - "tijdstip_registratie"
+  stelselcatalogus:
+    # Catalogus Opvragen API v3 — SKOS-begrippen met juridische vindplaats.
+    # Zelfde x-api-key als Ozon (DSO_API_KEY_PROD). Let op: de API weigert queryparameters
+    # die niet bij het endpoint horen met een 400; stuur bij /begrippen alleen zoekTerm mee.
+    base_url: "https://service.omgevingswet.overheid.nl/publiek/catalogus/api/opvragen/v3"
+    api_key_header: "x-api-key"
+    cache_ttl_s: 86400
+
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).
     # Omgeving instelbaar (pre|prod); prod gebruikt DSO_API_KEY_PROD uit .env (zelfde helper als DSO).

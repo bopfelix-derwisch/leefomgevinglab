@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Begrippen uit de Stelselcatalogus</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --ok:#2ecc8f; --let:#ffb74d; --weg:#ff7a6b; --paars:#c792ea; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1180px; margin:0 auto; padding:0 20px; }
+    .hero { padding:28px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero h2 span { color:var(--accent); }
+    .hero p { color:var(--muted); max-width:920px; font-size:14px; }
+    .hero p + p { margin-top:9px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dim);
+      margin:28px 0 10px; }
+    .lead { color:var(--muted); font-size:13.5px; max-width:920px; margin-bottom:12px; }
+
+    .bar { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:14px 0 10px;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:11px 14px; }
+    input[type=search] { background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:6px 11px; font-size:12.5px; min-width:230px; font-family:inherit; }
+    button { padding:6px 13px; border-radius:8px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); font-size:12px; cursor:pointer; font-family:inherit; }
+    button:hover { color:var(--accent); border-color:var(--accent2); }
+    .status { font-size:11.5px; color:var(--dim); }
+
+    .cijfers { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:6px; }
+    .cijfer { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 15px; }
+    .cijfer .g { font-size:26px; font-weight:800; color:#eafff6; line-height:1.15; }
+    .cijfer .g small { font-size:13px; color:var(--dim); font-weight:400; }
+    .cijfer .l { font-size:11.5px; color:var(--muted); }
+    .cijfer.ok .g { color:var(--ok); }
+
+    .begrip { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 17px; margin-bottom:9px; }
+    .begrip.mis { border-color:#5a4520; }
+    .begrip .kop { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:4px; }
+    .begrip h3 { font-size:15px; color:#eafff6; }
+    .begrip .schema { font-size:10px; font-weight:700; padding:2px 8px; border-radius:9px;
+      background:rgba(199,146,234,.12); color:var(--paars); border:1px solid #5b3f7a; }
+    .begrip .n { margin-left:auto; font-size:11px; color:var(--dim); }
+    .def { border-left:2px solid var(--accent2); padding-left:10px; margin:7px 0; }
+    .def p { font-size:13.5px; color:#cfe9df; }
+    .def .vind { font-size:10.5px; color:var(--dim); margin-top:2px; word-break:break-all; }
+    .waarom { font-size:12.5px; color:var(--muted); margin-top:6px; }
+    .was { font-size:11.5px; color:var(--let); margin-top:5px; }
+    .was code { font-family:ui-monospace,monospace; background:var(--panel2); border:1px solid #5a4520;
+      border-radius:5px; padding:1px 6px; color:var(--let); }
+    .paginas { display:flex; gap:5px; flex-wrap:wrap; margin-top:7px; }
+    .paginas a { font-size:10.5px; padding:2px 9px; border-radius:9px; border:1px solid var(--border);
+      background:var(--panel2); color:var(--muted); text-decoration:none; }
+    .paginas a:hover { color:var(--accent); border-color:var(--accent2); }
+    details { margin-top:7px; }
+    details > summary { font-size:11px; color:var(--dim); cursor:pointer; list-style:none; }
+    details > summary::before { content:"▸ "; }
+    details[open] > summary::before { content:"▾ "; }
+    details > summary:hover { color:var(--accent); }
+    .ander { border-left:2px solid var(--border); padding-left:10px; margin-top:6px; }
+    .ander .t { font-size:12px; color:#eafff6; }
+    .ander .d { font-size:11.5px; color:var(--muted); }
+
+    .kloof { background:rgba(255,183,77,.07); border:1px solid #5a4520; border-radius:10px; padding:15px 18px; }
+    .kloof h3 { font-size:14px; color:var(--let); margin-bottom:9px; }
+    .kloof .twee { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:11px; margin-bottom:9px; }
+    .kloof .vak { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px 13px; }
+    .kloof .vak b { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.5px;
+      color:var(--dim); margin-bottom:3px; }
+    .kloof .vak p { font-size:12.5px; color:var(--text); }
+    .kloof > p { font-size:13px; color:#e8d4b0; }
+
+    .zoekuit { margin-top:10px; }
+
+    footer { border-top:1px solid var(--border); margin-top:28px; padding:20px 0 46px; color:var(--dim); font-size:12px; }
+    footer p { max-width:920px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">begrippen</span>
+    <nav>
+      <a href="/">Home</a><a href="/semantiek">Semantiek</a><a href="/dvth">Doelbeeld D-VTH</a>
+      <a href="/lozing">Doelbeeld lozing</a><a href="/evruimte">EV-ruimte</a><a href="/balo">BALO-lijnen</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>De begrippen van dit lab, opgezocht in de <span>Stelselcatalogus</span></h2>
+      <p>Bij het bouwen van de doelbeelden en de gebruiksruimte-cases zijn termen als losse string
+        in de code beland: <code style="font-family:ui-monospace,monospace;font-size:12px">bal.seveso-inrichting</code>,
+        <code style="font-family:ui-monospace,monospace;font-size:12px">lozingsactiviteit</code>,
+        een zelfgemaakte indeling voor "zeer kwetsbaar". Ze stonden nergens gedefinieerd en
+        verwezen nergens naar.</p>
+      <p>Ze bestaan wél — met definitie en juridische vindplaats — in de Stelselcatalogus
+        Omgevingswet, een federatieve SKOS-begrippengraaf waarin onder meer het IMEV-begrippenkader,
+        de regelgeving en de Omgevingswet-standaarden publiceren. Deze pagina lost ze live op.</p>
+    </div>
+
+    <div class="cijfers" id="cijfers"></div>
+
+    <div class="bar">
+      <input type="search" id="zoek" placeholder="zoek zelf een begrip…" />
+      <button id="zoekknop">Opzoeken</button>
+      <span class="status" id="status"></span>
+    </div>
+    <div class="zoekuit" id="zoekuit"></div>
+
+    <div class="section-title">Wat het lab gebruikt</div>
+    <p class="lead">Per term: wat de catalogus ervan zegt, waar het lab hem gebruikt, en — waar van
+      toepassing — wat er vóór deze koppeling in de code stond.</p>
+    <div id="begrippen"></div>
+
+    <div class="section-title">Waar onze eigen afleiding niet de definitie is</div>
+    <div class="kloof" id="kloof"></div>
+
+    <footer><p id="verantwoording"></p></footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t=document.createElement("span"); t.textContent = s==null?"":String(s); return t.innerHTML; };
+    const escA = s => esc(s).replace(/"/g,"&quot;");
+    let D = null;
+
+    function treffer(t){
+      return '<div class="def"><p>'+esc(t.definitie || t.uitleg || "geen definitie in de catalogus")+'</p>'+
+        (t.vindplaats ? '<div class="vind">'+esc(t.vindplaats)+'</div>' : '')+'</div>';
+    }
+
+    function tekenBegrippen(){
+      $("begrippen").innerHTML = D.begrippen.map(b => {
+        const top = b.treffers[0];
+        return '<div class="begrip'+(b.gevonden?'':' mis')+'">'+
+          '<div class="kop"><h3>'+esc(b.term)+'</h3>'+
+          (top && top.conceptschema_naam ? '<span class="schema">'+esc(top.conceptschema_naam)+'</span>' : '')+
+          '<span class="n">'+(b.gevonden ? b.aantal_treffers+' treffer'+(b.aantal_treffers===1?'':'s')
+                                         : 'niet gevonden')+'</span></div>'+
+          (top ? treffer(top) : '<div class="def" style="border-left-color:var(--let)">'+
+                 '<p style="color:var(--let)">De catalogus kent deze term niet onder deze naam.</p></div>')+
+          '<div class="waarom">'+esc(b.waarom)+'</div>'+
+          (b.hardgecodeerd_als ? '<div class="was">Stond in de code als <code>'+
+             esc(b.hardgecodeerd_als)+'</code></div>' : '')+
+          '<div class="paginas">'+b.gebruikt_in.map(p =>
+            '<a href="'+escA(p)+'">'+esc(p)+'</a>').join("")+'</div>'+
+          (b.treffers.length > 1
+            ? '<details><summary>'+(b.treffers.length-1)+' andere treffer'+
+              (b.treffers.length===2?'':'s')+' in de catalogus</summary>'+
+              b.treffers.slice(1).map(t => '<div class="ander"><div class="t">'+esc(t.term)+
+                (t.conceptschema_naam ? ' <span style="color:var(--paars);font-size:10.5px">'+
+                  esc(t.conceptschema_naam)+'</span>' : '')+'</div>'+
+                '<div class="d">'+esc(t.definitie || t.uitleg || "—")+'</div></div>').join("")+
+              '</details>'
+            : '')+
+          '</div>';
+      }).join("");
+    }
+
+    function tekenCijfers(){
+      const t = D.telling;
+      $("cijfers").innerHTML =
+        '<div class="cijfer"><div class="g">'+t.totaal+'</div>'+
+          '<div class="l">termen die dit lab gebruikt</div></div>'+
+        '<div class="cijfer ok"><div class="g">'+t.gevonden+' <small>/ '+t.totaal+'</small></div>'+
+          '<div class="l">gevonden in de catalogus, met definitie en vindplaats</div></div>'+
+        '<div class="cijfer"><div class="g">'+
+          D.begrippen.filter(b=>b.hardgecodeerd_als).length+'</div>'+
+          '<div class="l">stonden hiervóór als losse string in de code</div></div>'+
+        '<div class="cijfer"><div class="g">'+
+          new Set(D.begrippen.flatMap(b=>b.treffers.map(t=>t.conceptschema_naam)).filter(Boolean)).size+
+          '</div><div class="l">verschillende begrippenkaders leverden de definities</div></div>';
+    }
+
+    function tekenKloof(){
+      const k = D.kloof;
+      $("kloof").innerHTML = '<h3>'+esc(k.begrip)+'</h3>'+
+        '<div class="twee">'+
+        '<div class="vak"><b>Wat wij ervan maken</b><p>'+esc(k.onze_afleiding)+'</p></div>'+
+        '<div class="vak"><b>Wat het juridisch is</b><p>'+esc(k.juridisch)+'</p></div></div>'+
+        '<p>'+esc(k.waarom_het_uitmaakt)+'</p>'+
+        '<div class="paginas" style="margin-top:9px"><a href="'+escA(k.waar)+'">'+esc(k.waar)+'</a></div>';
+      $("verantwoording").innerHTML = '<b>Verantwoording.</b> Bron: '+esc(D.bron)+'. '+
+        esc(D.toelichting)+' De koppeling van labtermen aan catalogusbegrippen is van dit lab.';
+    }
+
+    async function zoekZelf(){
+      const term = $("zoek").value.trim();
+      if(!term) return;
+      $("status").textContent = "opzoeken…";
+      try {
+        const d = await (await fetch("/api/begrip?term="+encodeURIComponent(term))).json();
+        $("zoekuit").innerHTML = d.treffers.length
+          ? '<div class="begrip"><div class="kop"><h3>'+esc(term)+'</h3>'+
+            '<span class="n">'+d.aantal+' treffers</span></div>'+
+            d.treffers.map(t => '<div class="ander"><div class="t">'+esc(t.term)+
+              (t.conceptschema_naam ? ' <span style="color:var(--paars);font-size:10.5px">'+
+                esc(t.conceptschema_naam)+'</span>' : '')+'</div>'+
+              '<div class="d">'+esc(t.definitie || t.uitleg || "—")+'</div></div>').join("")+'</div>'
+          : '<div class="begrip mis"><p style="font-size:13px;color:var(--let)">Geen begrip gevonden voor '+
+            esc(term)+'.</p></div>';
+        $("status").textContent = d.aantal+" treffers";
+      } catch(e){ $("status").textContent = "opzoeken mislukt"; }
+    }
+
+    $("zoekknop").addEventListener("click", zoekZelf);
+    $("zoek").addEventListener("keydown", e => { if(e.key === "Enter") zoekZelf(); });
+
+    (async () => {
+      try { D = await (await fetch("/api/begrippen")).json(); }
+      catch(e){ $("begrippen").innerHTML = '<p style="color:var(--dim)">Kon de begrippen niet laden.</p>'; return; }
+      tekenCijfers(); tekenBegrippen(); tekenKloof();
+      if(D.status !== "ok")
+        $("status").textContent = "de catalogus antwoordde niet volledig ("+esc(D.fout||"")+")";
+    })();
+  </script>
+</body>
+</html>

@@ -173,3 +173,10 @@ def test_live_beeld_levert_een_laag_per_contour():
     b = service.beeld("botlek", live=True, _post=lambda *a, **k: '<x numberMatched="0"/>',
                       _get=nep_get, _haal_regels=lambda rd: [])
     assert set(b["lagen"]) == {c["soort"] for c in gebied.CONTOUREN}
+
+
+def test_de_kwetsbaarheidsindeling_draagt_de_juridische_definitie_mee():
+    """Onze BAG-afleiding mag niet voor de definitie doorgaan."""
+    b = service.beeld("gouda", live=False)
+    assert b["kloof"]["juridisch"] and "bijlage" in b["kloof"]["juridisch"].lower()
+    assert b["kloof"]["onze_afleiding"] != b["kloof"]["juridisch"]
