@@ -278,3 +278,89 @@ def test_api_kent_de_locatie_niet(monkeypatch):
 def test_api_pagina(monkeypatch):
     r = _client(monkeypatch).get("/gebruiksruimte")
     assert r.status_code == 200 and "api/gebruiksruimte" in r.text
+
+
+def test_beeld_op_vaste_locatie_blijft_hetzelfde_na_de_refactor():
+    """Karakterisering: /gebruiksruimte mag door de refactor niet stilletjes veranderen."""
+    b = service.beeld("deventer", debiet_m3_per_uur=420, live=False)
+    assert b["locatie"]["gemeente"] == "Deventer"
+    assert b["locatie"]["rd"] == [206800.0, 474000.0]
+    assert b["water"]["naam"] == "IJssel"
+    assert b["water"]["debiet_m3_s"] == 300.0
+    assert [p["naam"] for p in b["ruimte"]["parameters"]] == [
+        "stikstof totaal", "zink", "AOX", "PFOA"]
+    assert b["ruimte"]["conclusie"]["antwoord"] == "nee, tenzij"
+    assert b["ruimte"]["conclusie"]["bepalend"] == "PFOA"
+    assert len(b["register"]) == 5
+    assert b["max_debiet"] == 20000
+    assert len(b["informatiefuncties"]) == 5
+
+
+_KRW_MAAS = """{"features":[{"properties":{
+    "naam":"Maas","owl_id":"NL91_MAAS","sgd_id":"NLMS","gebtype":"R",
+    "owltype":"R7","owlcat":"1","owlstat":"Sterk veranderd",
+    "wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",
+    "wbhcode":"NL_MINIW","omvang":210.0,"eenheid":"km2","gemdiepte":5.0}}]}"""
+_GEM_MAASTRICHT = """{"features":[{"properties":{"naam":"Maastricht","ligtInProvincieNaam":"Limburg"}}]}"""
+_GEEN = '{"features":[]}'
+
+
+def _haal_reeks(antwoorden):
+    it = iter(antwoorden)
+
+    def haal(url, params, timeout_s=25.0):
+        return next(it)
+    return haal
+
+
+def _atlas_maastricht(x, y, straal_m):
+    return [{"kenmerk": "RWS-2015/38632", "naam": "Lawter Maastricht BV", "plaats": "Maastricht",
+             "locatie": None, "url": None, "besluitdatum": "2015-01-01",
+             "voorschriften": [
+                 {"parameter": "zink", "waarde": 0.3, "eenheid": "milligram per liter",
+                  "bemonstering": None, "rd": [x, y]},
+                 {"parameter": "Debiet", "waarde": 25.0, "eenheid": "kubieke meter per uur",
+                  "bemonstering": None, "rd": [x, y]}]}]
+
+
+def test_prik_op_de_maas_gebruikt_echte_vergunningen():
+    b = service.beeld_op_punt(177748.0, 321314.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_MAAS, _GEM_MAASTRICHT]),
+                              _haal_regels=lambda rd: [],
+                              _haal_atlas=_atlas_maastricht)
+    assert b["water"]["naam"] == "Maas"
+    assert b["register_bron"]["echt"] is True
+    assert b["register"][0]["kenmerk"] == "RWS-2015/38632"
+    assert b["ruimte"]["parameters"], "de rekensom draait ook op de Maas"
+
+
+def test_prik_buiten_het_maasstroomgebied_valt_terug_op_synthetisch():
+    b = service.beeld_op_punt(206800.0, 474000.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_MAAS, _GEM_MAASTRICHT]),
+                              _haal_regels=lambda rd: [],
+                              _haal_atlas=lambda x, y, straal_m: [])
+    assert b["register_bron"]["echt"] is False
+    assert b["register_bron"]["reden"]
+
+
+def test_prik_zonder_rijkswater_geeft_geen_rekensom_maar_wel_een_antwoord():
+    b = service.beeld_op_punt(150000.0, 400000.0, live=True,
+                              _haal_water=_haal_reeks([_GEEN, _GEEN, _GEM_MAASTRICHT]),
+                              _haal_regels=lambda rd: [],
+                              _haal_atlas=lambda x, y, straal_m: [])
+    assert b["rijkswater"] is False
+    assert b["ruimte"] is None
+    assert b["geen_ruimte_reden"]
+    assert "waterschap" in b["bevoegd_gezag"]["lozingsactiviteit"]
+
+
+def test_atlas_storing_laat_de_rest_van_het_beeld_staan():
+    def stuk(x, y, straal_m):
+        raise RuntimeError("Atlas plat")
+
+    b = service.beeld_op_punt(177748.0, 321314.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_MAAS, _GEM_MAASTRICHT]),
+                              _haal_regels=lambda rd: [], _haal_atlas=stuk)
+    assert b["water"]["naam"] == "Maas"
+    assert b["register_bron"]["status"] == "onbereikbaar"
+    assert b["ruimte"] is not None

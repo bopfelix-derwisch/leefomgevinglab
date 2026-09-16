@@ -38,22 +38,23 @@ WATERLICHAAM = {
 }
 
 # Het register dat niet bestaat: bestaande lozingsvergunningen op ditzelfde waterlichaam.
-# Verzonnen bedrijven; concentraties in mg/l op het lozingspunt.
+# Verzonnen bedrijven; concentraties in mg/l op het lozingspunt. Alleen van toepassing op de
+# IJssel — buiten het Maasstroomgebied is er geen echt register om op terug te vallen.
 REGISTER = [
     {"naam": "Papierfabriek Gelre B.V.", "plaats": "Zutphen", "kenmerk": "RWS-2019-LOZ-0042",
-     "debiet_m3_per_uur": 350,
+     "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 350,
      "concentraties": {"stikstof totaal": 3.1, "zink": 0.009, "AOX": 0.11, "PFOA": 0.00002}},
     {"naam": "Zuivelcoöperatie IJsselvallei", "plaats": "Deventer", "kenmerk": "RWS-2021-LOZ-0117",
-     "debiet_m3_per_uur": 180,
+     "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 180,
      "concentraties": {"stikstof totaal": 6.4, "zink": 0.004, "AOX": 0.02, "PFOA": 0.0}},
     {"naam": "RWZI Deventer — effluent", "plaats": "Deventer", "kenmerk": "RWS-2017-LOZ-0008",
-     "debiet_m3_per_uur": 2100,
+     "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 2100,
      "concentraties": {"stikstof totaal": 7.8, "zink": 0.012, "AOX": 0.03, "PFOA": 0.000031}},
     {"naam": "Metaalwarenfabriek Doesburg", "plaats": "Doesburg", "kenmerk": "RWS-2022-LOZ-0203",
-     "debiet_m3_per_uur": 95,
+     "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 95,
      "concentraties": {"stikstof totaal": 1.2, "zink": 0.21, "AOX": 0.04, "PFOA": 0.0}},
     {"naam": "Koelwater energiecentrale Harculo", "plaats": "Zwolle", "kenmerk": "RWS-2015-LOZ-0001",
-     "debiet_m3_per_uur": 4500,
+     "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 4500,
      "concentraties": {"stikstof totaal": 0.3, "zink": 0.001, "AOX": 0.0, "PFOA": 0.0}},
 ]
 
