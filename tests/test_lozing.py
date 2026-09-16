@@ -3,6 +3,24 @@ import pytest
 from leefomgevinglab.usecases import lozing
 from leefomgevinglab.usecases.ketenkern import cim
 from leefomgevinglab.usecases.lozing_keten import aquo, beoordeling, bronnen, casus, motor, toezicht
+from leefomgevinglab.usecases.lozing_keten import bronnen as lb
+
+
+def _nep_haal(antwoorden):
+    """Geeft per aanroep het volgende antwoord terug; negeert url en params."""
+    it = iter(antwoorden)
+
+    def haal(url, params, timeout_s=25.0):
+        return next(it)
+    return haal
+
+
+_KRW_VLAK = """{"features":[{"properties":{
+    "naam":"IJssel","owl_id":"NL93_IJSSEL","sgd_id":"NLRN","gebtype":"R",
+    "owltype":"R7","owlcat":"1","owlstat":"Sterk veranderd",
+    "wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",
+    "wbhcode":"NL_MINIW","omvang":123.4,"eenheid":"km2","gemdiepte":4.2}}]}"""
+_GEMEENTE = """{"features":[{"properties":{"naam":"Deventer","ligtInProvincieNaam":"Overijssel"}}]}"""
 
 
 # ---------- architectuur ----------
@@ -112,6 +130,41 @@ def test_zonder_rijkswaterlichaam_is_het_waterschap_bevoegd():
 def test_zonder_live_wordt_geen_bevoegd_gezag_verzonnen():
     bg = bronnen.bevoegd_gezag({"live": False, "rijkswater": None, "gemeente": None})
     assert "niet bepaald" in bg["lozingsactiviteit"]
+
+
+def test_contextset_neemt_het_watertype_en_de_beheerder_over():
+    cs = lb.contextset(206800.0, 474000.0, haal=_nep_haal([_KRW_VLAK, _GEMEENTE]))
+    assert cs["waterlichaam"] == "IJssel"
+    assert cs["watertype"] == "R7"
+    assert cs["watercategorie"] == "1"
+    assert cs["waterstatus"] == "Sterk veranderd"
+    assert "Rijkswaterstaat" in cs["waterbeheerder"]
+    assert cs["omvang"] == 123.4 and cs["omvang_eenheid"] == "km2"
+    assert cs["gemiddelde_diepte"] == 4.2
+
+
+def test_bevoegd_gezag_noemt_de_beheerder_uit_de_bron():
+    cs = lb.contextset(206800.0, 474000.0, haal=_nep_haal([_KRW_VLAK, _GEMEENTE]))
+    bg = lb.bevoegd_gezag(cs)
+    assert "Rijkswaterstaat" in bg["lozingsactiviteit"]
+    assert bg["bron_beheerder"] == "RWS KRW-service (veld wbhnaam)"
+
+
+def test_bevoegd_gezag_valt_terug_als_de_beheerder_leeg_is():
+    """Het veld owl_naam is in alle 54 vlakken leeg; wbhnaam kan dat ook worden."""
+    zonder = _KRW_VLAK.replace(
+        '"wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",', '')
+    cs = lb.contextset(206800.0, 474000.0, haal=_nep_haal([zonder, _GEMEENTE]))
+    bg = lb.bevoegd_gezag(cs)
+    assert "Minister van IenW" in bg["lozingsactiviteit"]
+    assert bg["bron_beheerder"] == "afgeleid uit de aanwezigheid van owl_id"
+
+
+def test_geen_rijkswater_geeft_het_waterschap():
+    cs = lb.contextset(150000.0, 400000.0, haal=_nep_haal(['{"features":[]}',
+                                                           '{"features":[]}', _GEMEENTE]))
+    assert cs["rijkswater"] is False
+    assert "waterschap" in lb.bevoegd_gezag(cs)["lozingsactiviteit"]
 
 
 # ---------- Aquo → TPOD ----------
