@@ -15,24 +15,34 @@ Waterkwaliteitsportaal is de kandidaat), dan vervalt het hele `afgeleid`-blok en
 rest staan.
 """
 
+import math
+
 # Basisprofielen per KRW-categorie: 1 rivier, 2 meer, 3 kust, 4 overgangswater.
 # `norm_factor` schaalt de norm zelf per watertypegroep (KRW-doelen verschillen per watertype);
 # `factor` schaalt daarna de achtergrondconcentratie ten opzichte van díe norm. Beide zijn van
 # dezelfde orde als de KRW-doelen maar door dit lab gekozen, niet uit het Bkl overgenomen. De
-# verhoudingen tussen de categorieën dragen het verhaal, niet de absolute waarden.
+# verhoudingen tussen de categorieën dragen het verhaal, niet de absolute waarden — met dien
+# verstande dat `factor` bewust zo gekozen is dat in élke categorie, inclusief de terugval,
+# minstens twee van de vier parameters onder hun norm blijven en PFOA er nooit een heeft (zie
+# `_PARAMETERS` hieronder). Met de oorspronkelijke kust- en overgangsfactor (1.60 en 1.30) klapte
+# dat spectrum in: nog maar 1 van 4 hield ruimte.
 _CATEGORIEEN = {
     "1": {"naam": "rivier", "debiet_basis_m3_s": 300.0, "norm_factor": 1.00, "factor": 1.00},
     "2": {"naam": "meer", "debiet_basis_m3_s": 40.0, "norm_factor": 0.90, "factor": 0.85},
-    "3": {"naam": "kustwater", "debiet_basis_m3_s": 1500.0, "norm_factor": 1.25, "factor": 1.60},
-    "4": {"naam": "overgangswater", "debiet_basis_m3_s": 800.0, "norm_factor": 1.10, "factor": 1.30},
+    "3": {"naam": "kustwater", "debiet_basis_m3_s": 1500.0, "norm_factor": 1.25, "factor": 0.95},
+    "4": {"naam": "overgangswater", "debiet_basis_m3_s": 800.0, "norm_factor": 1.10, "factor": 1.05},
 }
 _TERUGVAL = {"naam": "onbekend type", "debiet_basis_m3_s": 150.0, "norm_factor": 1.00, "factor": 1.00}
 
-# Vier parameters, gekozen omdat ze samen het hele spectrum laten zien: één die krap zit, één
-# metaal, één somparameter met ruimte, en één ZZS waar de achtergrond al boven de norm ligt.
+# Vier parameters, gekozen omdat ze samen het spectrum laten zien: een nutriënt die dicht tegen
+# de norm aan zit, een metaal, een somparameter met ruim wat lucht, en een ZZS waarvoor nooit
+# ruimte is. Welke van de eerste drie in een gegeven categorie daadwerkelijk onder de norm blijft,
+# verschilt (de categoriefactor schuift de achtergrond op) — maar per categorie houden er altijd
+# minstens twee ruimte, en PFOA nooit.
 # `norm_mg_l` hier is de basisnorm (categorie rivier); per categorie wordt hij geschaald met
 # `norm_factor`. `verzadiging` is de verhouding achtergrond/norm binnen dezelfde categorie en
-# blijft dus, ongeacht `norm_factor`, bepalend voor of een stof boven of onder de norm zit.
+# blijft dus, ongeacht `norm_factor`, bepalend voor of een stof boven of onder de norm zit —
+# `factor` (hierboven) schuift die verhouding vervolgens per categorie op.
 _PARAMETERS = [
     {"naam": "stikstof totaal", "norm_mg_l": 2.2, "verzadiging": 0.98, "zzs": False,
      "toelichting": "Nutriënt. De norm ligt dicht bij wat er al in zit, dus hier gaat het volume "
@@ -52,6 +62,20 @@ _ECHTE_VELDEN = {
     "waterbeheerder": "beheerder", "omvang": "omvang", "omvang_eenheid": "omvang_eenheid",
     "gemiddelde_diepte": "gemiddelde_diepte",
 }
+
+
+def _rond_significant(x: float, cijfers: int = 4) -> float:
+    """Rond af op een vast aantal significante cijfers, niet op een vast aantal decimalen.
+
+    De parameters lopen in orde van grootte uiteen van stikstof (~1 mg/l) tot PFOA (~1e-6 mg/l);
+    een vaste decimalenafronding zou PFOA plat slaan tot 0.0. Voorkomt ook drijvendekomma-ruis
+    zoals 1.9800000000000002 in wat de API en de pagina uiteindelijk tonen.
+    """
+    if x == 0:
+        return 0.0
+    exponent = math.floor(math.log10(abs(x)))
+    schaal = 10 ** (cijfers - 1 - exponent)
+    return round(x * schaal) / schaal
 
 
 def _debiet(cat: dict, omvang, bekend: bool) -> float:
@@ -81,8 +105,8 @@ def profiel(cs: dict) -> dict:
     for p in _PARAMETERS:
         norm = p["norm_mg_l"] * cat["norm_factor"]
         achtergrond = norm * p["verzadiging"] * cat["factor"]
-        parameters.append({"naam": p["naam"], "norm_mg_l": norm,
-                           "achtergrond_mg_l": achtergrond, "zzs": p["zzs"],
+        parameters.append({"naam": p["naam"], "norm_mg_l": _rond_significant(norm),
+                           "achtergrond_mg_l": _rond_significant(achtergrond), "zzs": p["zzs"],
                            "toelichting": p["toelichting"]})
 
     herkomst_debiet = (f"afgeleid van KRW-categorie {code} ({cat['naam']}) en de omvang "
@@ -97,8 +121,9 @@ def profiel(cs: dict) -> dict:
             "parameters": "normen door dit lab gekozen in de orde van de KRW-doelen, niet uit "
                           f"het Bkl overgenomen, en per categorie geschaald met een "
                           f"normfactor ({cat['norm_factor']}); achtergrondconcentraties "
-                          f"daarna afgeleid van diezelfde norm met een categoriefactor "
-                          f"({cat['factor']})",
+                          "daarna afgeleid van diezelfde norm door hem eerst te vermenigvuldigen "
+                          "met een vaste verzadigingsgraad per stof (van 0.42 voor AOX tot 1.27 "
+                          f"voor PFOA) en vervolgens met de categoriefactor ({cat['factor']})",
             "categorie_naam": f"KRW-categorie {code} uit de bron" if bekend else "terugval",
         },
         "volledig": bekend,

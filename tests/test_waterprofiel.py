@@ -11,6 +11,10 @@ _MEER = {**_IJSSEL, "waterlichaam": "IJsselmeer", "owl_id": "NL92_IJSSELMEER",
          "watertype": "M21", "watercategorie": "2", "omvang": 1100.0, "gemiddelde_diepte": 4.5}
 _KUST = {**_IJSSEL, "waterlichaam": "Waddenzee", "owl_id": "NL81_1",
          "watertype": "K2", "watercategorie": "3", "omvang": 2154.51, "gemiddelde_diepte": 3.0}
+_OVERGANG = {**_IJSSEL, "waterlichaam": "Eems-Dollard", "owl_id": "NL92_EEMSDOLLARD",
+             "watertype": "O2", "watercategorie": "4", "omvang": 500.0, "gemiddelde_diepte": 5.0}
+_ONBEKEND = {**_IJSSEL, "waterlichaam": "Onbekend water", "owl_id": "NL00_ONBEKEND",
+             "watertype": None, "watercategorie": "9", "omvang": 10.0}
 
 
 def test_het_echte_deel_komt_ongewijzigd_uit_de_bron():
@@ -56,6 +60,20 @@ def test_elk_profiel_houdt_een_parameter_zonder_ruimte():
         ps = wp.profiel(cs)["afgeleid"]["parameters"]
         assert any(p["achtergrond_mg_l"] >= p["norm_mg_l"] for p in ps)
         assert any(p["zzs"] for p in ps)
+
+
+def test_spectrum_blijft_intact_in_elke_categorie():
+    """In élke categorie — ook overgangswater en de terugval — houden minstens twee van de vier
+    parameters ruimte (achtergrond < norm), en heeft PFOA die nooit. Zonder deze garantie klapt
+    het parameterspectrum in: met de oorspronkelijke kust- en overgangsfactor hield nog maar 1
+    van de 4 parameters ruimte, en kreeg een bezoeker die daar prikt overal 'geen ruimte'."""
+    for cs in (_IJSSEL, _MEER, _KUST, _OVERGANG, _ONBEKEND):
+        parameters = wp.profiel(cs)["afgeleid"]["parameters"]
+        met_ruimte = [p for p in parameters if p["achtergrond_mg_l"] < p["norm_mg_l"]]
+        assert len(met_ruimte) >= 2, cs["watercategorie"]
+
+        pfoa = next(p for p in parameters if p["naam"] == "PFOA")
+        assert pfoa["achtergrond_mg_l"] >= pfoa["norm_mg_l"], cs["watercategorie"]
 
 
 def test_onbekende_categorie_valt_terug_zonder_te_knallen():
