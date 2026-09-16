@@ -289,6 +289,16 @@ leefomgevinglab:
     api_key_header: "x-api-key"
     cache_ttl_s: 86400
 
+  smwk_atlas:
+    # Atlas voor een Schone Maas (Schone Maaswaterketen) — echte directe lozingsvergunningen
+    # in het Maasstroomgebied: 72 vestigingen, 782 voorschriften, 68 parameters.
+    # Ruimtelijk bevraagbaar op RD (inSR=28992). Geverifieerd 2026-09-16.
+    # LET OP: publiek toegankelijk maar zónder expliciete licentie — altijd live bevragen met
+    # bronvermelding, nooit de dataset kopiëren.
+    base_url: "https://services-eu1.arcgis.com/S0XTphM6W3v0bENW/arcgis/rest/services/Vestigingen_Vergunningen_Uniek/FeatureServer"
+    straal_m: 5000
+    cache_ttl_s: 86400
+
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).
     # Omgeving instelbaar (pre|prod); prod gebruikt DSO_API_KEY_PROD uit .env (zelfde helper als DSO).
