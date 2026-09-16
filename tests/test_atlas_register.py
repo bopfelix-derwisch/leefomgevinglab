@@ -152,3 +152,62 @@ def test_twee_naamgenoten_zonder_kenmerk_blijven_onderscheidbaar_via_locatiecode
     d = ar.naar_register(posten)
     locatiecodes = {p["locatiecode"] for p in d["register"]}
     assert locatiecodes == {"RWZIB", "RWZIL"}
+
+
+# ---------- fix-ronde 2: meerdere grenswaarden per stof (Sappi-bevinding) ----------
+
+def test_twee_concentraties_voor_dezelfde_stof_geven_het_maximum_niet_de_som():
+    """Sappi Maastricht (DLB2007/11507): stikstof totaal met 10 én 15 mg/l, debiet 4000 en
+    2000 m3/uur. Optellen gaf 876.000 kg/jaar; het maximum (15 mg/l x het hoogste debiet
+    4000 m3/uur) is 525.600."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("stikstof totaal", 10.0, "milligram per liter"),
+        _v("stikstof totaal", 15.0, "milligram per liter"),
+        _v("Debiet", 4000.0, "kubieke meter per uur"),
+        _v("Debiet", 2000.0, "kubieke meter per uur")])])
+    post = d["register"][0]
+    assert post["vrachten"]["stikstof totaal"] == pytest.approx(525_600.0)
+    assert post["vrachten"]["stikstof totaal"] < 876_000.0
+
+
+def test_identieke_voorschriftregels_tellen_als_een():
+    """Een letterlijk gedupliceerde rij mag de kandidaat-vrachten niet verdubbelen."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 120.0, "kilogram per jaar"),
+        _v("zink", 120.0, "kilogram per jaar")])])
+    assert d["register"][0]["vrachten"]["zink"] == pytest.approx(120.0)
+    assert d["register"][0]["meerdere_grenswaarden"] == []
+
+
+def test_concentratie_en_vracht_voor_dezelfde_stof_leveren_een_vracht_het_hoogste():
+    """Eén stof met zowel een concentratie-eis als een rechtstreekse vracht-eis: één vracht in
+    het resultaat, het hoogste van de twee kandidaten — niet allebei opgeteld."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 0.3, "milligram per liter"),
+        _v("Debiet", 25.0, "kubieke meter per uur"),
+        _v("zink", 1000.0, "kilogram per jaar")])])
+    post = d["register"][0]
+    # kandidaten: 0,3 * 25 * 24 * 365 / 1000 = 65,7 kg/jaar, en rechtstreeks 1000 kg/jaar
+    assert post["vrachten"]["zink"] == pytest.approx(1000.0)
+    assert post["meerdere_grenswaarden"] == ["zink"]
+
+
+def test_hoogste_debiet_wordt_gebruikt_niet_het_eerst_genoemde():
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 1.0, "milligram per liter"),
+        _v("Debiet", 10.0, "kubieke meter per uur"),
+        _v("Debiet", 40.0, "kubieke meter per uur")])])
+    assert d["register"][0]["debiet_m3_per_uur"] == pytest.approx(40.0)
+
+
+def test_telling_meerdere_grenswaarden_klopt():
+    d = ar.naar_register([
+        _post("K1", voorschriften=[
+            _v("stikstof totaal", 10.0, "milligram per liter"),
+            _v("stikstof totaal", 15.0, "milligram per liter"),
+            _v("Debiet", 4000.0, "kubieke meter per uur")]),
+        _post("K2", voorschriften=[_v("zink", 120.0, "kilogram per jaar")]),
+    ])
+    assert d["telling"]["meerdere_grenswaarden"] == 1
+    assert d["register"][0]["meerdere_grenswaarden"] == ["stikstof totaal"]
+    assert d["register"][1]["meerdere_grenswaarden"] == []

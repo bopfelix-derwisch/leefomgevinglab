@@ -12,6 +12,20 @@ in volgorde:
 Die derde categorie is geen tekortkoming om weg te poetsen. Van een vergunning waarin alleen
 een concentratie-eis staat en geen debiet, valt de vracht niet te bepalen — en dus valt hij
 ook niet op te tellen. Precies het soort bevinding dat /wfs-kwaliteit voor het REV doet.
+
+Eén stof heeft vaak méér dan één regel in de brontabel: 196 van de 368 combinaties kenmerk +
+parameter dragen meer dan één waarde, soms met dooreenlopende eenheden (concentratie én vracht
+voor dezelfde stof), soms met letterlijk gedupliceerde rijen. Sommeren zou dat allemaal als
+losse, optelbare eisen behandelen — en dat is het niet: het zijn *alternatieve* grenswaarden
+voor dezelfde vergunning (bijvoorbeeld voor verschillende bedrijfssituaties of lozingspunten).
+Daarom wordt hier eerst ontdubbeld (een identieke rij — zelfde parameter, waarde én eenheid —
+telt maar één keer) en wordt per stof niet gesommeerd maar het **maximum** genomen over alle
+afleidbare kandidaat-vrachten, met steeds het hoogste bij de vergunning gevonden debiet voor de
+concentratie-kandidaten. "Hoeveel staat hier al vergund" is een bovengrensvraag: de vergunning
+staat toe wat de ruimste van haar eigen grenswaarden toestaat, niet de som van alle grenswaarden
+die ooit voor die stof zijn opgeschreven. Waar dat maximum uit meerdere, onderling verschillende
+grenswaarden komt, blijft dat zichtbaar via `meerdere_grenswaarden` — op de post en in de
+telling — in plaats van stilzwijgend te worden gladgestreken.
 """
 from .gebied import vracht_kg_jaar
 
@@ -62,19 +76,43 @@ def _norm(s) -> str:
     return (s or "").strip().lower()
 
 
+def _dedupe(voorschriften: list[dict]) -> list[dict]:
+    """Een identieke regel (zelfde parameter, waarde én eenheid) telt als één voorschrift.
+
+    De brontabel bevat letterlijke duplicaatrijen — dezelfde eis, tweemaal opgeslagen. Zonder
+    ontdubbelen telt zo'n rij dubbel mee in de kandidaat-vrachten hieronder.
+    """
+    gezien, uniek = set(), []
+    for v in voorschriften:
+        sleutel = (_norm(v.get("parameter")), v.get("waarde"), _norm(v.get("eenheid")))
+        if sleutel in gezien:
+            continue
+        gezien.add(sleutel)
+        uniek.append(v)
+    return uniek
+
+
 def _debiet_m3_per_uur(voorschriften: list[dict]) -> float | None:
+    """Het hoogste bruikbare debiet-voorschrift bij deze vergunning, in m³/uur.
+
+    Eén vergunning draagt vaak meerdere Debiet-regels (andere bedrijfssituaties, andere
+    lozingspunten). Voor de vracht is het hoogste bepalend: dat is de bovengrens die de
+    vergunning toestaat.
+    """
+    waarden = []
     for v in voorschriften:
         if _norm(v.get("parameter")) == "debiet" and v.get("waarde") is not None:
             factor = _DEBIET.get(_norm(v.get("eenheid")))
             if factor:
-                return float(v["waarde"]) * factor
-    return None
+                waarden.append(float(v["waarde"]) * factor)
+    return max(waarden) if waarden else None
 
 
 def _post(post: dict, telling: dict) -> dict:
-    voors = post.get("voorschriften") or []
+    voors = _dedupe(post.get("voorschriften") or [])
     debiet = _debiet_m3_per_uur(voors)
-    vrachten, onbepaald = {}, []
+    kandidaten: dict[str, list[float]] = {}
+    onbepaald = []
 
     for v in voors:
         parameter, waarde, eenheid = v.get("parameter"), v.get("waarde"), _norm(v.get("eenheid"))
@@ -95,7 +133,7 @@ def _post(post: dict, telling: dict) -> dict:
             continue
 
         if eenheid in _VRACHT:
-            vrachten[lab] = vrachten.get(lab, 0.0) + float(waarde) * _VRACHT[eenheid]
+            kandidaten.setdefault(lab, []).append(float(waarde) * _VRACHT[eenheid])
             telling["vracht_direct"] += 1
         elif eenheid in _CONCENTRATIE:
             if debiet is None:
@@ -105,7 +143,7 @@ def _post(post: dict, telling: dict) -> dict:
                 telling["onbepaald"] += 1
                 continue
             mg_l = float(waarde) * _CONCENTRATIE[eenheid]
-            vrachten[lab] = vrachten.get(lab, 0.0) + vracht_kg_jaar(debiet, mg_l)
+            kandidaten.setdefault(lab, []).append(vracht_kg_jaar(debiet, mg_l))
             telling["vracht_uit_concentratie"] += 1
         else:
             onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"),
@@ -113,17 +151,24 @@ def _post(post: dict, telling: dict) -> dict:
                                        "concentratie"})
             telling["onbepaald"] += 1
 
+    # Per stof niet sommeren maar het maximum van de kandidaten: de bovengrens die de vergunning
+    # zelf toestaat, niet de som van al haar (soms onderling verschillende) grenswaarden.
+    vrachten = {lab: max(waarden) for lab, waarden in kandidaten.items()}
+    meerdere_grenswaarden = sorted(lab for lab, waarden in kandidaten.items() if len(waarden) > 1)
+    telling["meerdere_grenswaarden"] += len(meerdere_grenswaarden)
+
     return {"naam": post.get("naam"), "plaats": post.get("plaats"),
             "kenmerk": post.get("kenmerk"), "locatiecode": post.get("locatiecode"),
             "besluitdatum": post.get("besluitdatum"),
             "locatie": post.get("locatie"), "url": post.get("url"),
-            "debiet_m3_per_uur": debiet, "vrachten": vrachten, "onbepaald": onbepaald}
+            "debiet_m3_per_uur": debiet, "vrachten": vrachten,
+            "meerdere_grenswaarden": meerdere_grenswaarden, "onbepaald": onbepaald}
 
 
 def naar_register(posten: list[dict]) -> dict:
     """De Atlas-posten als register, in het formaat dat `ruimte.bereken()` verwacht."""
     telling = {"vestigingen": len(posten), "vracht_direct": 0, "vracht_uit_concentratie": 0,
-               "onbepaald": 0, "buiten_crosswalk": 0}
+               "onbepaald": 0, "buiten_crosswalk": 0, "meerdere_grenswaarden": 0}
     register = [_post(p, telling) for p in posten]
     return {"register": register, "telling": telling, "echt": True,
             "bevinding": CROSSWALK_BEVINDING,
