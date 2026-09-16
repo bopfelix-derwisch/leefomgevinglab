@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 import leefomgevinglab.geluidsmeter.api as api
@@ -41,3 +43,29 @@ def test_beide_tabs_delen_het_sjabloon_met_eigen_dossier(monkeypatch):
 def test_lozing_keten_api(monkeypatch):
     d = _client(monkeypatch).get("/api/lozing/keten?live=0").json()
     assert len(d["stappen"]) == 8 and d["dossier"]["id"] == "lozing"
+
+
+def _header_nav(html: str) -> str:
+    """De kale header-<nav> (geen class) — de waterspecifieke subnav heeft class="waternav"
+    en staat er los van; die moet deze check niet raken."""
+    m = re.search(r"<nav>(.*?)</nav>", html, re.S)
+    assert m, "geen kale <nav> gevonden in de header"
+    return m.group(1)
+
+
+def test_keten_tabs_wijzen_naar_elkaars_tegenhanger_niet_naar_zichzelf(monkeypatch):
+    """/dvth en /lozing zijn elkaars spiegeldossier; de header moet naar de ander wijzen,
+    nooit naar de eigen pagina, en de waterspecifieke nav hoort hier niet thuis."""
+    c = _client(monkeypatch)
+    dv, lz = _header_nav(c.get("/dvth").text), _header_nav(c.get("/lozing").text)
+
+    assert 'href="/lozing">Doelbeeld lozing</a>' in dv
+    assert 'href="/dvth">Doelbeeld D-VTH</a>' not in dv
+
+    assert 'href="/dvth">Doelbeeld D-VTH</a>' in lz
+    assert 'href="/lozing">Doelbeeld lozing</a>' not in lz
+
+    for header in (dv, lz):
+        assert 'href="/water"' not in header
+        assert 'href="/gebruiksruimte"' not in header
+        assert "__KRUISNAV__" not in header

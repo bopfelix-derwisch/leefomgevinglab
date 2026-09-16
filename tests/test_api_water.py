@@ -41,6 +41,9 @@ def test_waterpaginas_dragen_dezelfde_subnav(monkeypatch, pad, actief_label):
     assert r.status_code == 200
     assert 'class="waternav"' in r.text
     assert r.text.count('aria-current="page"') == 1
+    assert f'aria-current="page">{actief_label}</a>' in r.text, (
+        f"niet {actief_label!r} maar een ander lid staat op actief"
+    )
     assert "__WATERNAV__" not in r.text
 
 

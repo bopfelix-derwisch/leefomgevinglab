@@ -237,10 +237,19 @@ def _keten_tab(dossier: str) -> str:
 
     /lozing hoort bij het waterdossier en krijgt de subnav; /dvth niet — daar wordt de
     placeholder leeg vervangen.
+
+    De twee doelbeelden zijn elkaars spiegeldossier: /dvth wijst naar /lozing en
+    andersom, nooit naar zichzelf. Die kruislink staat naast de gedeelde VTH-kapstok/
+    Bronnenkaart-links in de header (__KRUISNAV__), los van de waterspecifieke subnav.
     """
     sjabloon = (Path(__file__).parent.parent / "static" / "keten-tab.html").read_text()
     nav = water_hub_mod.subnav_html("keten") if dossier == "lozing" else ""
-    return sjabloon.replace("__DOSSIER__", dossier).replace("__WATERNAV__", nav)
+    tegenhanger = ('<a href="/lozing">Doelbeeld lozing</a>' if dossier == "dvth"
+                   else '<a href="/dvth">Doelbeeld D-VTH</a>')
+    kruisnav = tegenhanger + '<a href="/kwaliteit">Kwaliteit</a>'
+    return (sjabloon.replace("__DOSSIER__", dossier)
+            .replace("__WATERNAV__", nav)
+            .replace("__KRUISNAV__", kruisnav))
 
 
 @app.get("/dvth", response_class=HTMLResponse)
