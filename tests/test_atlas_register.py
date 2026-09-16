@@ -76,13 +76,31 @@ def test_concentratie_zonder_debiet_levert_geen_vracht_maar_wel_een_reden():
     assert "debiet" in post["onbepaald"][0]["reden"].lower()
 
 
-def test_onbruikbare_eenheid_valt_netjes_in_onbepaald():
+def test_onbruikbare_eenheid_bij_een_niet_gevolgde_parameter_telt_als_buiten_crosswalk():
+    """Zuurgraad en Warmte zijn geen labparameters van dit lab — een zuurgraad in kg/jaar bestaat
+    niet. 'onbepaald' is een bevinding over de vrácht van gevolgde parameters, geen verzamelbak
+    voor alles wat toevallig geen vracht heeft; dus dit hoort bij buiten_crosswalk, niet
+    onbepaald."""
     d = ar.naar_register([_post(voorschriften=[
         _v("Zuurgraad", 6.5, "dimensieloos"),
         _v("Warmte", 0.5, "megajoule per seconde")])])
     post = d["register"][0]
     assert post["vrachten"] == {}
-    assert {o["parameter"] for o in post["onbepaald"]} == {"Zuurgraad", "Warmte"}
+    assert post["onbepaald"] == []
+    assert d["telling"]["buiten_crosswalk"] == 2
+
+
+def test_gevolgde_parameter_met_onbruikbare_eenheid_landt_in_onbepaald():
+    """Komt in de huidige Atlas-data niet voor (alle 133 combinaties van parameter en eenheid
+    zijn voor de gevolgde parameters een vracht of een concentratie), maar legt vast wat
+    'onbepaald' betekent: een parameter die dit lab wél volgt (zink), met een eenheid die geen
+    vracht en geen concentratie is."""
+    d = ar.naar_register([_post(voorschriften=[_v("zink", 10.0, "graad Celsius")])])
+    post = d["register"][0]
+    assert post["vrachten"] == {}
+    assert post["onbepaald"][0]["parameter"] == "zink"
+    assert "geen vracht" in post["onbepaald"][0]["reden"].lower()
+    assert d["telling"]["onbepaald"] == 1
 
 
 def test_lege_waarde_knalt_niet():

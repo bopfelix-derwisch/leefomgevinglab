@@ -81,16 +81,9 @@ def _post(post: dict, telling: dict) -> dict:
         if _norm(parameter) == "debiet":
             continue
 
-        # Een onherkende eenheid is een datakwaliteitsbevinding op zichzelf — die geldt ook
-        # voor een parameter die niet in de crosswalk staat, dus dit gaat vóór die toets.
-        if eenheid not in _VRACHT and eenheid not in _CONCENTRATIE:
-            lab = CROSSWALK.get(_norm(parameter), parameter)
-            onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"),
-                              "reden": f"eenheid '{v.get('eenheid')}' is geen vracht en geen "
-                                       "concentratie"})
-            telling["onbepaald"] += 1
-            continue
-
+        # Eerst de crosswalk: een parameter die dit lab niet volgt telt niet mee, ook niet als
+        # 'onbepaald' — die emmer is een bevinding over de vrácht van gevolgde parameters, geen
+        # verzamelbak voor alles wat geen kg/jaar heeft (een zuurgraad bijvoorbeeld nooit).
         lab = CROSSWALK.get(_norm(parameter))
         if lab is None:
             telling["buiten_crosswalk"] += 1
@@ -104,7 +97,7 @@ def _post(post: dict, telling: dict) -> dict:
         if eenheid in _VRACHT:
             vrachten[lab] = vrachten.get(lab, 0.0) + float(waarde) * _VRACHT[eenheid]
             telling["vracht_direct"] += 1
-        else:
+        elif eenheid in _CONCENTRATIE:
             if debiet is None:
                 onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"),
                                   "reden": "concentratie-eis zonder debiet-voorschrift; zonder "
@@ -114,6 +107,11 @@ def _post(post: dict, telling: dict) -> dict:
             mg_l = float(waarde) * _CONCENTRATIE[eenheid]
             vrachten[lab] = vrachten.get(lab, 0.0) + vracht_kg_jaar(debiet, mg_l)
             telling["vracht_uit_concentratie"] += 1
+        else:
+            onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"),
+                              "reden": f"eenheid '{v.get('eenheid')}' is geen vracht en geen "
+                                       "concentratie"})
+            telling["onbepaald"] += 1
 
     return {"naam": post.get("naam"), "plaats": post.get("plaats"),
             "kenmerk": post.get("kenmerk"), "locatiecode": post.get("locatiecode"),
