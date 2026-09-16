@@ -43,6 +43,7 @@ from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
 from leefomgevinglab.usecases import begrippen as begrippen_mod
+from leefomgevinglab.usecases import water_hub as water_hub_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -318,6 +319,24 @@ def balo_page():
 def api_balo_overzicht():
     """De twee casussen geplot op redeneerlijn 2 en 3 van de BALO-businessarchitectuur."""
     return balo_mod.overzicht()
+
+
+def _waterpagina(bestand: str, actief: str | None) -> str:
+    """Een waterpagina met de gedeelde subnav erin; zelfde truc als _keten_tab."""
+    html = (Path(__file__).parent.parent / "static" / bestand).read_text()
+    return html.replace("__WATERNAV__", water_hub_mod.subnav_html(actief))
+
+
+@app.get("/water", response_class=HTMLResponse)
+def water_page():
+    """Het waterdossier: één ingang voor wat over vier tabs verspreid stond."""
+    return _waterpagina("water.html", "overzicht")
+
+
+@app.get("/api/water/hub")
+def api_water_hub():
+    """De leden, gedeelde lijnen, dekking en Atlas-positionering van het waterdossier."""
+    return water_hub_mod.overzicht()
 
 
 @app.get("/api/lozing/architectuur")
