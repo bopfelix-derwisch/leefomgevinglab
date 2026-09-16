@@ -85,6 +85,35 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
 - ✅ **Gebruiksruimte (`/gebruiksruimte`, `/api/gebruiksruimte?locatie=&debiet=&live=`):** 'wat kan hier nog?' voor een lozing op de IJssel. Combineert (a) **regels op de locatie live uit het DSO** (Ozon `regelingen_op_punt`, ~20 per punt) geclassificeerd naar **direct werkend / indirect werkend / geldt hier maar raakt dit voornemen niet** — dat laatste is de waterschapsverordening op rijkswater; (b) een **synthetisch register** met 5 bestaande lozingsvergunningen op hetzelfde waterlichaam; (c) de rekensom ruimte-tot-de-norm per parameter. Drie locaties (Brummen/Deventer/Doesburg, 2 provincies) aan hetzelfde KRW-waterlichaam: de regels verschillen per locatie, de gebruiksruimte is gedeeld. Code: `usecases/gebruiksruimte/` (gebied, regels, ruimte, service). NB: de vergunde vracht zit al ín de achtergrondconcentratie en wordt dus **niet** van de ruimte afgetrokken — hij staat apart om te tonen hoeveel van de belasting in menselijke hand is. PFOA heeft per opzet géén ruimte (achtergrond > norm); stikstof kantelt om bij ~20.000 m³/u. Getallen illustratief, mechanisme echt.
 - ✅ **EV-gebruiksruimte (`/evruimte`, `/api/evruimte?locatie=&live=`):** ruimtelijke tegenhanger van `/gebruiksruimte`, als **maplibre-kaart**. De drie aandachtsgebieden van een voorgenomen Seveso-inrichting (gifwolk 1500 m, brand 90 m, explosie 60 m) over de **bestaande REV-aandachtsgebieden** (live als GeoJSON), met de verblijfsobjecten eronder **live geteld in de BAG per gebruiksdoel** en ingedeeld naar zeer kwetsbaar / kwetsbaar / beperkt kwetsbaar. Vijf locaties: Europoort (ruim), Botlek en Gouda (vol), Zutphen, plus een illustratieve plek pal naast een school waar de harde grens wél optreedt. Code: `usecases/evruimte/`. **Cruciaal: PDOK negeert `cql_filter` volledig** (BAG én bestuurlijke gebieden) — een DWITHIN in CQL geeft stilzwijgend de héle dataset terug. Gebruik de standaard **FES-filter via POST** (`filter=<fes:Filter>` met `DWithin` + `PropertyIsLike` op `gebruiksdoel`); de REV-GeoServer accepteert `cql_filter` juist wél. BAG-tellingen draaien parallel (ThreadPoolExecutor, 8 workers): 13 s → 4-6 s.
 - ✅ **Begrippen (`/begrippen`, `/api/begrippen`, `/api/begrip?term=`):** de 10 termen die dit lab hardgecodeerd gebruikte, live opgezocht in de **Stelselcatalogus Omgevingswet** — een federatieve SKOS-begrippengraaf (conceptschema's o.a. Regelgeving, Wetgeving, Activiteit, IMEV, IMAM). Alle 10 gevonden, met definitie en juridische vindplaats (Seveso-inrichting → bijlage I Bal; zeer kwetsbaar gebouw → bijlage VI onder E; ZZS → art. 5.22a). Connector `connectors/stelselcatalogus.py`, register + oplossing in `usecases/begrippen.py`. **Drie valkuilen van deze API**: (1) `Accept: application/json` geeft **406** — het moet `application/hal+json` zijn; (2) queryparameters die niet bij het endpoint horen geven een **400**, dus bij `/begrippen` alleen `zoekTerm` meesturen (géén `pageSize`); (3) er komt **geen RDF** uit (turtle/ld+json/rdf+xml → 406) en de SKOS-relaties zijn dun gevuld — aan de juridische kant ontbreken ze. Zelfde `DSO_API_KEY_PROD` als Ozon; opzoekingen draaien parallel en worden een dag gecachet. Op `/evruimte` staat de juridische definitie nu naast onze BAG-afleiding, met het verschil expliciet benoemd.
+- ✅ **Waterdossier (`/water`, `/api/water/hub`):** de vier waterpagina's (`/lozing`,
+  `/gebruiksruimte`, `/waterruimte`, `/balo`) als één dossier met een gedeelde subnav-balk.
+  `usecases/water_hub.py` is de enige plek waar staat wat het dossier is; de balk wordt eruit
+  gegenereerd en via een `__WATERNAV__`-placeholder geïnjecteerd (zelfde truc als `__DOSSIER__`
+  in `_keten_tab`). NB: `keten-tab.html` bedient óók `/dvth` — daar wordt de placeholder leeg
+  vervangen, want dat is geen waterpagina.
+- ✅ **Prik op de kaart (`/waterruimte`, `/api/waterruimte?x=&y=&debiet=&live=`):** "wat kan hier
+  nog" op een willekeurig RD-punt. `waterprofiel.py` maakt van een KRW-feature een profiel met
+  echt (naam, `owl_id`, `wbhnaam`, `owltype`, `owlcat`, `owlstat`, omvang, `gemdiepte`) strikt
+  gescheiden van afgeleid (debiet, achtergrondconcentraties) — elk afgeleid veld draagt een
+  herkomstregel; de waterbeheerder komt uit het KRW-veld `wbhnaam`, met de oude afleiding
+  (rijkswater → RWS, anders het waterschap) als terugval wanneer dat veld leeg is. **Het register
+  is echt waar het bestaat:** de Atlas voor een Schone Maas (`connectors/smwk_atlas.py`) levert
+  voor het Maasstroomgebied 72 vestigingen en 782 vergunde voorschriften, ruimtelijk bevraagbaar
+  op RD (`inSR=28992`); daarbuiten valt het lab terug op het synthetische register. Dat contrast
+  is de boodschap. Vestigingen zonder vergunningkenmerk (o.a. de RWZI's van Waterschapsbedrijf
+  Limburg) worden ontdubbeld op `Locatiecode` en blijven met `kenmerk: None` in het register staan
+  in plaats van weggefilterd — anders verdwijnen vier rioolwaterzuiveringen. Vrachtafleiding in
+  drie lagen (`atlas_register.py`): eenheid is al een vracht → direct; concentratie +
+  debiet-voorschrift → berekend (29 van 72 vestigingen); anders → getoond zonder vracht, met reden
+  (`onbepaald`, voorbehouden aan de stoffen die dit lab volgt; wat erbuiten valt telt als
+  `buiten_crosswalk`). Komt een stof met meerdere grenswaarden voor in dezelfde vergunning, dan
+  wordt na ontdubbeling van identieke rijen het **maximum** genomen, niet de som — zichtbaar via
+  `meerdere_grenswaarden` (raakt 50 van de 64 vergunningen, dus geen randgeval maar een wezenlijk
+  kenmerk van de aanpak). Waar de vracht van sommige vergunningen niet te bepalen viel, is het
+  vergunde totaal een **ondergrens**; `ruimte.bereken()` meldt dat expliciet in een kanttekening.
+  Let op: de Atlas-lagen zijn publiek maar dragen **geen expliciete licentie** — live bevragen met
+  bronvermelding, nooit kopiëren. PFOA komt er niet in voor, terwijl dat juist de stof is waarvan
+  de achtergrond boven de norm ligt.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---
