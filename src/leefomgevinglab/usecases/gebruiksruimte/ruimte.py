@@ -36,6 +36,17 @@ def _vracht_van(post: dict, parameter: str) -> float:
     return vracht_kg_jaar(post["debiet_m3_per_uur"], post["concentraties"].get(parameter, 0.0))
 
 
+def _opsomming(delen: list[str]) -> str:
+    """Een nette Nederlandse opsomming: komma's, met 'en' vóór het laatste item.
+
+    Zonder dit werd een lijst van drie of meer stoffen een rij met puntkomma's — leesbaar voor
+    wie de code kent, maar geen Nederlands voor wie de pagina leest.
+    """
+    if len(delen) <= 1:
+        return delen[0] if delen else ""
+    return ", ".join(delen[:-1]) + " en " + delen[-1]
+
+
 def _onbepaald_voor(post: dict, parameter: str) -> bool:
     """Draagt deze registerpost een 'onbepaald'-vermelding voor deze stof?
 
@@ -120,12 +131,16 @@ def bereken(voornemen: dict, register: list, waterlichaam: dict) -> dict:
             "wie de ruimte is, en dus ook niet wie hem zou kunnen vrijmaken.")
     onbepaald_parameters = [p for p in uit if p["vergund_onbepaald"] > 0]
     if onbepaald_parameters:
-        delen = "; ".join(
-            f"{p['naam']} ({p['vergund_onbepaald']} vergunning"
-            f"{'en' if p['vergund_onbepaald'] != 1 else ''})" for p in onbepaald_parameters)
+        delen = [f"{p['naam']} ({p['vergund_onbepaald']} vergunning"
+                 f"{'en' if p['vergund_onbepaald'] != 1 else ''})" for p in onbepaald_parameters]
+        meervoud = len(delen) > 1
         kanttekeningen.append(
-            f"Het vergunde totaal is voor sommige parameters een ondergrens: van {delen} viel "
-            "de vracht niet te bepalen, en die telt dus niet mee in vergund_kg_jaar.")
+            f"Het vergunde totaal is voor sommige parameters een ondergrens: van "
+            f"{_opsomming(delen)} "
+            + ("vielen de vrachten" if meervoud else "viel de vracht") +
+            " niet te bepalen, en die "
+            + ("tellen" if meervoud else "telt") +
+            " dus niet mee in vergund_kg_jaar.")
 
     conclusie = {"antwoord": antwoord, "waarom": waarom,
                  "bepalend": bepalend["naam"] if bepalend else None,

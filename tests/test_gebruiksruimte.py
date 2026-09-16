@@ -181,6 +181,52 @@ def test_zonder_onbepaalde_vracht_geen_kanttekening_daarover():
     assert "ondergrens" not in r["conclusie"]["kanttekening"].lower()
 
 
+def _w_zonder_norm(*namen):
+    return {"debiet_m3_s": 300.0, "parameters": [
+        {"naam": n, "norm_mg_l": 1.0, "achtergrond_mg_l": 0.5, "zzs": False, "toelichting": "t"}
+        for n in namen]}
+
+
+def _onbepaalde_post(naam, stof):
+    return {"naam": naam, "vrachten": {},
+            "onbepaald": [{"parameter": stof, "eenheid": "milligram per liter", "reden": "x"}]}
+
+
+def test_kanttekening_bij_een_stof_is_enkelvoud():
+    w = _w_zonder_norm("zink")
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {}}
+    register = [_onbepaalde_post("A", "zink")]
+    r = ruimte.bereken(voornemen, register, w)
+    assert r["conclusie"]["kanttekening"] == (
+        "Het vergunde totaal is voor sommige parameters een ondergrens: van zink "
+        "(1 vergunning) viel de vracht niet te bepalen, en die telt dus niet mee in "
+        "vergund_kg_jaar.")
+
+
+def test_kanttekening_bij_twee_stoffen_gebruikt_en_en_meervoud():
+    w = _w_zonder_norm("stikstof totaal", "zink")
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {}}
+    register = [_onbepaalde_post("A", "stikstof totaal"),
+                _onbepaalde_post("B", "zink"), _onbepaalde_post("C", "zink")]
+    r = ruimte.bereken(voornemen, register, w)
+    assert r["conclusie"]["kanttekening"] == (
+        "Het vergunde totaal is voor sommige parameters een ondergrens: van stikstof totaal "
+        "(1 vergunning) en zink (2 vergunningen) vielen de vrachten niet te bepalen, en die "
+        "tellen dus niet mee in vergund_kg_jaar.")
+
+
+def test_kanttekening_bij_drie_stoffen_gebruikt_kommas_en_en_voor_de_laatste():
+    w = _w_zonder_norm("stikstof totaal", "zink", "AOX")
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {}}
+    register = [_onbepaalde_post("A", "stikstof totaal"),
+                _onbepaalde_post("B", "zink"), _onbepaalde_post("C", "AOX")]
+    r = ruimte.bereken(voornemen, register, w)
+    assert r["conclusie"]["kanttekening"] == (
+        "Het vergunde totaal is voor sommige parameters een ondergrens: van stikstof totaal "
+        "(1 vergunning), zink (1 vergunning) en AOX (1 vergunning) vielen de vrachten niet te "
+        "bepalen, en die tellen dus niet mee in vergund_kg_jaar.")
+
+
 # ---------- service ----------
 
 def test_beeld_bundelt_regels_vergunningen_en_ruimte():

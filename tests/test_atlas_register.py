@@ -228,3 +228,33 @@ def test_debiet_met_onherkende_eenheid_krijgt_een_eigen_reden_geen_ontbrekend_de
     assert "kubieke meter per schoonmaakactie" in reden
     assert "niet-herkende eenheid" in reden
     assert "zonder debiet-voorschrift" not in reden
+
+
+# ---------- fix-ronde 4: een lege debiet-eenheid mag de opbouw niet laten klappen ----------
+
+def test_onherkende_debieteenheid_naast_een_lege_eenheid_knalt_niet():
+    """Eén Debiet-rij met een echte (onherkende) eenheid en één met eenheid None: sorted() op
+    een gemengde None/str-verzameling gaf voorheen een TypeError. De reden moet de wél gevulde
+    eenheid noemen en geen exception geven."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 0.3, "milligram per liter"),
+        _v("Debiet", 2700.0, "kubieke meter per schoonmaakactie"),
+        _v("Debiet", 10.0, None)])])
+    post = d["register"][0]
+    assert "zink" not in post["vrachten"]
+    reden = post["onbepaald"][0]["reden"]
+    assert "kubieke meter per schoonmaakactie" in reden
+    assert "niet-herkende eenheid" in reden
+
+
+def test_alleen_lege_debieteenheden_geeft_geen_lege_quote():
+    """Zijn álle onherkende Debiet-eenheden leeg, dan valt de reden terug op de algemene tekst
+    in plaats van een lege quote ('') te tonen."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 0.3, "milligram per liter"),
+        _v("Debiet", 10.0, None),
+        _v("Debiet", 20.0, "")])])
+    post = d["register"][0]
+    reden = post["onbepaald"][0]["reden"]
+    assert "''" not in reden
+    assert "zonder debiet-voorschrift" in reden

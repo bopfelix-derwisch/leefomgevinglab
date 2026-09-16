@@ -118,10 +118,15 @@ def _debiet_onherkende_eenheden(voorschriften: list[dict]) -> list[str]:
     lab niet kent' (bijvoorbeeld "kubieke meter per schoonmaakactie", zo aangetroffen bij
     RWS-2016/22336). Dat laatste is geen ontbrekend debiet — er ís een grens gesteld, hij is
     alleen niet om te rekenen — en verdient dus een andere reden dan 'geen debiet-voorschrift'.
+
+    Een lege eenheid (None of "") gaat er hier al uit: die is inhoudelijk hetzelfde als 'geen
+    bruikbaar debiet' en zou `sorted()` verderop laten klappen op een None-versus-str-vergelijking
+    zodra ook maar één andere, wél gevulde onherkende eenheid meekomt. Het resultaat is al
+    gesorteerd en ontdubbeld, zodat de aanroeper het zo in de meldingstekst kan zetten.
     """
-    return [v.get("eenheid") for v in voorschriften
-            if _norm(v.get("parameter")) == "debiet" and v.get("waarde") is not None
-            and _DEBIET.get(_norm(v.get("eenheid"))) is None]
+    return sorted({v.get("eenheid") for v in voorschriften
+                   if _norm(v.get("parameter")) == "debiet" and v.get("waarde") is not None
+                   and _DEBIET.get(_norm(v.get("eenheid"))) is None and v.get("eenheid")})
 
 
 def _post(post: dict, telling: dict) -> dict:
@@ -155,7 +160,7 @@ def _post(post: dict, telling: dict) -> dict:
         elif eenheid in _CONCENTRATIE:
             if debiet is None:
                 if debiet_onherkend:
-                    eenheden = ", ".join(sorted(set(debiet_onherkend)))
+                    eenheden = ", ".join(debiet_onherkend)
                     reden = (f"debiet-voorschrift aanwezig maar in een niet-herkende eenheid "
                               f"('{eenheden}'); zonder een bruikbaar debiet is de vracht niet "
                               "te bepalen")
