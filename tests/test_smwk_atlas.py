@@ -102,6 +102,7 @@ def test_blanco_kenmerk_met_verschillende_locatiecode_blijft_apart(tmp_path):
     uit = c.vergunningen_bij_punt(1.0, 2.0)
     assert len(uit) == 2
     assert {p["kenmerk"] for p in uit} == {None}
+    assert {p["locatiecode"] for p in uit} == {"RWZIB", "RWZIL"}
 
 
 def test_blanco_kenmerk_met_dezelfde_locatiecode_wordt_een_post(tmp_path):

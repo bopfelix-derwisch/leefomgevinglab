@@ -60,6 +60,9 @@ class SmwkAtlasConnector(BaseConnector):
         (zie moduletekst), dan op `Locatiecode` en anders op `Vestigingsnummer_KvK`. Zo'n post
         blijft in het resultaat staan met `kenmerk: None` — de bron levert nu eenmaal geen
         vergunningkenmerk, en dat mag zichtbaar zijn in plaats van stilzwijgend te verdwijnen.
+        `locatiecode` en `vestigingsnummer_kvk` gaan om diezelfde reden mee de post in: zonder
+        kenmerk zijn het de enige velden die twee naamgenoten (bv. de RWZI's van Waterschapsbedrijf
+        Limburg) nog uit elkaar houden.
         """
         vest = self.get_json(f"{self.base_url}/0/query", {
             "geometry": f"{x},{y}", "geometryType": "esriGeometryPoint", "inSR": 28992,
@@ -92,6 +95,7 @@ class SmwkAtlasConnector(BaseConnector):
                 "kenmerk": kenmerk, "naam": a.get("Statutaire_naam"), "plaats": a.get("Plaats"),
                 "locatie": (a.get("Locatieomschrijving") or "").strip() or None,
                 "url": (a.get("URL") or "").strip() or None,
+                "locatiecode": locatiecode, "vestigingsnummer_kvk": kvk,
                 "besluitdatum": None, "voorschriften": [],
             }
         if not posten:

@@ -19,6 +19,17 @@ def _ruimte_kg_jaar(ruimte_mg_l: float, debiet_m3_s: float) -> float:
     return ruimte_mg_l * debiet_m3_s * SECONDEN_PER_JAAR / 1000.0
 
 
+def _vracht_van(post: dict, parameter: str) -> float:
+    """De vracht van één vergunning voor één parameter.
+
+    Het synthetische register geeft debiet + concentratie; de Atlas geeft soms rechtstreeks een
+    vergunde vracht. Beide vormen komen hier binnen.
+    """
+    if "vrachten" in post:
+        return post["vrachten"].get(parameter, 0.0)
+    return vracht_kg_jaar(post["debiet_m3_per_uur"], post["concentraties"].get(parameter, 0.0))
+
+
 def bereken(voornemen: dict, register: list, waterlichaam: dict) -> dict:
     q = waterlichaam["debiet_m3_s"]
     uit = []
@@ -27,8 +38,7 @@ def bereken(voornemen: dict, register: list, waterlichaam: dict) -> dict:
         ruimte_mg_l = p["norm_mg_l"] - p["achtergrond_mg_l"]
         vrij = _ruimte_kg_jaar(ruimte_mg_l, q)
 
-        bijdragen = [(v["naam"], vracht_kg_jaar(v["debiet_m3_per_uur"], v["concentraties"].get(naam, 0.0)))
-                     for v in register]
+        bijdragen = [(v["naam"], _vracht_van(v, naam)) for v in register]
         bijdragen = [(n, kg) for n, kg in bijdragen if kg > 0]
         vergund = sum(kg for _, kg in bijdragen)
 

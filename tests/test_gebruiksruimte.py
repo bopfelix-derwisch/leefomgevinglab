@@ -136,6 +136,20 @@ def test_zonder_register_valt_de_cumulatie_niet_te_bepalen():
     assert zonder["conclusie"]["kanttekening"]
 
 
+def test_rekensom_verwerkt_zowel_concentratie_als_voorberekende_vracht():
+    w = {"debiet_m3_s": 300.0, "parameters": [
+        {"naam": "zink", "norm_mg_l": 0.0078, "achtergrond_mg_l": 0.0071, "zzs": False,
+         "toelichting": "t"}]}
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {"zink": 0.001}}
+
+    oud = [{"naam": "A", "debiet_m3_per_uur": 100.0, "concentraties": {"zink": 0.01}}]
+    nieuw = [{"naam": "A", "vrachten": {"zink": ruimte.vracht_kg_jaar(100.0, 0.01)}}]
+
+    a = ruimte.bereken(voornemen, oud, w)["parameters"][0]
+    b = ruimte.bereken(voornemen, nieuw, w)["parameters"][0]
+    assert a["vergund_kg_jaar"] == b["vergund_kg_jaar"]
+
+
 # ---------- service ----------
 
 def test_beeld_bundelt_regels_vergunningen_en_ruimte():
