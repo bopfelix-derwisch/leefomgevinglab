@@ -281,7 +281,13 @@ def test_api_pagina(monkeypatch):
 
 
 def test_beeld_op_vaste_locatie_blijft_hetzelfde_na_de_refactor():
-    """Karakterisering: /gebruiksruimte mag door de refactor niet stilletjes veranderen."""
+    """Karakterisering: /gebruiksruimte mag door de refactor niet stilletjes veranderen.
+
+    Elke verwachte waarde staat hier letterlijk uitgeschreven — niet als verwijzing naar
+    `gebied.REGISTER`/`gebied.LOCATIES`/`service.VERANTWOORDING` — want een test die zichzelf
+    citeert, ziet drift in precies dát wat hij zou moeten bewaken niet. Zo verdween de oude
+    verantwoordingstekst ongemerkt uit een eerdere versie van deze test.
+    """
     b = service.beeld("deventer", debiet_m3_per_uur=420, live=False)
     assert b["locatie"]["gemeente"] == "Deventer"
     assert b["locatie"]["rd"] == [206800.0, 474000.0]
@@ -291,9 +297,56 @@ def test_beeld_op_vaste_locatie_blijft_hetzelfde_na_de_refactor():
         "stikstof totaal", "zink", "AOX", "PFOA"]
     assert b["ruimte"]["conclusie"]["antwoord"] == "nee, tenzij"
     assert b["ruimte"]["conclusie"]["bepalend"] == "PFOA"
-    assert len(b["register"]) == 5
     assert b["max_debiet"] == 20000
     assert len(b["informatiefuncties"]) == 5
+
+    assert b["register"] == [
+        {"naam": "Papierfabriek Gelre B.V.", "plaats": "Zutphen", "kenmerk": "RWS-2019-LOZ-0042",
+         "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 350,
+         "concentraties": {"stikstof totaal": 3.1, "zink": 0.009, "AOX": 0.11, "PFOA": 0.00002}},
+        {"naam": "Zuivelcoöperatie IJsselvallei", "plaats": "Deventer",
+         "kenmerk": "RWS-2021-LOZ-0117", "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 180,
+         "concentraties": {"stikstof totaal": 6.4, "zink": 0.004, "AOX": 0.02, "PFOA": 0.0}},
+        {"naam": "RWZI Deventer — effluent", "plaats": "Deventer", "kenmerk": "RWS-2017-LOZ-0008",
+         "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 2100,
+         "concentraties": {"stikstof totaal": 7.8, "zink": 0.012, "AOX": 0.03, "PFOA": 0.000031}},
+        {"naam": "Metaalwarenfabriek Doesburg", "plaats": "Doesburg",
+         "kenmerk": "RWS-2022-LOZ-0203", "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 95,
+         "concentraties": {"stikstof totaal": 1.2, "zink": 0.21, "AOX": 0.04, "PFOA": 0.0}},
+        {"naam": "Koelwater energiecentrale Harculo", "plaats": "Zwolle",
+         "kenmerk": "RWS-2015-LOZ-0001", "owl_id": "NL93_IJSSEL", "debiet_m3_per_uur": 4500,
+         "concentraties": {"stikstof totaal": 0.3, "zink": 0.001, "AOX": 0.0, "PFOA": 0.0}},
+    ]
+
+    assert b["locaties"] == [
+        {"id": "brummen", "naam": "IJsseloever bij Brummen", "rd": (210500.0, 458500.0),
+         "gemeente": "Brummen", "provincie": "Gelderland", "waterlichaam": "IJssel"},
+        {"id": "deventer", "naam": "IJsseldijk Deventer", "rd": (206800.0, 474000.0),
+         "gemeente": "Deventer", "provincie": "Overijssel", "waterlichaam": "IJssel"},
+        {"id": "doesburg", "naam": "Havengebied Doesburg", "rd": (206000.0, 447500.0),
+         "gemeente": "Doesburg", "provincie": "Gelderland", "waterlichaam": "IJssel"},
+    ]
+
+    assert b["regels"] == {"live": False, "status": "overgeslagen", "regelingen": [],
+                           "bron": "DSO Presenteren (Ozon) — live", "telling": {}}
+
+    assert b["bevoegd_gezag"] == {
+        "lozingsactiviteit": "niet bepaald (bronnen niet bevraagd)",
+        "grondslag": "zonder live-modus valt het bevoegd gezag niet af te leiden",
+        "bron_beheerder": "niet bevraagd",
+        "milieubelastende_activiteit": "de gemeente (niet bepaald)",
+        "gemeente": None, "provincie": None}
+
+    assert b["voornemen"] == {
+        "soort": "directe lozing van koel- en gezuiverd proceswater",
+        "debiet_m3_per_uur": 420.0,
+        "concentraties": {"stikstof totaal": 2.47, "zink": 0.0125, "AOX": 0.084, "PFOA": 0.00024}}
+
+    assert b["verantwoording"] == (
+        "Regelingen live uit het DSO. Het register met bestaande vergunningen bestaat "
+        "landelijk niet; voor het Maasstroomgebied komt het live uit de Atlas voor een "
+        "Schone Maas, daarbuiten is het synthetisch. Normen en achtergrondconcentraties "
+        "zijn illustratief. Het mechanisme is echt, de cijfers niet.")
 
 
 _KRW_MAAS = """{"features":[{"properties":{
@@ -301,7 +354,23 @@ _KRW_MAAS = """{"features":[{"properties":{
     "owltype":"R7","owlcat":"1","owlstat":"Sterk veranderd",
     "wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",
     "wbhcode":"NL_MINIW","omvang":210.0,"eenheid":"km2","gemdiepte":5.0}}]}"""
+# Zelfde vorm als _KRW_MAAS, maar met het owl_id van de IJssel — nodig om de synthetische
+# terugval te raken (zie test_prik_buiten_het_maasstroomgebied_valt_terug_op_synthetisch):
+# prikken op Deventer-coördinaten zegt niets over welk waterlichaam de fixture teruggeeft.
+_KRW_IJSSEL = """{"features":[{"properties":{
+    "naam":"IJssel","owl_id":"NL93_IJSSEL","sgd_id":"NLRN","gebtype":"R",
+    "owltype":"R7","owlcat":"1","owlstat":"Sterk veranderd",
+    "wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",
+    "wbhcode":"NL_MINIW","omvang":300.0,"eenheid":"km2","gemdiepte":4.0}}]}"""
+# Een derde, willekeurig rijkswaterlichaam — noch Maas, noch IJssel — voor de derde
+# registertoestand: geen Atlas-treffer én geen synthetische terugval.
+_KRW_WAAL = """{"features":[{"properties":{
+    "naam":"Waal","owl_id":"NL85_WAAL","sgd_id":"NLRN","gebtype":"R",
+    "owltype":"R7","owlcat":"1","owlstat":"Sterk veranderd",
+    "wbhnaam":"Ministerie van Infrastructuur en Waterstaat (Rijkswaterstaat)",
+    "wbhcode":"NL_MINIW","omvang":300.0,"eenheid":"km2","gemdiepte":4.0}}]}"""
 _GEM_MAASTRICHT = """{"features":[{"properties":{"naam":"Maastricht","ligtInProvincieNaam":"Limburg"}}]}"""
+_GEM_EEN = """{"features":[{"properties":{"naam":"Zutphen","ligtInProvincieNaam":"Gelderland"}}]}"""
 _GEEN = '{"features":[]}'
 
 
@@ -334,13 +403,29 @@ def test_prik_op_de_maas_gebruikt_echte_vergunningen():
     assert b["ruimte"]["parameters"], "de rekensom draait ook op de Maas"
 
 
-def test_prik_buiten_het_maasstroomgebied_valt_terug_op_synthetisch():
+def test_prik_op_de_ijssel_valt_terug_op_synthetisch():
+    """Rijkswater buiten het Maasstroomgebied, maar wél de IJssel: het bekende synthetische
+    register van vijf posten, niet een leeg register — dat zijn twee verschillende dingen."""
     b = service.beeld_op_punt(206800.0, 474000.0, live=True,
-                              _haal_water=_haal_reeks([_KRW_MAAS, _GEM_MAASTRICHT]),
+                              _haal_water=_haal_reeks([_KRW_IJSSEL, _GEM_EEN]),
                               _haal_regels=lambda rd: [],
                               _haal_atlas=lambda x, y, straal_m: [])
     assert b["register_bron"]["echt"] is False
-    assert b["register_bron"]["reden"]
+    assert b["register"] == gebied.REGISTER
+    assert len(b["register"]) == 5
+    assert "Maasstroomgebied" in b["register_bron"]["reden"]
+
+
+def test_prik_op_ander_rijkswater_geeft_leeg_register_zonder_terugval():
+    """Een rijkswater dat noch in de Atlas zit noch de IJssel is: geen synthetische terugval,
+    gewoon een leeg register — de derde, van de andere twee te onderscheiden toestand."""
+    b = service.beeld_op_punt(120000.0, 430000.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_WAAL, _GEM_EEN]),
+                              _haal_regels=lambda rd: [],
+                              _haal_atlas=lambda x, y, straal_m: [])
+    assert b["register_bron"]["echt"] is False
+    assert b["register"] == []
+    assert b["register_bron"]["bron"]["naam"] == "geen"
 
 
 def test_prik_zonder_rijkswater_geeft_geen_rekensom_maar_wel_een_antwoord():
