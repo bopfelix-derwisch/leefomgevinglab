@@ -34,7 +34,6 @@ def test_ontbrekende_coordinaten_geven_422(monkeypatch):
     assert _client(monkeypatch).get("/api/waterruimte").status_code == 422
 
 
-@pytest.mark.xfail(reason="pagina volgt in Task 10")
 def test_kaartpagina_geeft_200_met_de_subnav(monkeypatch):
     r = _client(monkeypatch).get("/waterruimte")
     assert r.status_code == 200
