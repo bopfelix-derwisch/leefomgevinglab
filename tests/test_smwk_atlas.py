@@ -86,3 +86,64 @@ def test_kenmerk_met_apostrof_breekt_de_where_clause_niet(tmp_path):
     c.vergunningen_bij_punt(1.0, 2.0)
     _, p = c.aanroepen[1]
     assert "O''Neill" in p["where"], "apostrof moet verdubbeld worden"
+
+
+def test_blanco_kenmerk_met_verschillende_locatiecode_blijft_apart(tmp_path):
+    """Vier RWZI's van hetzelfde waterschapsbedrijf mogen niet samenvallen tot één post."""
+    vest = {"features": [
+        {"attributes": {"Kenmerk": "", "Statutaire_naam": "Waterschapsbedrijf Limburg",
+                        "Plaats": "Maastricht", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "RWZIB", "Vestigingsnummer_KvK": "000020643233"}},
+        {"attributes": {"Kenmerk": "", "Statutaire_naam": "Waterschapsbedrijf Limburg",
+                        "Plaats": "Maastricht", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "RWZIL", "Vestigingsnummer_KvK": "000020643268"}},
+    ]}
+    c = _NepConnector(tmp_path, [vest])
+    uit = c.vergunningen_bij_punt(1.0, 2.0)
+    assert len(uit) == 2
+    assert {p["kenmerk"] for p in uit} == {None}
+
+
+def test_blanco_kenmerk_met_dezelfde_locatiecode_wordt_een_post(tmp_path):
+    """Een echte duplicaatrij (zelfde Locatiecode) vouwt wél samen."""
+    vest = {"features": [
+        {"attributes": {"Kenmerk": "", "Statutaire_naam": "Bloemen De Maas B.V.",
+                        "Plaats": "Niftrik", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "JWMAAS", "Vestigingsnummer_KvK": "000018363989"}},
+        {"attributes": {"Kenmerk": " ", "Statutaire_naam": "Bloemen De Maas B.V.",
+                        "Plaats": "Niftrik", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "JWMAAS", "Vestigingsnummer_KvK": "000018363989"}},
+    ]}
+    c = _NepConnector(tmp_path, [vest])
+    uit = c.vergunningen_bij_punt(1.0, 2.0)
+    assert len(uit) == 1
+
+
+def test_post_met_blanco_kenmerk_krijgt_kenmerk_none_en_blijft_buiten_where(tmp_path):
+    vest = {"features": [
+        {"attributes": {"Kenmerk": "  ", "Statutaire_naam": "J.P. Havens Graanhandel N.V.",
+                        "Plaats": "Maashees", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "HAVENS", "Vestigingsnummer_KvK": "000006266630"}},
+        {"attributes": {"Kenmerk": "RWS-2015/38632", "Statutaire_naam": "Lawter Maastricht BV",
+                        "Plaats": "Maastricht", "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": None, "Vestigingsnummer_KvK": None}},
+    ]}
+    c = _NepConnector(tmp_path, [vest, {"features": []}])
+    uit = c.vergunningen_bij_punt(1.0, 2.0)
+    havens = next(v for v in uit if v["naam"] == "J.P. Havens Graanhandel N.V.")
+    assert havens["kenmerk"] is None
+    _, p = c.aanroepen[1]
+    assert "HAVENS" not in p["where"]
+    assert p["where"] == "Kenmerk IN ('RWS-2015/38632')"
+
+
+def test_alle_gevonden_vestigingen_blanco_kenmerk_geeft_geen_tweede_aanroep(tmp_path):
+    vest = {"features": [
+        {"attributes": {"Kenmerk": "", "Statutaire_naam": "X", "Plaats": "Y",
+                        "Locatieomschrijving": "", "URL": "",
+                        "Locatiecode": "A", "Vestigingsnummer_KvK": None}},
+    ]}
+    c = _NepConnector(tmp_path, [vest])
+    uit = c.vergunningen_bij_punt(1.0, 2.0)
+    assert len(uit) == 1
+    assert len(c.aanroepen) == 1, "zonder kenmerken hoeft de voorschriftentabel niet bevraagd"
