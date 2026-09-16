@@ -6,7 +6,10 @@ in volgorde:
 
   1. de eenheid is al een vracht (kg/jaar, ton/jaar, kg/dag, kg/week) — direct omrekenen;
   2. de eenheid is een concentratie (mg/l, µg/l) — vracht = concentratie × debiet, mits bij
-     hetzelfde kenmerk een Debiet-voorschrift staat. Dat is zo bij 29 van de 72 vestigingen;
+     hetzelfde kenmerk een bruikbaar Debiet-voorschrift staat. Dat is zo bij 29 van de 72
+     vestigingen. Een Debiet-voorschrift in een eenheid die dit lab niet kent (bijvoorbeeld
+     "kubieke meter per schoonmaakactie") is géén ontbrekend debiet — dat krijgt een eigen
+     reden, niet 'geen debiet-voorschrift';
   3. anders — de vergunning wordt wél getoond, maar zonder vracht en mét een reden.
 
 Die derde categorie is geen tekortkoming om weg te poetsen. Van een vergunning waarin alleen
@@ -108,9 +111,23 @@ def _debiet_m3_per_uur(voorschriften: list[dict]) -> float | None:
     return max(waarden) if waarden else None
 
 
+def _debiet_onherkende_eenheden(voorschriften: list[dict]) -> list[str]:
+    """De originele eenheden van Debiet-voorschriften die er wél zijn, maar niet worden herkend.
+
+    Onderscheidt 'geen debiet-voorschrift' van 'een debiet-voorschrift met een eenheid die dit
+    lab niet kent' (bijvoorbeeld "kubieke meter per schoonmaakactie", zo aangetroffen bij
+    RWS-2016/22336). Dat laatste is geen ontbrekend debiet — er ís een grens gesteld, hij is
+    alleen niet om te rekenen — en verdient dus een andere reden dan 'geen debiet-voorschrift'.
+    """
+    return [v.get("eenheid") for v in voorschriften
+            if _norm(v.get("parameter")) == "debiet" and v.get("waarde") is not None
+            and _DEBIET.get(_norm(v.get("eenheid"))) is None]
+
+
 def _post(post: dict, telling: dict) -> dict:
     voors = _dedupe(post.get("voorschriften") or [])
     debiet = _debiet_m3_per_uur(voors)
+    debiet_onherkend = _debiet_onherkende_eenheden(voors) if debiet is None else []
     kandidaten: dict[str, list[float]] = {}
     onbepaald = []
 
@@ -137,9 +154,15 @@ def _post(post: dict, telling: dict) -> dict:
             telling["vracht_direct"] += 1
         elif eenheid in _CONCENTRATIE:
             if debiet is None:
-                onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"),
-                                  "reden": "concentratie-eis zonder debiet-voorschrift; zonder "
-                                           "debiet is de vracht niet te bepalen"})
+                if debiet_onherkend:
+                    eenheden = ", ".join(sorted(set(debiet_onherkend)))
+                    reden = (f"debiet-voorschrift aanwezig maar in een niet-herkende eenheid "
+                              f"('{eenheden}'); zonder een bruikbaar debiet is de vracht niet "
+                              "te bepalen")
+                else:
+                    reden = ("concentratie-eis zonder debiet-voorschrift; zonder debiet is de "
+                              "vracht niet te bepalen")
+                onbepaald.append({"parameter": lab, "eenheid": v.get("eenheid"), "reden": reden})
                 telling["onbepaald"] += 1
                 continue
             mg_l = float(waarde) * _CONCENTRATIE[eenheid]

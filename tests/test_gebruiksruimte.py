@@ -150,6 +150,37 @@ def test_rekensom_verwerkt_zowel_concentratie_als_voorberekende_vracht():
     assert a["vergund_kg_jaar"] == b["vergund_kg_jaar"]
 
 
+def test_onbepaalde_vracht_blijft_zichtbaar_als_ondergrens_niet_als_nul():
+    """Een post zonder vracht maar mét een 'onbepaald'-vermelding voor deze stof telt niet
+    stilzwijgend als nul mee — vergund_onbepaald telt hem, en de conclusie krijgt een
+    kanttekening dat het totaal een ondergrens is."""
+    w = {"debiet_m3_s": 300.0, "parameters": [
+        {"naam": "zink", "norm_mg_l": 0.0078, "achtergrond_mg_l": 0.0071, "zzs": False,
+         "toelichting": "t"}]}
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {"zink": 0.001}}
+    register = [
+        {"naam": "A", "vrachten": {"zink": 100.0}, "onbepaald": []},
+        {"naam": "B", "vrachten": {}, "onbepaald": [
+            {"parameter": "zink", "eenheid": "milligram per liter",
+             "reden": "concentratie-eis zonder debiet-voorschrift"}]},
+    ]
+    r = ruimte.bereken(voornemen, register, w)
+    p = r["parameters"][0]
+    assert p["vergund_onbepaald"] == 1
+    assert "ondergrens" in r["conclusie"]["kanttekening"].lower()
+
+
+def test_zonder_onbepaalde_vracht_geen_kanttekening_daarover():
+    w = {"debiet_m3_s": 300.0, "parameters": [
+        {"naam": "zink", "norm_mg_l": 0.0078, "achtergrond_mg_l": 0.0071, "zzs": False,
+         "toelichting": "t"}]}
+    voornemen = {"debiet_m3_per_uur": 100.0, "concentraties": {"zink": 0.001}}
+    register = [{"naam": "A", "vrachten": {"zink": 100.0}, "onbepaald": []}]
+    r = ruimte.bereken(voornemen, register, w)
+    assert r["parameters"][0]["vergund_onbepaald"] == 0
+    assert "ondergrens" not in r["conclusie"]["kanttekening"].lower()
+
+
 # ---------- service ----------
 
 def test_beeld_bundelt_regels_vergunningen_en_ruimte():

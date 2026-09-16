@@ -211,3 +211,20 @@ def test_telling_meerdere_grenswaarden_klopt():
     assert d["telling"]["meerdere_grenswaarden"] == 1
     assert d["register"][0]["meerdere_grenswaarden"] == ["stikstof totaal"]
     assert d["register"][1]["meerdere_grenswaarden"] == []
+
+
+# ---------- fix-ronde 3: onherkende debiet-eenheid is geen ontbrekend debiet ----------
+
+def test_debiet_met_onherkende_eenheid_krijgt_een_eigen_reden_geen_ontbrekend_debiet():
+    """RWS-2016/22336 in de echte Atlas draagt 'Debiet 2700 kubieke meter per schoonmaakactie'.
+    Er ís een debiet-voorschrift; het is alleen niet om te rekenen. Dat is iets anders dan
+    'geen debiet-voorschrift', en moet ook zo gemeld worden."""
+    d = ar.naar_register([_post(voorschriften=[
+        _v("zink", 0.3, "milligram per liter"),
+        _v("Debiet", 2700.0, "kubieke meter per schoonmaakactie")])])
+    post = d["register"][0]
+    assert "zink" not in post["vrachten"]
+    reden = post["onbepaald"][0]["reden"]
+    assert "kubieke meter per schoonmaakactie" in reden
+    assert "niet-herkende eenheid" in reden
+    assert "zonder debiet-voorschrift" not in reden
