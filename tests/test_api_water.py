@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 import leefomgevinglab.geluidsmeter.api as api
@@ -28,3 +29,30 @@ def test_waterpagina_bevat_de_subnav_met_actief_overzicht(monkeypatch):
     assert 'class="waternav"' in r.text
     assert r.text.count('aria-current="page"') == 1
     assert "__WATERNAV__" not in r.text, "placeholder is niet vervangen"
+
+
+@pytest.mark.parametrize("pad,actief_label", [
+    ("/gebruiksruimte", "Ruimte"),
+    ("/balo", "Knelpunten"),
+    ("/lozing", "Keten"),
+])
+def test_waterpaginas_dragen_dezelfde_subnav(monkeypatch, pad, actief_label):
+    r = _client(monkeypatch).get(pad)
+    assert r.status_code == 200
+    assert 'class="waternav"' in r.text
+    assert r.text.count('aria-current="page"') == 1
+    assert "__WATERNAV__" not in r.text
+
+
+def test_dvth_is_geen_waterpagina_en_krijgt_de_balk_niet(monkeypatch):
+    """keten-tab.html bedient ook /dvth; die hoort niet in het waterdossier."""
+    r = _client(monkeypatch).get("/dvth")
+    assert r.status_code == 200
+    assert 'class="waternav"' not in r.text
+    assert "__WATERNAV__" not in r.text, "placeholder moet leeg worden vervangen, niet blijven staan"
+
+
+def test_hoofdnav_heeft_een_ingang_naar_het_waterdossier(monkeypatch):
+    r = _client(monkeypatch).get("/")
+    assert 'href="/water"' in r.text
+    assert 'href="/gebruiksruimte"' not in r.text, "opgegaan in het dossier"

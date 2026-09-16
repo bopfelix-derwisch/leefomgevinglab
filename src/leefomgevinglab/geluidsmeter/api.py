@@ -233,9 +233,14 @@ def vth_bronnen_page():
 
 
 def _keten_tab(dossier: str) -> str:
-    """Eén template voor alle doelbeeld-tabs; de dossiernaam bepaalt welke API hij bevraagt."""
+    """Eén template voor alle doelbeeld-tabs; de dossiernaam bepaalt welke API hij bevraagt.
+
+    /lozing hoort bij het waterdossier en krijgt de subnav; /dvth niet — daar wordt de
+    placeholder leeg vervangen.
+    """
     sjabloon = (Path(__file__).parent.parent / "static" / "keten-tab.html").read_text()
-    return sjabloon.replace("__DOSSIER__", dossier)
+    nav = water_hub_mod.subnav_html("keten") if dossier == "lozing" else ""
+    return sjabloon.replace("__DOSSIER__", dossier).replace("__WATERNAV__", nav)
 
 
 @app.get("/dvth", response_class=HTMLResponse)
@@ -298,7 +303,7 @@ def api_evruimte(locatie: str = "botlek", live: int = 1):
 
 @app.get("/gebruiksruimte", response_class=HTMLResponse)
 def gebruiksruimte_page():
-    return (Path(__file__).parent.parent / "static" / "gebruiksruimte.html").read_text()
+    return _waterpagina("gebruiksruimte.html", "ruimte")
 
 
 @app.get("/api/gebruiksruimte")
@@ -312,7 +317,7 @@ def api_gebruiksruimte(locatie: str = "brummen", debiet: float = 420, live: int 
 
 @app.get("/balo", response_class=HTMLResponse)
 def balo_page():
-    return (Path(__file__).parent.parent / "static" / "balo.html").read_text()
+    return _waterpagina("balo.html", "knelpunten")
 
 
 @app.get("/api/balo/overzicht")
