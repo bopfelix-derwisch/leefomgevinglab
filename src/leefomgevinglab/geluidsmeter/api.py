@@ -324,6 +324,28 @@ def api_gebruiksruimte(locatie: str = "brummen", debiet: float = 420, live: int 
         raise HTTPException(status_code=404, detail=f"onbekende locatie: {locatie}")
 
 
+# Ruime RD-bbox rond Nederland inclusief Noordzee-deel; daarbuiten is een prik een tikfout.
+_RD_GRENZEN = (-7000.0, 300000.0, 289000.0, 629000.0)
+
+
+@app.get("/waterruimte", response_class=HTMLResponse)
+def waterruimte_page():
+    return _waterpagina("waterruimte.html", "kaart")
+
+
+@app.get("/api/waterruimte")
+def api_waterruimte(x: float, y: float, debiet: float = 420, live: int = 1):
+    """Wat kan hier nog, op dit punt? Regels en water live; vergunningen echt waar ze bestaan."""
+    xmin, ymin, xmax, ymax = _RD_GRENZEN
+    if not (xmin <= x <= xmax and ymin <= y <= ymax):
+        raise HTTPException(status_code=400,
+                            detail=f"RD-coördinaat buiten Nederland: ({x}, {y})")
+    ll = _config.get("leefomgevinglab", {})
+    straal = ll.get("smwk_atlas", {}).get("straal_m", 5000)
+    return gebruiksruimte_service.beeld_op_punt(x, y, debiet_m3_per_uur=debiet,
+                                                live=bool(live), straal_m=straal)
+
+
 @app.get("/balo", response_class=HTMLResponse)
 def balo_page():
     return _waterpagina("balo.html", "knelpunten")

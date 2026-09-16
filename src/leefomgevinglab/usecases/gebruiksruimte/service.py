@@ -1,4 +1,6 @@
 """Het beeld op een locatie: regels, vergunningen en de ruimte die overblijft."""
+from concurrent.futures import ThreadPoolExecutor
+
 from leefomgevinglab.usecases.lozing_keten import bronnen as water_bronnen
 
 from . import atlas_register, gebied, regels, ruimte, waterprofiel
@@ -89,13 +91,35 @@ def beeld_op_punt(x: float, y: float, debiet_m3_per_uur: float = 420, live: bool
                   naam: str | None = None, straal_m: int = 5000,
                   _haal_regels=None, _haal_water=None, _haal_atlas=None) -> dict:
     """Alles bij elkaar op één punt: waar ben ik, wat geldt hier, wat ligt er al, wat kan er nog?"""
-    water = water_bronnen.contextset(x, y, straal_m=1000, live=live, haal=_haal_water)
-    rijkswater = bool(water.get("rijkswater")) if live else True
-    r = regels.regels_op_locatie(x, y, rijkswater=rijkswater, live=live, _haal=_haal_regels)
-    v = voornemen(debiet_m3_per_uur)
+    # Drie sporen die niets van elkaar nodig hebben; serieel zou elke prik seconden kosten.
+    # De regels hebben `rijkswater` alleen nodig voor hun duiding, niet voor de bevraging —
+    # ze worden daarom vast met rijkswater=True opgehaald en, als dat straks niet blijkt te
+    # kloppen, hieronder opnieuw geduid. `regels.duiding()` raakt geen netwerk, dus die
+    # her-duiding is goedkoop; zou dat ooit veranderen, dan moet deze parallellisatie om.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_water = pool.submit(water_bronnen.contextset, x, y, straal_m=1000, live=live,
+                              haal=_haal_water)
+        f_regels = pool.submit(regels.regels_op_locatie, x, y, rijkswater=True, live=live,
+                               _haal=_haal_regels)
+        water = f_water.result()
+        rijkswater = bool(water.get("rijkswater")) if live else True
+        f_register = pool.submit(_register, x, y, water.get("owl_id"), straal_m, live, _haal_atlas)
+        r = f_regels.result()
+        register, register_bron = f_register.result()
 
+    if not rijkswater:
+        # De duiding van de waterschapsverordening kantelt op regionaal water: van "niet van
+        # toepassing" naar "direct werkend". De regelingen worden opnieuw geduid en de telling
+        # via dezelfde functie als `regels_op_locatie` opnieuw bepaald, zodat de getoonde
+        # telling weer bij de getoonde regelingen past.
+        geduid = [regels.duiding({"titel": g["titel"], "type": g["type"],
+                                  "bevoegd_gezag": g["bevoegd_gezag"]}, rijkswater)
+                 for g in r.get("regelingen", [])]
+        regelingen, telling = regels.samenvatten(geduid)
+        r = {**r, "regelingen": regelingen, "telling": telling}
+
+    v = voornemen(debiet_m3_per_uur)
     p = waterprofiel.profiel(water)
-    register, register_bron = _register(x, y, water.get("owl_id"), straal_m, live, _haal_atlas)
 
     if p.get("afgeleid"):
         u = ruimte.bereken(v, register, waterprofiel.als_waterlichaam(p))

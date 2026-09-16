@@ -76,6 +76,18 @@ def duiding(regeling: dict, rijkswater: bool, tabel: dict | None = None) -> dict
             "betekenis": tekst, "van_toepassing": van_toepassing}
 
 
+def samenvatten(regelingen: list) -> tuple[list, dict]:
+    """Sorteer geduide regelingen en tel ze per werking — gedeeld door `regels_op_locatie` en
+    door een eventuele her-duiding (bijvoorbeeld als achteraf blijkt dat het geen rijkswater is)."""
+    uit = sorted(regelingen, key=lambda r: (r["werking"] != "direct", not r["van_toepassing"],
+                                            r["type"]))
+    telling = {}
+    for r in uit:
+        sleutel = "niet van toepassing" if not r["van_toepassing"] else r["werking"]
+        telling[sleutel] = telling.get(sleutel, 0) + 1
+    return uit, telling
+
+
 def regels_op_locatie(x: float, y: float, rijkswater: bool = True, live: bool = True,
                       _haal=None, maximaal: int = 25, tabel: dict | None = None) -> dict:
     """Haal de geldende regelingen op en classificeer ze. Valt een bron weg, dan gaat de case door."""
@@ -88,12 +100,8 @@ def regels_op_locatie(x: float, y: float, rijkswater: bool = True, live: bool = 
         return {"live": True, "status": "onbereikbaar", "regelingen": [], "bron": BRON,
                 "fout": type(exc).__name__, "telling": {}}
 
-    uit = [duiding(r, rijkswater, tabel) for r in ruw[:maximaal]]
-    uit.sort(key=lambda r: (r["werking"] != "direct", not r["van_toepassing"], r["type"]))
-    telling = {}
-    for r in uit:
-        sleutel = "niet van toepassing" if not r["van_toepassing"] else r["werking"]
-        telling[sleutel] = telling.get(sleutel, 0) + 1
+    geduid = [duiding(r, rijkswater, tabel) for r in ruw[:maximaal]]
+    uit, telling = samenvatten(geduid)
     return {"live": True, "status": "ok", "regelingen": uit, "bron": BRON, "telling": telling}
 
 
