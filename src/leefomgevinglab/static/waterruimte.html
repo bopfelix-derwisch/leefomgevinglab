@@ -68,6 +68,21 @@
     table { width:100%; border-collapse:collapse; font-size:12.5px; }
     td, th { padding:4px 3px; border-bottom:1px solid var(--border); text-align:left; }
     .dim { color:var(--dim); font-size:12px; }
+
+    /* Telefoon: kaart en paneel naast elkaar werkt niet onder ~900px. Het paneel
+       eist 400px, en dan houdt de kaart (flex:1) nul breedte over — hij is er wel,
+       maar onzichtbaar. Onder die breedte stapelen ze, met een kaart die een echte
+       hoogte krijgt in plaats van de restruimte van een flex-rij. */
+    @media (max-width: 900px) {
+      body { height:auto; overflow:auto; }
+      .kolommen { flex-direction:column; }
+      #map { flex:none; height:58vh; min-height:300px; }
+      aside { width:auto; max-height:none; border-left:none;
+              border-top:1px solid var(--border); }
+      .snel { gap:5px; }
+      .snel button { font-size:12px; padding:5px 9px; }
+      .hint { margin-left:0; width:100%; }
+    }
     .kanttekening { color:#e8b84b; font-size:12px; margin:8px 0 0; }
   </style>
 </head>
