@@ -104,12 +104,14 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   Limburg) worden ontdubbeld op `Locatiecode` en blijven met `kenmerk: None` in het register staan
   in plaats van weggefilterd — anders verdwijnen vier rioolwaterzuiveringen. Vrachtafleiding in
   drie lagen (`atlas_register.py`): eenheid is al een vracht → direct; concentratie +
-  debiet-voorschrift → berekend (29 van 72 vestigingen); anders → getoond zonder vracht, met reden
+  debiet-voorschrift → berekend (28 van de 69 posten); anders → getoond zonder vracht, met reden
   (`onbepaald`, voorbehouden aan de stoffen die dit lab volgt; wat erbuiten valt telt als
   `buiten_crosswalk`). Komt een stof met meerdere grenswaarden voor in dezelfde vergunning, dan
-  wordt na ontdubbeling van identieke rijen het **maximum** genomen, niet de som — zichtbaar via
-  `meerdere_grenswaarden` (raakt 50 van de 64 vergunningen, dus geen randgeval maar een wezenlijk
-  kenmerk van de aanpak). Waar de vracht van sommige vergunningen niet te bepalen viel, is het
+  wordt na ontdubbeling van identieke rijen het **maximum** genomen, niet de som. Twee getallen
+  die je uit elkaar moet houden: **47 van de 64** vergunningen in de bron dragen voor minstens
+  één stof meer dan één grenswaarde — dáárom is optellen fout — terwijl het veld
+  `meerdere_grenswaarden` er **9 van de 63** posten mét kenmerk mee markeert, omdat het alleen
+  gaat over de drie stoffen die dit lab volgt. Waar de vracht van sommige vergunningen niet te bepalen viel, is het
   vergunde totaal een **ondergrens**; `ruimte.bereken()` meldt dat expliciet in een kanttekening.
   Let op: de Atlas-lagen zijn publiek maar dragen **geen expliciete licentie** — live bevragen met
   bronvermelding, nooit kopiëren. PFOA komt er niet in voor, terwijl dat juist de stof is waarvan

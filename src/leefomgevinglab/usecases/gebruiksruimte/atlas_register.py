@@ -6,8 +6,8 @@ in volgorde:
 
   1. de eenheid is al een vracht (kg/jaar, ton/jaar, kg/dag, kg/week) — direct omrekenen;
   2. de eenheid is een concentratie (mg/l, µg/l) — vracht = concentratie × debiet, mits bij
-     hetzelfde kenmerk een bruikbaar Debiet-voorschrift staat. Dat is zo bij 29 van de 72
-     vestigingen. Een Debiet-voorschrift in een eenheid die dit lab niet kent (bijvoorbeeld
+     hetzelfde kenmerk een bruikbaar Debiet-voorschrift staat. Dat is zo bij 28 van de 69
+     posten (posten ná ontdubbeling, niet de 72 ruwe features uit de bron). Een Debiet-voorschrift in een eenheid die dit lab niet kent (bijvoorbeeld
      "kubieke meter per schoonmaakactie") is géén ontbrekend debiet — dat krijgt een eigen
      reden, niet 'geen debiet-voorschrift';
   3. anders — de vergunning wordt wél getoond, maar zonder vracht en mét een reden.
