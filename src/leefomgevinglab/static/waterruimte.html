@@ -12,7 +12,12 @@
             --tekst:#e0e6ed; --accent:#2ecc8f; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--tekst);
-           font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+           font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
+           /* flex-kolom: de kaart vult wat er overblijft, ongeacht hoeveel
+              balken erboven staan. Een vaste calc(100vh - Npx) klopt niet zodra
+              er een balk bij komt of de header op een smal scherm omklapt. */
+           display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+    header, .waternav, .snel { flex:none; }
     header { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
              padding:14px 20px; border-bottom:1px solid var(--border); }
     header h1 { font-size:16px; margin:0; font-weight:600; }
@@ -41,7 +46,7 @@
     .snel button:hover { border-color:var(--accent); }
     .hint { color:var(--dim); font-size:12px; margin-left:auto; }
 
-    .kolommen { display:flex; height:calc(100vh - 110px); }
+    .kolommen { display:flex; flex:1; min-height:0; }
     #map { flex:1; }
     aside { width:400px; overflow-y:auto; background:var(--paneel);
             border-left:1px solid var(--border); padding:16px; }
@@ -102,7 +107,13 @@
 
     const map = new maplibregl.Map({
       container: "map",
-      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      // PDOK BRT-achtergrondkaart, net als /evruimte. Een externe vector-stijl
+      // trekt sprite-, glyph- én tile-hosts mee; deze rasterbron is er één.
+      style: { version: 8,
+        sources: { brt: { type: "raster",
+          tiles: ["https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png"],
+          tileSize: 256, attribution: "PDOK BRT-achtergrondkaart" } },
+        layers: [{ id: "brt", type: "raster", source: "brt" }] },
       center: [5.7, 52.0], zoom: 6.6,
     });
     map.addControl(new maplibregl.NavigationControl(), "top-right");
