@@ -59,3 +59,16 @@ def test_hoofdnav_heeft_een_ingang_naar_het_waterdossier(monkeypatch):
     r = _client(monkeypatch).get("/")
     assert 'href="/water"' in r.text
     assert 'href="/gebruiksruimte"' not in r.text, "opgegaan in het dossier"
+
+
+@pytest.mark.parametrize("pad", ["/water", "/waterruimte", "/gebruiksruimte", "/lozing", "/balo"])
+def test_alle_waterpaginas_delen_hetzelfde_kleurenpalet(monkeypatch, pad):
+    """Bevinding 11 van de eindreview: /water en /waterruimte draaiden op `--bg:#0a1420` met
+    `--paneel`/`--tekst`, de rest op `--bg:#080c14` met `--panel`/`--text` — klikken van
+    Overzicht naar Ruimte in dezelfde subnav veranderde zo de achtergrondkleur van de site."""
+    r = _client(monkeypatch).get(pad)
+    assert r.status_code == 200
+    assert "--bg:#080c14" in r.text, f"{pad} gebruikt niet de meerderheidsachtergrond"
+    assert "--paneel" not in r.text and "--tekst" not in r.text, (
+        f"{pad} gebruikt nog het oude palet")
+    assert "#0a1420" not in r.text, f"{pad} gebruikt nog de oude achtergrondkleur"

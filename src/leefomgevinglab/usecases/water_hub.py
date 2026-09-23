@@ -70,9 +70,8 @@ ATLAS = {
     "houder": "Schone Maaswaterketen — waterschappen Aa en Maas, Brabantse Delta, De Dommel en "
               "Limburg, met Rijkswaterstaat en de drinkwaterbedrijven",
     "wat_er_al_is": [
-        "72 vestigingen met een directe lozingsvergunning, als punt op de kaart",
+        "69 posten met 63 directe lozingsvergunningen, als punt op de kaart",
         "782 vergunde voorschriften over 68 parameters, met kenmerk en besluitdatum",
-        "meetgegevens van 38 stoffen, vier keer per jaar sinds 2023",
     ],
     "wat_dit_lab_toevoegt": [
         "de optelsom: vergunde vrachten bij elkaar, afgezet tegen de norm van het waterlichaam",

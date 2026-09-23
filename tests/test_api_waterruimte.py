@@ -42,6 +42,16 @@ def test_kaartpagina_geeft_200_met_de_subnav(monkeypatch):
     assert "/api/waterruimte" in r.text
 
 
+def test_kaartpagina_toont_een_regelsstoring_als_storing(monkeypatch):
+    """Bevinding 7 van de eindreview: /gebruiksruimte toont bij een DSO-storing netjes 'DSO
+    onbereikbaar', maar /waterruimte las hetzelfde antwoordobject en drukte dan 'geen
+    regelingen' af — omdat `telling` bij status 'onbereikbaar' leeg is. De pagina moet
+    `regels.status` bekijken, zoals /gebruiksruimte dat al deed, in plaats van alleen op een
+    lege telling af te gaan."""
+    r = _client(monkeypatch).get("/waterruimte")
+    assert "regelsStatus" in r.text and "onbereikbaar" in r.text
+
+
 # ---------- her-duiding op regionaal water (controller-ruling 2) ----------
 
 def _haal_reeks(antwoorden):

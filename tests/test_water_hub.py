@@ -54,6 +54,18 @@ def test_subnav_ontsnapt_geen_html_uit_de_labels():
     assert re.search(r'<nav[^>]*class="waternav"', html)
 
 
+def test_atlas_cijfers_zijn_gemeten_niet_overdreven():
+    """Bevinding 6 van de eindreview: laag 0 telt 72 rúwe features, maar 7 daarvan dragen geen
+    vergunningkenmerk en één is een letterlijk duplicaat; na ontdubbeling zijn het 69 posten met
+    63 vergunningen (gemeten tegen de bron, 2026-09-23). De ongeverifieerde bewering over
+    meetgegevens ('38 stoffen, vier keer per jaar sinds 2023') stond als feit over andermans
+    dataset op een publieke pagina en is geschrapt."""
+    tekst = " ".join(wh.ATLAS["wat_er_al_is"])
+    assert "69 posten" in tekst and "63" in tekst
+    assert "72 vestigingen" not in tekst
+    assert "38 stoffen" not in tekst
+
+
 def test_overzicht_levert_alles_wat_de_pagina_nodig_heeft():
     o = wh.overzicht()
     assert o["leden"] == wh.LEDEN
