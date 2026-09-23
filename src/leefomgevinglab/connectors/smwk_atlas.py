@@ -7,7 +7,8 @@ Nederland ontbreekt.
 
 Twee lagen op één FeatureServer:
   * laag 0 — de vestigingen als punt (72 stuks), ruimtelijk bevraagbaar;
-  * tabel 2 — de vergunde voorschriften (782 stuks), gekoppeld via `Kenmerk`.
+  * tabel 2 — de vergunde voorschriften (782 stuks), gekoppeld via `Kenmerk` en, voor de 29
+    rijen zonder kenmerk, via `Locatiecode`.
 
 De ruimtelijke query gaat rechtstreeks op RD (`inSR=28992`). Geverifieerd 2026-09-16: een punt
 bij Maastricht geeft 11 vestigingen binnen 5 km, een punt bij Deventer nul.
@@ -23,7 +24,7 @@ bevragen met bronvermelding, en geen kopie van de dataset in deze repo.
 """
 from datetime import datetime, timezone
 
-from .base import BaseConnector
+from .base import BaseConnector, ConnectorError
 
 BASIS = ("https://services-eu1.arcgis.com/S0XTphM6W3v0bENW/arcgis/rest/services/"
          "Vestigingen_Vergunningen_Uniek/FeatureServer")
@@ -31,7 +32,7 @@ BASIS = ("https://services-eu1.arcgis.com/S0XTphM6W3v0bENW/arcgis/rest/services/
 _VESTIGING_VELDEN = ("Kenmerk,Statutaire_naam,Plaats,Locatieomschrijving,URL,"
                      "Locatiecode,Vestigingsnummer_KvK")
 _VOORSCHRIFT_VELDEN = ("Kenmerk,Parameter,Waarde,Eenheid,Besluitdatum,Bemonsteringswijze,"
-                       "meetpunt_X_Coordinaat,meetpunt_Y_Coordinaat")
+                       "meetpunt_X_Coordinaat,meetpunt_Y_Coordinaat,Locatiecode")
 
 BRON = {"naam": "Atlas voor een Schone Maas", "url": "https://atlas-smwk.hub.arcgis.com/",
         "houder": "Schone Maaswaterketen"}
@@ -53,6 +54,26 @@ class SmwkAtlasConnector(BaseConnector):
         super().__init__(cache_dir=cache_dir, timeout=timeout, cache_ttl=cache_ttl)
         self.base_url = (base_url or BASIS).rstrip("/")
 
+    def _query(self, laag: str, params: dict) -> dict:
+        """Haalt op bij `laag` en bewaakt tegen een ArcGIS-storing die zich vermomt als HTTP 200.
+
+        ArcGIS geeft bij een fout gewoon status 200 met een `error`-object in de body — dat is
+        geen HTTP-fout, dus `BaseConnector.get_json` ziet hem niet. Onbehandeld zou zo'n antwoord
+        als "geen features" doorkomen (en dan ook nog een dag gecachet blijven), terwijl de bron
+        gewoon stuk was — met als gevolg dat `service._register()` de inhoudelijke boodschap
+        "geen vergunningen in de Atlas" meldt over een storing. Hier alsnog een `ConnectorError`
+        gooien zodat het bestaande except-pad het wél als onbereikbaar meldt, en de cache-file van
+        déze aanroep meteen weggooien zodat de storing niet blijft hangen.
+        """
+        url = f"{self.base_url}/{laag}/query"
+        data = self.get_json(url, params)
+        if isinstance(data, dict) and "error" in data:
+            cp = self._cache_path(url, params)
+            if cp.exists():
+                cp.unlink()
+            raise ConnectorError(f"Atlas-fout bij {url}: {data['error']}")
+        return data
+
     def vergunningen_bij_punt(self, x: float, y: float, straal_m: int = 5000) -> list[dict]:
         """De vergunde vestigingen binnen `straal_m` van dit RD-punt, met hun voorschriften.
 
@@ -63,8 +84,14 @@ class SmwkAtlasConnector(BaseConnector):
         `locatiecode` en `vestigingsnummer_kvk` gaan om diezelfde reden mee de post in: zonder
         kenmerk zijn het de enige velden die twee naamgenoten (bv. de RWZI's van Waterschapsbedrijf
         Limburg) nog uit elkaar houden.
+
+        De voorschriftentabel koppelt normaal via `Kenmerk`, maar 29 van haar rijen (o.a. de
+        RWZI's van Waterschapsbedrijf Limburg en de havenbedrijven) dragen zelf géén kenmerk en
+        dus wél altijd een `Locatiecode`. Zonder een tweede koppeling op dat veld blijven precies
+        de posten zonder kenmerk — vaak de grootste lozers — zonder voorschrift, en dus zonder
+        vracht: ze tellen dan mee als 0 kg/jaar in plaats van als 'onbepaald'.
         """
-        vest = self.get_json(f"{self.base_url}/0/query", {
+        vest = self._query("0", {
             "geometry": f"{x},{y}", "geometryType": "esriGeometryPoint", "inSR": 28992,
             "spatialRel": "esriSpatialRelIntersects", "distance": straal_m,
             "units": "esriSRUnit_Meter", "outFields": _VESTIGING_VELDEN,
@@ -101,17 +128,10 @@ class SmwkAtlasConnector(BaseConnector):
         if not posten:
             return []
 
-        by_kenmerk = {p["kenmerk"]: p for p in posten.values() if p["kenmerk"]}
-        if by_kenmerk:
-            # ArcGIS kent geen parameterbinding; apostrofs verdubbelen is de SQL-conventie.
-            lijst = ",".join("'" + k.replace("'", "''") + "'" for k in by_kenmerk)
-            voors = self.get_json(f"{self.base_url}/2/query", {
-                "where": f"Kenmerk IN ({lijst})", "outFields": _VOORSCHRIFT_VELDEN,
-                "returnGeometry": "false", "f": "json",
-            })
-            for f in voors.get("features") or []:
+        def _koppel(features, vind_post):
+            for f in features or []:
                 a = f.get("attributes") or {}
-                post = by_kenmerk.get(a.get("Kenmerk"))
+                post = vind_post(a)
                 if post is None:
                     continue
                 post["voorschriften"].append({
@@ -120,5 +140,28 @@ class SmwkAtlasConnector(BaseConnector):
                     "rd": [a.get("meetpunt_X_Coordinaat"), a.get("meetpunt_Y_Coordinaat")],
                 })
                 post["besluitdatum"] = post["besluitdatum"] or _datum(a.get("Besluitdatum"))
+
+        by_kenmerk = {p["kenmerk"]: p for p in posten.values() if p["kenmerk"]}
+        if by_kenmerk:
+            # ArcGIS kent geen parameterbinding; apostrofs verdubbelen is de SQL-conventie.
+            lijst = ",".join("'" + k.replace("'", "''") + "'" for k in by_kenmerk)
+            voors = self._query("2", {
+                "where": f"Kenmerk IN ({lijst})", "outFields": _VOORSCHRIFT_VELDEN,
+                "returnGeometry": "false", "f": "json",
+            })
+            _koppel(voors.get("features"), lambda a: by_kenmerk.get(a.get("Kenmerk")))
+
+        # Posten zonder kenmerk (zie docstring) koppelen op Locatiecode. De where-clause test
+        # expliciet op NULL én op lege string — een eerdere controle zocht op één spatie en vond
+        # daardoor niets, terwijl de bron zijn lege kenmerken als NULL of '' opslaat.
+        by_locatiecode = {p["locatiecode"]: p for p in posten.values()
+                          if not p["kenmerk"] and p["locatiecode"]}
+        if by_locatiecode:
+            lijst = ",".join("'" + k.replace("'", "''") + "'" for k in by_locatiecode)
+            voors = self._query("2", {
+                "where": f"(Kenmerk IS NULL OR Kenmerk = '') AND Locatiecode IN ({lijst})",
+                "outFields": _VOORSCHRIFT_VELDEN, "returnGeometry": "false", "f": "json",
+            })
+            _koppel(voors.get("features"), lambda a: by_locatiecode.get(a.get("Locatiecode")))
 
         return list(posten.values())

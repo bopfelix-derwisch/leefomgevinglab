@@ -34,3 +34,44 @@ def test_de_velden_uit_de_spec_bestaan_nog(tmp_path):
     uit = c.vergunningen_bij_punt(177748.0, 321314.0, straal_m=5000)
     v = next(v for v in uit if v["voorschriften"])["voorschriften"][0]
     assert {"parameter", "waarde", "eenheid"} <= set(v)
+
+
+def test_posten_zonder_kenmerk_krijgen_hun_voorschriften_via_locatiecode(tmp_path):
+    """Bevinding 1 van de eindreview: tabel 2 draagt 29 rijen met een leeg/NULL Kenmerk, verdeeld
+    over zes Locatiecodes (HAVENS 7, RWZIB/RWZIL/RWZIW 5, RWZIV 4, JWMAAS 3) — geverifieerd
+    2026-09-23. Zonder een koppeling op Locatiecode blijven die posten, waaronder vier
+    rioolwaterzuiveringen, zonder voorschrift en dus zonder vracht."""
+    c = SmwkAtlasConnector(cache_dir=str(tmp_path))
+    uit = c.vergunningen_bij_punt(177748.0, 321314.0, straal_m=5000)
+    gevonden = {v["locatiecode"] for v in uit if v["locatiecode"]}
+    verwacht = {"HAVENS", "RWZIB", "RWZIL", "RWZIW", "RWZIV", "JWMAAS"}
+    aanwezig = verwacht & gevonden
+    assert aanwezig, "geen van de zes bekende locatiecodes binnen dit punt gevonden"
+    for locatiecode in aanwezig:
+        post = next(v for v in uit if v["locatiecode"] == locatiecode)
+        assert post["voorschriften"], f"{locatiecode} heeft geen voorschriften gekregen"
+
+
+def test_rwzib_en_rwzil_krijgen_een_stikstofmelding_in_plaats_van_stilzwijgend_niets():
+    """De kernregressie uit de eindreview: RWZIB en RWZIL dragen een stikstof-grenswaarde van
+    15 mg/l, maar zonder de Locatiecode-koppeling kregen ze helemaal geen voorschriften en dus
+    ook geen 'onbepaald'-vermelding — ze telden stilzwijgend als 0 kg/jaar mee in
+    `vergund_kg_jaar`. Geverifieerd 2026-09-23: geen van beide draagt een Debiet-voorschrift, dus
+    een vracht is (terecht) niet te berekenen — maar dat moet nu als 'onbepaald' zichtbaar zijn,
+    niet als niets."""
+    import tempfile
+
+    from leefomgevinglab.usecases.gebruiksruimte import atlas_register
+
+    with tempfile.TemporaryDirectory() as td:
+        c = SmwkAtlasConnector(cache_dir=td)
+        posten = c.vergunningen_bij_punt(177748.0, 321314.0, straal_m=5000)
+    d = atlas_register.naar_register(posten)
+    register = {p["locatiecode"]: p for p in d["register"] if p["locatiecode"] in ("RWZIB", "RWZIL")}
+    assert set(register) == {"RWZIB", "RWZIL"}, "RWZIB/RWZIL niet binnen dit punt gevonden"
+    for locatiecode, post in register.items():
+        stoffen_onbepaald = {o["parameter"] for o in post["onbepaald"]}
+        heeft_vracht = "stikstof totaal" in post["vrachten"]
+        heeft_onbepaald = "stikstof totaal" in stoffen_onbepaald
+        assert heeft_vracht or heeft_onbepaald, (
+            f"{locatiecode} draagt geen enkele stikstofmelding — nog steeds stilzwijgend 0")
