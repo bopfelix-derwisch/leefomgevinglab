@@ -53,20 +53,34 @@ def _atlas_standaard(x: float, y: float, straal_m: int):
     return c.vergunningen_bij_punt(x, y, straal_m=straal_m)
 
 
+def _terugval(owl_id: str | None, status: str, reden: str, fout: str | None = None) -> tuple[list, dict]:
+    """De terugval als de Atlas niet bevraagd is (`live=False`) of niet bereikbaar was.
+
+    Het synthetische IJssel-register is alleen het juiste antwoord wanneer het punt daadwerkelijk
+    de IJssel is (`owl_id == "NL93_IJSSEL"`). Vóór deze fix viel élke storing — en ook `live=0` —
+    terug op `gebied.REGISTER`, ook op een punt in de Grensmaas: dan verscheen "Papierfabriek
+    Gelre (Zutphen)", "RWZI Deventer" en "Koelwater Harculo (Zwolle)" als wat er bij Maastricht al
+    ligt, met 175.909 kg/jaar stikstof erbij opgeteld. Overal elders blijft het register nu leeg.
+    """
+    op_de_ijssel = owl_id == "NL93_IJSSEL"
+    d = {"echt": False, "status": status, "reden": reden,
+        "bron": {"naam": "synthetisch register van dit lab" if op_de_ijssel else "geen"}}
+    if fout is not None:
+        d["fout"] = fout
+    return (list(gebied.REGISTER) if op_de_ijssel else []), d
+
+
 def _register(x, y, owl_id, straal_m, live, haal) -> tuple[list, dict]:
     """Echte vergunningen waar ze bestaan, synthetische waar dat niet zo is."""
     if not live:
-        return list(gebied.REGISTER), {
-            "echt": False, "status": "overgeslagen",
-            "reden": "zonder live-modus wordt de Atlas niet bevraagd",
-            "bron": {"naam": "synthetisch register van dit lab"}}
+        return _terugval(owl_id, "overgeslagen", "zonder live-modus wordt de Atlas niet bevraagd")
     try:
         posten = (haal or _atlas_standaard)(x, y, straal_m)
     except Exception as exc:
-        return list(gebied.REGISTER), {
-            "echt": False, "status": "onbereikbaar", "fout": type(exc).__name__,
-            "reden": "de Atlas was niet bereikbaar; teruggevallen op het synthetische register",
-            "bron": {"naam": "synthetisch register van dit lab"}}
+        return _terugval(owl_id, "onbereikbaar",
+                         "de Atlas was niet bereikbaar; teruggevallen op het synthetische "
+                         "register waar dat past (de IJssel) en anders op een leeg register",
+                         fout=type(exc).__name__)
 
     if posten:
         d = atlas_register.naar_register(posten)
@@ -150,9 +164,19 @@ def beeld(locatie_id: str, debiet_m3_per_uur: float = 420, live: bool = True,
           _haal_regels=None, _haal_water=None) -> dict:
     """De gecureerde drieluik-variant: een vaste locatie aan de IJssel.
 
-    Dunne wrapper om `beeld_op_punt`, met het vaste IJssel-waterlichaam en -register in plaats
-    van een afgeleid profiel — zodat /gebruiksruimte precies blijft antwoorden wat hij altijd al
-    antwoordde.
+    Géén dunne wrapper om `beeld_op_punt` — die roept deze functie nergens aan en herhaalt in
+    plaats daarvan de hele orkestratie (water ophalen, regels, ruimte berekenen). Dat is bewust
+    zo, niet vergeten op te ruimen: `beeld_op_punt` leidt het waterlichaam áf uit de KRW-service
+    (`waterprofiel.profiel()`), met illustratieve normen die per KRW-categorie geschat worden.
+    Voor de drie vaste IJssel-locaties bestaat dat beeld allang, exact, in `gebied.WATERLICHAAM`
+    en `gebied.REGISTER` — en deze functie moet dát antwoord blijven geven, niet een via een
+    generieke afleiding herbereken variant die toevallig dezelfde locatie treft. Zolang
+    `beeld_op_punt` geen manier heeft om een vast waterlichaam en register mee te krijgen in
+    plaats van ze zelf af te leiden, zou er wél een wrapper van maken hier stilletjes andere
+    getallen opleveren — precies wat `test_beeld_op_vaste_locatie_blijft_hetzelfde_na_de_refactor`
+    bewaakt. De twee paden blijven dus voorlopig naast elkaar bestaan; een verbetering aan
+    `beeld_op_punt` (de her-duiding van regels, de registerkeuze) bereikt `/gebruiksruimte` pas
+    zodra die overname er is.
     """
     loc = gebied.LOCATIES[locatie_id]                 # KeyError bij onbekende locatie: luid falen
     x, y = loc["rd"]

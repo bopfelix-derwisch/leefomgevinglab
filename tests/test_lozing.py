@@ -143,6 +143,17 @@ def test_contextset_neemt_het_watertype_en_de_beheerder_over():
     assert cs["gemiddelde_diepte"] == 4.2
 
 
+def test_contextset_geeft_gemdiepte_ongefilterd_door():
+    """`contextset()` is een rauwe doorgeefluik; de sentinel-filtering (bevinding 4 van de
+    eindreview) hoort thuis in `waterprofiel.profiel()`, niet hier. De KRW-service levert
+    `gemdiepte` in de praktijk altijd als -9999 (geverifieerd 2026-09-23 op alle 54 vlakken en
+    35 lijnen) — deze fixture gebruikt die echte sentinel, in plaats van het 4.2 hierboven dat de
+    bron nooit levert, om dat passthrough-gedrag te bewaken."""
+    met_sentinel = _KRW_VLAK.replace('"gemdiepte":4.2', '"gemdiepte":-9999')
+    cs = lb.contextset(206800.0, 474000.0, haal=_nep_haal([met_sentinel, _GEMEENTE]))
+    assert cs["gemiddelde_diepte"] == -9999
+
+
 def test_bevoegd_gezag_noemt_de_beheerder_uit_de_bron():
     cs = lb.contextset(206800.0, 474000.0, haal=_nep_haal([_KRW_VLAK, _GEMEENTE]))
     bg = lb.bevoegd_gezag(cs)

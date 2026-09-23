@@ -280,6 +280,16 @@ def test_api_pagina(monkeypatch):
     assert r.status_code == 200 and "api/gebruiksruimte" in r.text
 
 
+def test_hero_en_voettekst_vertellen_hetzelfde_verhaal(monkeypatch):
+    """Bevinding 8 van de eindreview: de hero zei plat 'het register bestaat niet', terwijl de
+    voettekst (gevuld met `service.VERANTWOORDING`) 'landelijk niet' zegt — voor het
+    Maasstroomgebied komt het wél live uit de Atlas. Beide teksten moeten 'landelijk' gebruiken."""
+    import re
+    r = _client(monkeypatch).get("/gebruiksruimte")
+    genormaliseerd = re.sub(r"\s+", " ", r.text)
+    assert "bestaat landelijk niet" in genormaliseerd
+
+
 def test_beeld_op_vaste_locatie_blijft_hetzelfde_na_de_refactor():
     """Karakterisering: /gebruiksruimte mag door de refactor niet stilletjes veranderen.
 
@@ -449,3 +459,44 @@ def test_atlas_storing_laat_de_rest_van_het_beeld_staan():
     assert b["water"]["naam"] == "Maas"
     assert b["register_bron"]["status"] == "onbereikbaar"
     assert b["ruimte"] is not None
+
+
+def test_atlas_storing_op_de_maas_valt_niet_terug_op_het_ijssel_register():
+    """Bevinding 2 van de eindreview: een Atlas-storing zette vijf IJsselbedrijven op de Maas.
+    Op een punt dat niet de IJssel is, hoort een storing op het lege register terug te vallen,
+    niet op `gebied.REGISTER` — anders toont het paneel 'Papierfabriek Gelre (Zutphen)' als wat
+    er bij Maastricht al ligt."""
+    def stuk(x, y, straal_m):
+        raise RuntimeError("Atlas plat")
+
+    b = service.beeld_op_punt(177748.0, 321314.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_MAAS, _GEM_MAASTRICHT]),
+                              _haal_regels=lambda rd: [], _haal_atlas=stuk)
+    assert b["register"] == []
+    assert b["register_bron"]["bron"]["naam"] == "geen"
+    namen = {v["naam"] for v in gebied.REGISTER}
+    assert not (namen & {v["naam"] for v in b["register"]})
+
+
+def test_atlas_storing_op_de_ijssel_valt_wel_terug_op_het_synthetische_register():
+    """Op de IJssel zelf blijft het synthetische register — met zijn vijf bekende posten — wél
+    het juiste antwoord bij een storing; dat is geen bug, dat is precies wat het lab daar wil
+    tonen."""
+    def stuk(x, y, straal_m):
+        raise RuntimeError("Atlas plat")
+
+    b = service.beeld_op_punt(206800.0, 474000.0, live=True,
+                              _haal_water=_haal_reeks([_KRW_IJSSEL, _GEM_EEN]),
+                              _haal_regels=lambda rd: [], _haal_atlas=stuk)
+    assert b["register"] == gebied.REGISTER
+    assert b["register_bron"]["status"] == "onbereikbaar"
+
+
+def test_zonder_live_valt_terug_op_leeg_register_tenzij_het_de_ijssel_is():
+    """`live=0` mag hetzelfde synthetische IJssel-register nooit als algemeen antwoord tonen op
+    een willekeurig punt. Zonder live-modus is er geen owl_id bekend (de bronnen worden niet
+    bevraagd), dus valt het register overal leeg terug."""
+    b = service.beeld_op_punt(177748.0, 321314.0, live=False)
+    assert b["register"] == []
+    assert b["register_bron"]["status"] == "overgeslagen"
+    assert b["register_bron"]["bron"]["naam"] == "geen"

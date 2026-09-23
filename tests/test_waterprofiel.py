@@ -13,8 +13,28 @@ _KUST = {**_IJSSEL, "waterlichaam": "Waddenzee", "owl_id": "NL81_1",
          "watertype": "K2", "watercategorie": "3", "omvang": 2154.51, "gemiddelde_diepte": 3.0}
 _OVERGANG = {**_IJSSEL, "waterlichaam": "Eems-Dollard", "owl_id": "NL92_EEMSDOLLARD",
              "watertype": "O2", "watercategorie": "4", "omvang": 500.0, "gemiddelde_diepte": 5.0}
+_TERRITORIAAL = {**_IJSSEL, "waterlichaam": "Maas territoriaal water", "owl_id": "NL95_MAAS_TEW",
+                 "watertype": "K0", "watercategorie": "5", "omvang": 300.0, "gemiddelde_diepte": 8.0}
 _ONBEKEND = {**_IJSSEL, "waterlichaam": "Onbekend water", "owl_id": "NL00_ONBEKEND",
              "watertype": None, "watercategorie": "9", "omvang": 10.0}
+# De KRW-service levert `gemdiepte` in de praktijk nooit als een echte meting: geverifieerd
+# 2026-09-23 dat het veld in alle 54 vlakken en 35 lijnen exact -9999 is. De andere fixtures
+# hierboven gebruiken 4.2 e.d. om andere aspecten van het profiel te testen; deze fixture bestaat
+# specifiek om die sentinel zelf te toetsen.
+_IJSSEL_SENTINEL = {**_IJSSEL, "gemiddelde_diepte": -9999}
+
+
+def test_gemdiepte_sentinel_wordt_geen_none():
+    """Bevinding 4 van de eindreview: de KRW-service levert `gemdiepte` nooit als echte meting —
+    het veld is in alle 54 vlakken en 35 lijnen exact -9999 (geverifieerd 2026-09-23). Ongefilterd
+    kwam dat als `water.gemiddelde_diepte: -9999` de API uit, gepresenteerd als een getal."""
+    p = wp.profiel(_IJSSEL_SENTINEL)
+    assert p["echt"]["gemiddelde_diepte"] is None
+
+
+def test_een_echte_positieve_diepte_blijft_gewoon_staan():
+    p = wp.profiel(_IJSSEL)
+    assert p["echt"]["gemiddelde_diepte"] == 4.2
 
 
 def test_het_echte_deel_komt_ongewijzigd_uit_de_bron():
@@ -67,13 +87,23 @@ def test_spectrum_blijft_intact_in_elke_categorie():
     parameters ruimte (achtergrond < norm), en heeft PFOA die nooit. Zonder deze garantie klapt
     het parameterspectrum in: met de oorspronkelijke kust- en overgangsfactor hield nog maar 1
     van de 4 parameters ruimte, en kreeg een bezoeker die daar prikt overal 'geen ruimte'."""
-    for cs in (_IJSSEL, _MEER, _KUST, _OVERGANG, _ONBEKEND):
+    for cs in (_IJSSEL, _MEER, _KUST, _OVERGANG, _TERRITORIAAL, _ONBEKEND):
         parameters = wp.profiel(cs)["afgeleid"]["parameters"]
         met_ruimte = [p for p in parameters if p["achtergrond_mg_l"] < p["norm_mg_l"]]
         assert len(met_ruimte) >= 2, cs["watercategorie"]
 
         pfoa = next(p for p in parameters if p["naam"] == "PFOA")
         assert pfoa["achtergrond_mg_l"] >= pfoa["norm_mg_l"], cs["watercategorie"]
+
+
+def test_categorie_5_is_geen_terugval_meer():
+    """Bevinding 10 van de eindreview: owlcat '5' (de vier territoriale wateren) viel voorheen
+    in de terugval 'onbekend type'. Geverifieerd 2026-09-23 dat categorie 5 live voorkomt bij
+    Eems/Maas/Rijn/Schelde territoriaal water, watertype K0."""
+    p = wp.profiel(_TERRITORIAAL)
+    assert p["volledig"] is True
+    assert p["afgeleid"]["categorie_naam"] == "territoriaal water"
+    assert "terugval" not in p["herkomst"]["debiet_m3_s"]
 
 
 def test_onbekende_categorie_valt_terug_zonder_te_knallen():

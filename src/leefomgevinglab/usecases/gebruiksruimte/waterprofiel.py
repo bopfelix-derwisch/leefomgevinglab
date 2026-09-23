@@ -17,7 +17,9 @@ rest staan.
 
 import math
 
-# Basisprofielen per KRW-categorie: 1 rivier, 2 meer, 3 kust, 4 overgangswater.
+# Basisprofielen per KRW-categorie: 1 rivier, 2 meer, 3 kust, 4 overgangswater, 5 territoriaal
+# water (Eems, Maas, Rijn, Schelde — alle vier watertype K0; geverifieerd 2026-09-23 dat owlcat
+# "5" live voorkomt en zonder dit profiel in de terugval "onbekend type" viel).
 # `norm_factor` schaalt de norm zelf per watertypegroep (KRW-doelen verschillen per watertype);
 # `factor` schaalt daarna de achtergrondconcentratie ten opzichte van díe norm. Beide zijn van
 # dezelfde orde als de KRW-doelen maar door dit lab gekozen, niet uit het Bkl overgenomen. De
@@ -25,12 +27,15 @@ import math
 # verstande dat `factor` bewust zo gekozen is dat in élke categorie, inclusief de terugval,
 # minstens twee van de vier parameters onder hun norm blijven en PFOA er nooit een heeft (zie
 # `_PARAMETERS` hieronder). Met de oorspronkelijke kust- en overgangsfactor (1.60 en 1.30) klapte
-# dat spectrum in: nog maar 1 van 4 hield ruimte.
+# dat spectrum in: nog maar 1 van 4 hield ruimte. Territoriaal water (categorie 5) staat qua
+# watertype (K0) het dichtst bij kustwater (categorie 3, K-typen) en krijgt daarom een
+# vergelijkbaar, maar niet identiek profiel — groter debiet (open zee in plaats van kustzone).
 _CATEGORIEEN = {
     "1": {"naam": "rivier", "debiet_basis_m3_s": 300.0, "norm_factor": 1.00, "factor": 1.00},
     "2": {"naam": "meer", "debiet_basis_m3_s": 40.0, "norm_factor": 0.90, "factor": 0.85},
     "3": {"naam": "kustwater", "debiet_basis_m3_s": 1500.0, "norm_factor": 1.25, "factor": 0.95},
     "4": {"naam": "overgangswater", "debiet_basis_m3_s": 800.0, "norm_factor": 1.10, "factor": 1.05},
+    "5": {"naam": "territoriaal water", "debiet_basis_m3_s": 2000.0, "norm_factor": 1.30, "factor": 0.90},
 }
 _TERUGVAL = {"naam": "onbekend type", "debiet_basis_m3_s": 150.0, "norm_factor": 1.00, "factor": 1.00}
 
@@ -90,6 +95,13 @@ def _debiet(cat: dict, omvang, bekend: bool) -> float:
 def profiel(cs: dict) -> dict:
     """Een profiel voor het waterlichaam uit deze contextset."""
     echt = {doel: cs.get(bron_veld) for bron_veld, doel in _ECHTE_VELDEN.items()}
+    # `gemdiepte` draagt in de KRW-service een sentinel (-9999) in plaats van 'onbekend' — in
+    # alle 54 vlakken en 35 lijnen geverifieerd (2026-09-23), dus geen aanname over een enkel
+    # exemplaar. Ongefilterd ging die waarde als `water.gemiddelde_diepte: -9999` het `echt`-blok
+    # in en werd zo gepresenteerd als een meting. Een geldige diepte is positief; alles ≤ 0 wordt
+    # hier `None`.
+    if echt["gemiddelde_diepte"] is not None and echt["gemiddelde_diepte"] <= 0:
+        echt["gemiddelde_diepte"] = None
 
     if not cs.get("owl_id"):
         return {"echt": echt, "afgeleid": {}, "herkomst": {}, "volledig": False,
