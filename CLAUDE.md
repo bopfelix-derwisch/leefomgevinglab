@@ -95,28 +95,37 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   nog" op een willekeurig RD-punt. `waterprofiel.py` maakt van een KRW-feature een profiel met
   echt (naam, `owl_id`, `wbhnaam`, `owltype`, `owlcat`, `owlstat`, omvang, `gemdiepte`) strikt
   gescheiden van afgeleid (debiet, achtergrondconcentraties) — elk afgeleid veld draagt een
-  herkomstregel; de waterbeheerder komt uit het KRW-veld `wbhnaam`, met de oude afleiding
+  herkomstregel. `gemdiepte` staat in die opsomming maar is in de praktijk altijd leeg: de bron
+  levert er een sentinel (-9999) voor in plaats van een meting (zie de valkuil hieronder), en
+  `waterprofiel.profiel()` zet die sentinel om naar `None` in plaats van hem als echt getal door
+  te geven. De waterbeheerder komt uit het KRW-veld `wbhnaam`, met de oude afleiding
   (rijkswater → RWS, anders het waterschap) als terugval wanneer dat veld leeg is. **Het register
   is echt waar het bestaat:** de Atlas voor een Schone Maas (`connectors/smwk_atlas.py`) levert
   voor het Maasstroomgebied 72 vestigingen en 782 vergunde voorschriften, ruimtelijk bevraagbaar
   op RD (`inSR=28992`); daarbuiten valt het lab terug op het synthetische register. Dat contrast
   is de boodschap. Vestigingen zonder vergunningkenmerk (o.a. de RWZI's van Waterschapsbedrijf
   Limburg) worden ontdubbeld op `Locatiecode` en blijven met `kenmerk: None` in het register staan
-  in plaats van weggefilterd — anders verdwijnen vier rioolwaterzuiveringen. Vrachtafleiding in
-  drie lagen (`atlas_register.py`): eenheid is al een vracht → direct; concentratie +
-  debiet-voorschrift → berekend (28 van de 69 posten); anders → getoond zonder vracht, met reden
-  (`onbepaald`, voorbehouden aan de stoffen die dit lab volgt; wat erbuiten valt telt als
-  `buiten_crosswalk`). Komt een stof met meerdere grenswaarden voor in dezelfde vergunning, dan
-  wordt na ontdubbeling van identieke rijen het **maximum** genomen, niet de som. Twee getallen
-  die je uit elkaar moet houden: **47 van de 64** vergunningen in de bron dragen voor minstens
-  één stof meer dan één grenswaarde — dáárom is optellen fout — terwijl het veld
-  `meerdere_grenswaarden` er **9 van de 63** posten mét kenmerk mee markeert, omdat het alleen
-  gaat over de drie stoffen die dit lab volgt. Waar de vracht van sommige vergunningen niet te bepalen viel, is het
-  vergunde totaal een **ondergrens**; `ruimte.bereken()` meldt dat expliciet in een kanttekening.
+  in plaats van weggefilterd. Hun voorschriften worden **óók** op `Locatiecode` gekoppeld (naast
+  de normale koppeling via `Kenmerk`): tabel 2 draagt 29 rijen met een leeg/NULL kenmerk, verdeeld
+  over zes locatiecodes (`HAVENS` 7, `RWZIB`/`RWZIL`/`RWZIW` 5, `RWZIV` 4, `JWMAAS` 3) — zonder die
+  tweede koppeling bleven precies de posten zonder kenmerk, waaronder vier rioolwaterzuiveringen,
+  zonder voorschrift en dus zonder vracht. Vrachtafleiding in drie lagen (`atlas_register.py`):
+  eenheid is al een vracht → direct; concentratie + debiet-voorschrift → berekend (28 van de 69
+  posten); anders → getoond zonder vracht, met reden (`onbepaald`, voorbehouden aan de stoffen die
+  dit lab volgt; wat erbuiten valt telt als `buiten_crosswalk`). Komt een stof met meerdere
+  grenswaarden voor in dezelfde vergunning, dan wordt na ontdubbeling van identieke rijen het
+  **maximum** genomen, niet de som. Twee getallen die je uit elkaar moet houden: **45 van de 64**
+  vergunningen in de bron dragen (ná ontdubbeling van identieke rijen, exclusief het
+  Debiet-voorschrift zelf) voor minstens één stof meer dan één grenswaarde — dáárom is optellen
+  fout — terwijl het veld `meerdere_grenswaarden` er **9 van de 63** posten mét kenmerk mee
+  markeert, omdat het alleen gaat over de drie stoffen die dit lab volgt. (De 64 is geen tikfout
+  naast de 63: dat zijn de 63 kenmerken plus één emmer met de rijen zonder kenmerk.) Waar de
+  vracht van sommige vergunningen niet te bepalen viel, is het vergunde totaal een **ondergrens**;
+  `ruimte.bereken()` meldt dat expliciet in een kanttekening.
   Let op: de Atlas-lagen zijn publiek maar dragen **geen expliciete licentie** — live bevragen met
   bronvermelding, nooit kopiëren. PFOA komt er niet in voor, terwijl dat juist de stof is waarvan
   de achtergrond boven de norm ligt.
-- **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
+- **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---
 
