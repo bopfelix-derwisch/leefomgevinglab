@@ -19,7 +19,10 @@ LEDEN = [
      "titel": "Doelbeeld: de keten in 8 stappen",
      "samenvatting": "Van aanvraag via het DSO-loket tot handhaving volgens de LHSO, met de knip "
                      "tussen twee bevoegde gezagen en het register dat niet bestaat.",
-     "live": ["REV-WFS", "RWS KRW-service", "PDOK bestuurlijke gebieden"],
+     # Géén REV: dat is het register voor externe veiligheid en kent geen
+     # lozingsactiviteiten. Dat er voor lozingen niets vergelijkbaars bestaat is
+     # juist het argument van deze casus — zie 'Register Lozingen' hieronder.
+     "live": ["RWS KRW-service", "PDOK bestuurlijke gebieden"],
      "synthetisch": ["het bedrijf", "Register Lozingen"]},
     {"id": "ruimte", "pad": "/gebruiksruimte", "label": "Ruimte",
      "titel": "Wat kan hier nog? — drie locaties aan de IJssel",
