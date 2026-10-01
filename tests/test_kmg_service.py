@@ -75,3 +75,17 @@ def test_zonder_meetset_blijven_de_andere_lagen_staan(tmp_path):
                       toestaan_zonder_meetpunt=True)
     assert b["gebeurt"]["beschikbaar"] is False
     assert b["proclaimer"]["kopjes"]
+
+
+def test_een_stof_in_microgram_komt_in_microgram_terug(tmp_path):
+    punt = {**PUNT, "stoffen": [{"code": "Zn", "naam": "zink", "eenheid": "ug/l",
+                                 "n": 70, "mediaan": 7.4, "maximum": 20.0,
+                                 "onder_rapportagegrens": 0,
+                                 "van": "2025-01-08", "tot": "2025-12-10"}]}
+    p = tmp_path / "m.json"
+    p.write_text(json.dumps({**SET, "punten": [punt]}), encoding="utf-8")
+    b = service.beeld("NL80_EIJSDPTN", str(p), live=True,
+                      _haal_regels=lambda rd: [], _haal_atlas=_atlas)
+    v = b["bijdragen"][0]
+    assert v["eenheid"] == "ug/l"
+    assert v["som_bovengrens"] + v["restant"] == pytest.approx(7.4, rel=1e-9)

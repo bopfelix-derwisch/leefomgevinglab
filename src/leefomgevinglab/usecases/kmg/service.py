@@ -92,7 +92,8 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
     for stof in gebeurt["stoffen"]:
         naam = stof.get("naam")
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
-                                  mag.get("register") or [], wl or "", wl_per_post, debiet)
+                                  mag.get("register") or [], wl or "", wl_per_post, debiet,
+                                  eenheid=stof.get("eenheid") or "mg/l")
         vraag.append({"stof": stof.get("code"), "naam": naam, **d})
 
     # Hoeveel van de meetset daadwerkelijk in deze keuzelijst staat (zie meetpunten()) — de

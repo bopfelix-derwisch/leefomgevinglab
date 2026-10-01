@@ -43,11 +43,16 @@ def test_alleen_bovenstroomse_vergunningen_dragen_bij():
     assert namen == ["Boven"]
 
 
-def test_de_som_van_bijdragen_en_restant_is_de_gemeten_waarde():
+def _register():
     reg = [_post("A", 1_000_000.0), _post("B", 500_000.0)]
     wl = {"K-A": "NL91BOM", "K-B": "NL91GM"}
+    return reg, wl
+
+
+def test_de_som_van_bijdragen_en_restant_is_de_gemeten_waarde():
+    reg, wl = _register()
     d = t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
-    assert d["som_bovengrens_mg_l"] + d["restant_mg_l"] == pytest.approx(3.3, rel=1e-9)
+    assert d["som_bovengrens"] + d["restant"] == pytest.approx(3.3, rel=1e-9)
 
 
 def test_zonder_bovenstroomse_vergunningen_is_het_restant_alles():
@@ -55,7 +60,7 @@ def test_zonder_bovenstroomse_vergunningen_is_het_restant_alles():
     wl = {"K-Beneden": "NL94_6"}
     d = t.bijdragen(3.3, "stikstof totaal", reg, "NL91BOM", wl, debiet_m3_s=250.0)
     assert d["posten"] == []
-    assert d["restant_mg_l"] == pytest.approx(3.3)
+    assert d["restant"] == pytest.approx(3.3)
 
 
 def test_een_vergunning_zonder_deze_stof_draagt_niet_bij():
@@ -72,7 +77,7 @@ def test_de_bijdrage_is_vracht_gedeeld_door_de_jaarafvoer():
     d = t.bijdragen(10.0, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
     liters = 250.0 * 31_536_000 * 1000
     verwacht = 1_000_000.0 * 1e6 / liters          # kg -> mg, gedeeld door liters
-    assert d["posten"][0]["bijdrage_bovengrens_mg_l"] == pytest.approx(verwacht, rel=1e-6)
+    assert d["posten"][0]["bijdrage_bovengrens"] == pytest.approx(verwacht, rel=1e-6)
 
 
 def test_het_voorbehoud_staat_altijd_in_de_uitkomst():
@@ -102,3 +107,27 @@ def test_negatieve_afvoer_faalt_luid():
     wl = {"K-A": "NL91BOM"}
     with pytest.raises(ValueError, match="debiet_m3_s"):
         t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=-1.0)
+
+
+def test_een_meting_in_microgram_schaalt_de_bijdrage_mee():
+    reg, wl = _register()          # gebruik de bestaande opbouw uit dit bestand
+    in_mg = t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
+    in_ug = t.bijdragen(3300.0, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0,
+                        eenheid="ug/l")
+    assert in_ug["posten"][0]["bijdrage_bovengrens"] == pytest.approx(
+        in_mg["posten"][0]["bijdrage_bovengrens"] * 1000.0, rel=1e-9)
+    assert in_ug["eenheid"] == "ug/l"
+
+
+def test_in_microgram_telt_de_som_met_het_restant_nog_op_tot_de_meting():
+    reg, wl = _register()
+    d = t.bijdragen(7.4, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0,
+                    eenheid="ug/l")
+    assert d["som_bovengrens"] + d["restant"] == pytest.approx(7.4, rel=1e-9)
+
+
+def test_een_onbekende_eenheid_faalt_luid():
+    reg, wl = _register()
+    with pytest.raises(ValueError, match="eenheid"):
+        t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0,
+                    eenheid="mol/l")
