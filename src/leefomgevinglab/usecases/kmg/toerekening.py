@@ -60,7 +60,20 @@ def is_bovenstrooms(waterlichaam: str, meetpunt_waterlichaam: str) -> bool:
 def bijdragen(gemeten_mg_l: float, parameter: str, register: list[dict],
               waterlichaam_meetpunt: str, waterlichaam_per_post: dict[str, str],
               debiet_m3_s: float) -> dict:
-    """Per vergunning de bijdrage aan de gemeten concentratie, plus wat overblijft."""
+    """Per vergunning de bovengrens van de bijdrage aan de gemeten concentratie, plus wat overblijft.
+
+    Sleutels in de uitkomst:
+    - posten[].bijdrage_bovengrens_mg_l: bovengrens van de concentratiebijdrage (mg/l)
+    - som_bovengrens_mg_l: som van alle bijdragen (mg/l)
+    - restant_mg_l: wat overblijft (bovenstrooms en diffuus)
+    - voorbehoud: de belangrijkste beperking van dit model
+    """
+    if debiet_m3_s <= 0:
+        raise ValueError(
+            "debiet_m3_s moet groter dan nul zijn; bij wegvallende afvoer verdunt er niets "
+            f"en houdt dit model op te gelden (gekregen: {debiet_m3_s})"
+        )
+
     liters_per_jaar = debiet_m3_s * SECONDEN_PER_JAAR * 1000.0
     posten = []
     for post in register:
@@ -70,18 +83,18 @@ def bijdragen(gemeten_mg_l: float, parameter: str, register: list[dict],
         vracht_kg = (post.get("vrachten") or {}).get(parameter)
         if not vracht_kg:
             continue
-        bijdrage = vracht_kg * 1e6 / liters_per_jaar if liters_per_jaar else 0.0
+        bijdrage = vracht_kg * 1e6 / liters_per_jaar
         posten.append({
             "naam": post.get("naam"), "kenmerk": post.get("kenmerk"),
             "waterlichaam": wl, "vracht_kg_jaar": vracht_kg,
-            "bijdrage_mg_l": bijdrage,
+            "bijdrage_bovengrens_mg_l": bijdrage,
         })
 
-    posten.sort(key=lambda p: p["bijdrage_mg_l"], reverse=True)
-    som = sum(p["bijdrage_mg_l"] for p in posten)
+    posten.sort(key=lambda p: p["bijdrage_bovengrens_mg_l"], reverse=True)
+    som = sum(p["bijdrage_bovengrens_mg_l"] for p in posten)
     return {
         "posten": posten,
-        "som_bijdragen_mg_l": som,
+        "som_bovengrens_mg_l": som,
         "restant_mg_l": gemeten_mg_l - som,
         "restant_label": "bovenstrooms en diffuus",
         "debiet_m3_s": debiet_m3_s,

@@ -47,7 +47,7 @@ def test_de_som_van_bijdragen_en_restant_is_de_gemeten_waarde():
     reg = [_post("A", 1_000_000.0), _post("B", 500_000.0)]
     wl = {"K-A": "NL91BOM", "K-B": "NL91GM"}
     d = t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
-    assert d["som_bijdragen_mg_l"] + d["restant_mg_l"] == pytest.approx(3.3, rel=1e-9)
+    assert d["som_bovengrens_mg_l"] + d["restant_mg_l"] == pytest.approx(3.3, rel=1e-9)
 
 
 def test_zonder_bovenstroomse_vergunningen_is_het_restant_alles():
@@ -72,7 +72,7 @@ def test_de_bijdrage_is_vracht_gedeeld_door_de_jaarafvoer():
     d = t.bijdragen(10.0, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
     liters = 250.0 * 31_536_000 * 1000
     verwacht = 1_000_000.0 * 1e6 / liters          # kg -> mg, gedeeld door liters
-    assert d["posten"][0]["bijdrage_mg_l"] == pytest.approx(verwacht, rel=1e-6)
+    assert d["posten"][0]["bijdrage_bovengrens_mg_l"] == pytest.approx(verwacht, rel=1e-6)
 
 
 def test_het_voorbehoud_staat_altijd_in_de_uitkomst():
@@ -88,3 +88,17 @@ def test_de_uitkomst_bevat_het_woord_veroorzaakt_niet():
     d = t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=250.0)
     tekst = repr(d).lower()
     assert "veroorzaakt" not in tekst
+
+
+def test_afvoer_nul_faalt_luid_in_plaats_van_nul_bijdrage():
+    reg = [_post("A", 1000.0)]
+    wl = {"K-A": "NL91BOM"}
+    with pytest.raises(ValueError, match="debiet_m3_s"):
+        t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=0.0)
+
+
+def test_negatieve_afvoer_faalt_luid():
+    reg = [_post("A", 1000.0)]
+    wl = {"K-A": "NL91BOM"}
+    with pytest.raises(ValueError, match="debiet_m3_s"):
+        t.bijdragen(3.3, "stikstof totaal", reg, "NL91ZM", wl, debiet_m3_s=-1.0)
