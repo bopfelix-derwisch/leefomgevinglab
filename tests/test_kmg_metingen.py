@@ -40,6 +40,21 @@ def test_ontbrekend_bestand_geeft_een_lege_set(tmp_path):
     assert d["reden"]
 
 
+def test_beschadigd_bestand_geeft_ook_een_lege_set(tmp_path):
+    """Een kapot bestand is voor een bezoeker niet te onderscheiden van een ontbrekend bestand,
+    maar de reden moet wél verschillen — anders kan hij niet zien of hij een download mist dan
+    wel moet overdoen."""
+    p = tmp_path / "kapot.json"
+    p.write_text("{niet geldige json", encoding="utf-8")
+    d = metingen.laad(str(p))
+    assert d["punten"] == []
+    assert d["beschikbaar"] is False
+    assert d["reden"]
+    assert str(p) in d["reden"]
+    ontbrekend = metingen.laad(str(tmp_path / "bestaat-niet.json"))
+    assert d["reden"] != ontbrekend["reden"]
+
+
 def test_punten_filteren_op_waterlichaam():
     uit = metingen.punten(SET, waterlichamen=["NL91BOM"])
     assert [p["code"] for p in uit] == ["NL80_EIJSDPTN"]

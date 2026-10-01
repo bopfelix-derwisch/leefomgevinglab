@@ -16,7 +16,18 @@ def laad(pad: str) -> dict:
                 "opgehaald_op": None, "telling": {},
                 "reden": f"geen meetset gevonden op {pad}; haal hem op met "
                          "scripts/13_fetch_wkp_metingen.py"}
-    d = json.loads(p.read_text(encoding="utf-8"))
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        # Een half geschreven of anderszins onleesbaar bestand is voor een bezoeker niet te
+        # onderscheiden van een ontbrekend bestand, maar de reden wél — dat scheelt tussen
+        # "download ontbreekt" en "download overdoen".
+        return {"beschikbaar": False, "punten": [], "meetjaar": None, "bron": None,
+                "opgehaald_op": None, "telling": {},
+                "reden": f"meetset op {pad} is onleesbaar ({exc}); haal hem opnieuw op met "
+                         "scripts/13_fetch_wkp_metingen.py"}
+    # beschikbaar/reden zijn namen die metingen.py zelf bezet; het verdichtingsscript levert ze
+    # vandaag niet, maar mag ze in een latere versie niet stilzwijgend gaan overschrijven.
     d["beschikbaar"] = True
     d.setdefault("reden", "")
     return d
