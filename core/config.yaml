@@ -299,6 +299,13 @@ leefomgevinglab:
     straal_m: 5000
     cache_ttl_s: 86400
 
+  kmg:
+    # Kan, mag en gebeurt op het water. De meetset is een momentopname uit het
+    # Waterkwaliteitsportaal (Informatiehuis Water); er is geen machine-ingang — de Digitale
+    # Delta API van RWS geeft 401 en de WKP-module die dit zou oplossen komt begin 2027.
+    # Verversen: scripts/13_fetch_wkp_metingen.py op een nieuwe download.
+    metingen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json"
+
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).
     # Omgeving instelbaar (pre|prod); prod gebruikt DSO_API_KEY_PROD uit .env (zelfde helper als DSO).
