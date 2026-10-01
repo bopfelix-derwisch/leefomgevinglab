@@ -44,6 +44,7 @@ from leefomgevinglab.connectors.ozon import OzonConnector
 from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
 from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
+from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -344,6 +345,30 @@ def api_waterruimte(x: float, y: float, debiet: float = 420, live: int = 1):
     straal = ll.get("smwk_atlas", {}).get("straal_m", 5000)
     return gebruiksruimte_service.beeld_op_punt(x, y, debiet_m3_per_uur=debiet,
                                                 live=bool(live), straal_m=straal)
+
+
+def _kmg_pad() -> str:
+    return _config.get("leefomgevinglab", {}).get("kmg", {}).get(
+        "metingen_pad", "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json")
+
+
+@app.get("/kmg", response_class=HTMLResponse)
+def kmg_page():
+    """Kan, mag en gebeurt op het water — de drie lagen over elkaar."""
+    return _waterpagina("kmg.html", "kmg")
+
+
+@app.get("/api/kmg/meetpunten")
+def api_kmg_meetpunten():
+    return kmg_service.meetpunten(_kmg_pad())
+
+
+@app.get("/api/kmg")
+def api_kmg(meetpunt: str, live: int = 1):
+    try:
+        return kmg_service.beeld(meetpunt, _kmg_pad(), live=bool(live))
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"onbekend meetpunt: {meetpunt}")
 
 
 @app.get("/balo", response_class=HTMLResponse)

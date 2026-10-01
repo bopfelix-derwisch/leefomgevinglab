@@ -42,6 +42,13 @@ LEDEN = [
      "samenvatting": "Beide doelbeeld-casussen langs de BALO-redeneerlijnen: 16 informatiebehoeften, "
                      "waarvan 8 onvervuld.",
      "live": [], "synthetisch": ["de koppeling van BALO aan deze casussen"]},
+    {"id": "kmg", "pad": "/kmg", "label": "Kan · mag · gebeurt",
+     "titel": "Drie lagen over elkaar, met de metingen erbij",
+     "samenvatting": "Wat de regels toestaan, wat er vergund is en wat er gemeten wordt — en "
+                     "welke vergunningen aan een overschrijding kunnen bijdragen.",
+     "live": ["DSO Ozon", "Atlas voor een Schone Maas"],
+     "synthetisch": ["toerekeningsmodel van dit lab",
+                     "momentopname Waterkwaliteitsportaal (geen machine-ingang)"]},
 ]
 
 LIJNEN = [
@@ -56,7 +63,7 @@ LIJNEN = [
               "waterlichaam. Voor het Maasstroomgebied is er wél een regionaal initiatief — de "
               "Atlas voor een Schone Maas — en juist het contrast met de rest van Nederland laat "
               "zien wat een landelijk register zou opleveren.",
-     "leden": ["keten", "ruimte", "kaart", "knelpunten"]},
+     "leden": ["keten", "ruimte", "kaart", "knelpunten", "kmg"]},
     {"id": "stroomafwaarts", "kop": "Het effect ligt stroomafwaarts",
      "tekst": "Een lozing is geen contour om een punt. Hij werkt door in een watersysteem en telt "
               "op bij alles wat verder stroomopwaarts al geloosd wordt. Het CIM-VTH-Flo kent geen "

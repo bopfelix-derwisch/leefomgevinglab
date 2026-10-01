@@ -4,7 +4,7 @@ from leefomgevinglab.usecases import water_hub as wh
 
 
 def test_elk_lid_heeft_een_pad_een_label_en_een_verantwoording():
-    assert len(wh.LEDEN) == 5
+    assert len(wh.LEDEN) == 6
     for l in wh.LEDEN:
         assert l["pad"].startswith("/")
         assert l["label"] and l["titel"] and l["samenvatting"]
