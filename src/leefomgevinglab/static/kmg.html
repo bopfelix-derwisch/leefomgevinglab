@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Kan, mag, gebeurt</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --let:#ffb74d; --weg:#ff7a6b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel);
+                border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent);
+                                font-weight:600; }
+
+    .wrap { max-width:1100px; margin:0 auto; padding:0 20px 46px; }
+    .hero { padding:26px 0 14px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:24px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero p { color:var(--muted); max-width:900px; font-size:13.5px; }
+
+    .controls { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:16px 0;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:12px 15px; }
+    .controls label { font-size:12px; color:var(--muted); display:flex; align-items:center;
+      gap:8px; }
+    select { background:var(--panel2); color:var(--text); border:1px solid var(--border);
+      border-radius:7px; padding:6px 10px; font-size:13px; min-width:320px; }
+    .status { font-size:11.5px; color:var(--dim); }
+    .meetpuntinfo { font-size:13px; color:var(--muted); margin-bottom:6px; }
+    .dim { color:var(--dim); font-size:12px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:26px 0 10px; }
+
+    .laag { background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--l);
+      border-radius:10px; padding:14px 18px; margin-bottom:14px; }
+    .laag.kan { --l: var(--kan); }
+    .laag.mag { --l: var(--mag); }
+    .laag.gebeurt { --l: var(--gebeurt); }
+    .laag h3 { font-size:14px; margin-bottom:8px; color:var(--l); text-transform:uppercase;
+      letter-spacing:.04em; }
+
+    .groep { margin-bottom:10px; }
+    .groep > .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.6px;
+      margin-bottom:5px; }
+    .groep.direct > .lbl { color:var(--kan); }
+    .groep.indirect > .lbl { color:var(--gebeurt); }
+    .groep.niet > .lbl { color:var(--dim); }
+    .regel { border-left:2px solid var(--border); padding:5px 0 5px 10px; margin-bottom:6px; }
+    .groep.direct .regel { border-left-color:var(--kan); }
+    .groep.indirect .regel { border-left-color:var(--gebeurt); }
+    .groep.niet .regel { border-left-color:var(--dim); opacity:.75; }
+    .regel .t { font-size:12.5px; color:#eafff6; }
+    .regel .m { font-size:10.5px; color:var(--dim); }
+    .regel p { font-size:11.5px; color:var(--muted); }
+
+    .post { border-left:2px solid var(--mag); padding:6px 0 6px 10px; margin-bottom:8px; }
+    .post .t { font-size:12.5px; color:#eafff6; }
+
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border:1px solid var(--border); padding:5px 8px; text-align:left; }
+    th { background:var(--panel2); color:#b0c4ce; font-size:10px; text-transform:uppercase; }
+    tr:nth-child(even) td { background:var(--panel2); }
+    .tabelwrap { overflow-x:auto; }
+
+    .geenoordeel { margin-top:10px; font-size:12px; color:var(--let); border-left:2px solid var(--let);
+      padding:4px 0 4px 10px; }
+
+    .voorbehoud { background:rgba(232,184,74,.08); border:1px solid #5a4520; border-radius:9px;
+      padding:10px 13px; font-size:12.5px; color:var(--let); margin-bottom:14px; }
+
+    .stofblok { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; margin-bottom:12px; }
+    .stofkop { font-size:13.5px; margin-bottom:8px; }
+    .balkrij { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .balklabel { flex:0 0 190px; font-size:11.5px; color:var(--muted); overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap; }
+    .balk { flex:1; height:14px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:4px; overflow:hidden; min-width:40px; }
+    .balk i { display:block; height:100%; min-width:3px; background:linear-gradient(90deg,var(--accent2),var(--accent)); }
+    .balkrij.restant .balk i { background:linear-gradient(90deg,var(--let),var(--weg)); }
+    .balkwaarde { flex:0 0 130px; font-size:11px; color:var(--muted); font-family:ui-monospace,monospace;
+      text-align:right; }
+
+    .kopje { margin-bottom:14px; }
+    .kopje h4 { font-size:12.5px; color:#eafff6; margin-bottom:4px; }
+    .kopje p { font-size:12.5px; color:var(--muted); max-width:900px; }
+    .kopje strong { color:var(--text); }
+
+    footer { border-top:1px solid var(--border); margin-top:20px; padding-top:16px; }
+
+    /* Telefoon: vaste breedtes (select, balklabel/balkwaarde kolombreedtes) passen niet meer op
+       390px, en de balkrij zou zijn label en getal verliezen. Daarom hier kolommen loslaten en
+       de balkrij op smal scherm onder elkaar zetten in plaats van naast elkaar. */
+    @media (max-width: 900px) {
+      .wrap { padding:0 14px 36px; }
+      .controls { flex-direction:column; align-items:stretch; }
+      select { min-width:0; width:100%; }
+      table, th, td { font-size:11px; }
+      .balkrij { flex-direction:column; align-items:stretch; gap:2px; }
+      .balklabel, .balkwaarde { flex:none; width:100%; text-align:left; white-space:normal; }
+      .balk { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">kan · mag · gebeurt</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Kan, mag, <span style="color:var(--accent)">gebeurt</span></h2>
+      <p>De DSO-folder verbeeldt de leefomgeving in drie lagen over elkaar: <b>kan</b> — de regels
+        die hier gelden, <b>mag</b> — wat er vergund is, en <b>gebeurt</b> — wat er gemeten wordt.
+        Deze pagina legt die drie lagen over één meetpunt aan de Maas, en telt daarna op hoeveel
+        van het gemetene de vergunningen bovenstrooms kúnnen verklaren. De vergunde lozingen
+        verklaren meestal maar een klein deel van wat er gemeten wordt, en wat hieronder staat is
+        een bovengrens — nooit een vaststelling van wie een overschrijding veroorzaakt.</p>
+    </div>
+
+    <div class="controls">
+      <label>Meetpunt
+        <select id="meetpunt"></select>
+      </label>
+      <span class="status" id="status">Meetpunten laden…</span>
+    </div>
+    <div class="meetpuntinfo" id="meetpuntinfo"></div>
+
+    <div class="laag kan">
+      <h3>Kan — wat hier geldt</h3>
+      <div id="kan"></div>
+    </div>
+
+    <div class="laag mag">
+      <h3>Mag — wat hier vergund is</h3>
+      <div id="mag"></div>
+    </div>
+
+    <div class="laag gebeurt">
+      <h3>Gebeurt — wat hier gemeten wordt</h3>
+      <div id="gebeurt"></div>
+    </div>
+
+    <div class="section-title">Welke vergunningen kunnen bijdragen</div>
+    <div id="bijdragen"></div>
+
+    <footer>
+      <div class="section-title" style="margin-top:0">Verantwoording</div>
+      <div id="proclaimer"></div>
+    </footer>
+  </div>
+
+  <script>
+    const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    // Markdown-vetjes (dubbele sterretjes rond een woord) uit de proclaimer-teksten omzetten
+    // naar <strong> — altijd ná esc(), zodat er nooit ongefilterde HTML uit de brontekst meekomt.
+    const md = s => esc(s).replace(/\*{2}(.+?)\*{2}/g, '<strong>$1</strong>');
+    const nl = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n)))
+      ? "—" : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+
+    let huidig = null;
+
+    async function laadMeetpunten() {
+      const sel = document.getElementById("meetpunt");
+      try {
+        const punten = await (await fetch("/api/kmg/meetpunten")).json();
+        if (!Array.isArray(punten) || !punten.length) {
+          document.getElementById("status").textContent = "Geen meetpunten beschikbaar.";
+          return;
+        }
+        sel.innerHTML = punten.map(p =>
+          `<option value="${esc(p.code)}">${esc(p.naam || p.code)} — ` +
+          `${esc(p.waterlichaam_naam || p.waterlichaam || "onbekend waterlichaam")}</option>`
+        ).join("");
+        sel.value = punten[0].code;
+        await laadBeeld(punten[0].code);
+      } catch (e) {
+        document.getElementById("status").textContent = `Meetpunten ophalen mislukt: ${esc(e.message)}`;
+      }
+    }
+
+    async function laadBeeld(code) {
+      document.getElementById("status").textContent = "Bezig met ophalen…";
+      try {
+        const r = await fetch(`/api/kmg?meetpunt=${encodeURIComponent(code)}&live=1`);
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.detail || `HTTP ${r.status}`);
+        }
+        huidig = await r.json();
+        teken(huidig);
+        document.getElementById("status").textContent = "";
+      } catch (e) {
+        document.getElementById("status").textContent = `Niet gelukt: ${esc(e.message)}`;
+      }
+    }
+
+    function tekenMeetpunt(d) {
+      const m = d.meetpunt || {};
+      const rd = Array.isArray(m.rd) && m.rd.length === 2 && m.rd[0] !== null && m.rd[1] !== null
+        ? `RD ${nl(m.rd[0], 0)}, ${nl(m.rd[1], 0)}` : "RD onbekend";
+      document.getElementById("meetpuntinfo").innerHTML =
+        `<b>${esc(m.naam || m.code || "onbekend meetpunt")}</b> ` +
+        `<span class="dim">${esc(m.code || "")}</span> · ` +
+        `${esc(m.waterlichaam_naam || m.waterlichaam || "onbekend waterlichaam")} · ${esc(rd)}`;
+    }
+
+    function tekenKan(d) {
+      const k = d.kan || {};
+      const el = document.getElementById("kan");
+      if (k.status === "overgeslagen") {
+        el.innerHTML = `<p class="dim">Regels niet opgehaald (live staat uit).</p>`;
+        return;
+      }
+      if (k.status === "onbereikbaar") {
+        el.innerHTML = `<p class="dim">${esc(k.bron || "DSO")} onbereikbaar — ` +
+          `${esc(k.fout || "onbekende fout")}.</p>`;
+        return;
+      }
+      const regelingen = k.regelingen || [];
+      if (!regelingen.length) {
+        el.innerHTML = `<p class="dim">Geen regelingen gevonden op dit punt ` +
+          `(${esc(k.bron || "")}).</p>`;
+        return;
+      }
+      const groepen = [
+        ["direct", "Direct werkend", regelingen.filter(r => r.van_toepassing && r.werking === "direct")],
+        ["indirect", "Indirect werkend", regelingen.filter(r => r.van_toepassing && r.werking !== "direct")],
+        ["niet", "Geldt hier, raakt dit niet", regelingen.filter(r => !r.van_toepassing)],
+      ];
+      el.innerHTML = `<p class="dim">${regelingen.length} regelingen · ${esc(k.bron || "")}</p>` +
+        groepen.filter(g => g[2].length).map(([cls, lbl, rs]) =>
+          `<div class="groep ${cls}"><div class="lbl">${esc(lbl)} (${rs.length})</div>` +
+          rs.map(r => `<div class="regel"><div class="t">${esc(r.titel || "")}</div>` +
+            `<div class="m">${esc(r.type || "")} · ${esc(r.bevoegd_gezag || "—")}</div>` +
+            `<p>${esc(r.betekenis || "")}</p></div>`).join("") +
+          `</div>`).join("");
+    }
+
+    function tekenMag(d) {
+      const m = d.mag || {};
+      const el = document.getElementById("mag");
+      const bronNaam = (m.bron && m.bron.naam) || "register";
+      if (m.status === "overgeslagen") {
+        el.innerHTML = `<p class="dim">Vergunningen niet opgehaald (live staat uit).</p>`;
+        return;
+      }
+      if (m.status === "onbereikbaar") {
+        el.innerHTML = `<p class="dim">${esc(bronNaam)} onbereikbaar — ` +
+          `${esc(m.fout || "onbekende fout")}.</p>`;
+        return;
+      }
+      const reg = m.register || [];
+      let h = `<p class="dim">${esc(bronNaam)}` +
+        `${m.bron && m.bron.houder ? " — " + esc(m.bron.houder) : ""}</p>`;
+      if (!reg.length) {
+        h += `<p class="dim">Geen bekende vergunningen bovenstrooms van dit meetpunt.</p>`;
+      } else {
+        h += reg.map(v => {
+          const id = [v.kenmerk, v.locatiecode].filter(Boolean).join(" · ") || "—";
+          const stoffen = Object.keys(v.vrachten || {});
+          const meerdere = (v.meerdere_grenswaarden && v.meerdere_grenswaarden.length)
+            ? `<div class="dim" style="font-size:11px">meerdere grenswaarden, hoogste gebruikt — ` +
+              `${esc(v.meerdere_grenswaarden.join(", "))}</div>` : "";
+          const onbepaald = (v.onbepaald && v.onbepaald.length) ? esc(v.onbepaald.join(", ")) : "";
+          return `<div class="post"><div class="t">${esc(v.naam || "onbekende vergunninghouder")} ` +
+            `<span class="dim">${esc(id)}</span></div>` +
+            `<div class="dim" style="font-size:11.5px">` +
+            (stoffen.length
+              ? `vracht bekend: ${esc(stoffen.join(", "))}`
+              : `geen vracht af te leiden${onbepaald ? " (" + onbepaald + ")" : ""}`) +
+            `</div>${meerdere}</div>`;
+        }).join("");
+      }
+      if (m.telling && Object.keys(m.telling).length) {
+        const t = m.telling;
+        h += `<p class="dim" style="margin-top:8px">${nl(t.vestigingen, 0)} vestigingen · ` +
+          `${nl(t.vracht_direct, 0)} vracht rechtstreeks vergund, ` +
+          `${nl(t.vracht_uit_concentratie, 0)} berekend uit concentratie × debiet, ` +
+          `${nl(t.onbepaald, 0)} niet af te leiden, ` +
+          `${nl(t.buiten_crosswalk, 0)} buiten de crosswalk.</p>`;
+      }
+      if (m.bevinding) h += `<p class="dim" style="margin-top:4px">${esc(m.bevinding)}</p>`;
+      el.innerHTML = h;
+    }
+
+    function tekenGebeurt(d) {
+      const g = d.gebeurt || {};
+      const el = document.getElementById("gebeurt");
+      if (!g.beschikbaar) {
+        el.innerHTML = `<p class="dim">Geen meetgegevens beschikbaar` +
+          `${g.reden ? ": " + esc(g.reden) : "."}</p>`;
+        return;
+      }
+      const stoffen = g.stoffen || [];
+      if (!stoffen.length) {
+        el.innerHTML = `<p class="dim">Geen metingen voor dit meetpunt in de verdichte set.</p>`;
+        return;
+      }
+      let h = `<p class="dim">Meetjaar ${esc(g.meetjaar || "onbekend")}</p>` +
+        `<div class="tabelwrap"><table><tr><th>stof</th><th>mediaan</th><th>maximum</th>` +
+        `<th>metingen</th><th>periode</th></tr>` +
+        stoffen.map(s => {
+          const periode = (s.van || s.tot) ? `${esc(s.van || "?")} – ${esc(s.tot || "?")}`
+            : "onbekend";
+          return `<tr><td>${esc(s.naam || s.code || "")}</td>` +
+            `<td>${nl(s.mediaan, 3)} ${esc(s.eenheid || "")}</td>` +
+            `<td>${nl(s.maximum, 3)} ${esc(s.eenheid || "")}</td>` +
+            `<td>${s.n ?? "—"}</td><td>${periode}</td></tr>`;
+        }).join("") + `</table></div>`;
+      const doelenBeschikbaar = d.proclaimer && d.proclaimer.gegevens
+        && d.proclaimer.gegevens.doelen_beschikbaar;
+      if (!doelenBeschikbaar) {
+        h += `<p class="geenoordeel">Er is geen KRW-doel geladen voor deze stoffen: hierboven ` +
+          `staan alleen de metingen, zonder normoordeel.</p>`;
+      }
+      el.innerHTML = h;
+    }
+
+    function tekenBijdragen(d) {
+      const el = document.getElementById("bijdragen");
+      const items = d.bijdragen || [];
+      if (!items.length) {
+        el.innerHTML = `<p class="dim">Geen metingen op dit punt om aan vergunningen toe te rekenen.</p>`;
+        return;
+      }
+      const voorbehoud = items.find(it => it.voorbehoud)?.voorbehoud;
+      let h = voorbehoud ? `<div class="voorbehoud">${esc(voorbehoud)}</div>` : "";
+      h += items.map(it => {
+        const posten = it.posten || [];
+        const eenheid = it.eenheid || "";
+        const schaal = Math.max(1e-12, (it.som_bovengrens || 0) + Math.max(0, it.restant || 0));
+        let s = `<div class="stofblok"><div class="stofkop"><b>${esc(it.naam || it.stof || "")}</b> ` +
+          `<span class="dim">(${esc(eenheid)})</span></div>`;
+        if (!posten.length) {
+          s += `<p class="dim" style="margin-bottom:8px">Deze stof komt niet voor in het register ` +
+            `van vergunningen bovenstrooms; de volledige gemeten waarde telt als ` +
+            `${esc(it.restant_label || "restant")}.</p>`;
+        }
+        s += posten.map(p => {
+          const pct = Math.max(1, Math.min(100, (p.bijdrage_bovengrens / schaal) * 100));
+          return `<div class="balkrij"><span class="balklabel">${esc(p.naam || "onbekend")}</span>` +
+            `<div class="balk"><i style="width:${pct}%"></i></div>` +
+            `<span class="balkwaarde">${nl(p.bijdrage_bovengrens, 4)} ${esc(eenheid)}</span></div>`;
+        }).join("");
+        const restPct = Math.max(1, Math.min(100, ((it.restant || 0) / schaal) * 100));
+        s += `<div class="balkrij restant"><span class="balklabel">${esc(it.restant_label || "restant")}` +
+          `</span><div class="balk"><i style="width:${restPct}%"></i></div>` +
+          `<span class="balkwaarde">${nl(it.restant, 4)} ${esc(eenheid)}</span></div>`;
+        s += `<p class="dim" style="margin-top:4px">som vergund bovenstrooms ` +
+          `${nl(it.som_bovengrens, 4)} ${esc(eenheid)} · gebruikt debiet ` +
+          `${nl(it.debiet_m3_s, 1)} m³/s</p></div>`;
+        return s;
+      }).join("");
+      el.innerHTML = h;
+    }
+
+    function tekenProclaimer(d) {
+      const p = d.proclaimer || {};
+      const kopjes = p.kopjes || [];
+      document.getElementById("proclaimer").innerHTML = kopjes.length
+        ? kopjes.map(k => `<div class="kopje"><h4>${esc(k.kop || "")}</h4>` +
+            `<p>${md(k.tekst || "")}</p></div>`).join("")
+        : `<p class="dim">Geen verantwoording beschikbaar.</p>`;
+    }
+
+    function teken(d) {
+      tekenMeetpunt(d);
+      tekenKan(d);
+      tekenMag(d);
+      tekenGebeurt(d);
+      tekenBijdragen(d);
+      tekenProclaimer(d);
+    }
+
+    document.getElementById("meetpunt").addEventListener("change", e => laadBeeld(e.target.value));
+    laadMeetpunten();
+  </script>
+</body>
+</html>

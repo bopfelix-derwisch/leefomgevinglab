@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 
 import leefomgevinglab.geluidsmeter.api as api
@@ -21,7 +20,6 @@ def test_onbekend_meetpunt_geeft_404(monkeypatch):
     assert r.status_code == 404
 
 
-@pytest.mark.xfail(reason="pagina volgt in Task 7", strict=True)
 def test_pagina_geeft_200_met_de_subnav(monkeypatch):
     r = _client(monkeypatch).get("/kmg")
     assert r.status_code == 200
