@@ -332,7 +332,7 @@
           return `<tr><td>${esc(s.naam || s.code || "")}</td>` +
             `<td>${nl(s.mediaan, 3)} ${esc(s.eenheid || "")}</td>` +
             `<td>${nl(s.maximum, 3)} ${esc(s.eenheid || "")}</td>` +
-            `<td>${s.n ?? "—"}</td><td>${periode}</td></tr>`;
+            `<td>${nl(s.n, 0)}</td><td>${periode}</td></tr>`;
         }).join("") + `</table></div>`;
       const doelenBeschikbaar = d.proclaimer && d.proclaimer.gegevens
         && d.proclaimer.gegevens.doelen_beschikbaar;
