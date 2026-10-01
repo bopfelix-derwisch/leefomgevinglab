@@ -132,3 +132,17 @@ def test_lege_monsterophaaldatum_valt_terug_op_begindatum(tmp_path):
     stof = m.verdicht(str(o), str(w), {"Ntot"})["punten"][0]["stoffen"][0]
     assert stof["van"] == "2025-01-07"
     assert stof["tot"] == "2025-01-07"
+
+
+def test_onbekend_meetobject_valt_niet_stil_weg(tmp_path):
+    """Een meetwaarde waarvan de MeetobjectCode niet in het meetobjectenbestand staat
+    (de twee WKP-bestanden passen dan niet bij elkaar) moet in de teller belanden, niet
+    stilletjes verdwijnen. `onbekend_meetobject` is een deelverzameling van `meegeteld`."""
+    import importlib
+    m = importlib.import_module("13_fetch_wkp_metingen")
+    o, w = _schrijf(tmp_path, [_obj()],
+                    [_wrd(), _wrd(code="NL80_SPOOKPUNT")])
+    d = m.verdicht(o, w, {"Ntot"})
+    assert d["telling"]["onbekend_meetobject"] == 1
+    assert d["telling"]["meegeteld"] == 2
+    assert [p["code"] for p in d["punten"]] == ["NL80_EIJSDPTN"]

@@ -14,7 +14,9 @@ Drie dingen die je bij deze bron moet weten, allemaal gemeten op 2026-10-01:
   * `MonsterCompartimentCode` is bij de chemische metingen **leeg**, niet `OW`. Wie daarop
     filtert houdt nul stikstof- en zinkmetingen over.
   * `KwaliteitsoordeelCode = '99'` betekent "Hiaat waarde" en draagt de sentinel
-    999999999999 — 3000 van de 384.132 rijen. Zonder filter wordt het maximum onzin.
+    999999999999 — 3000 van de 384.259 rijen, geteld over **alle** parameters in het bestand
+    (niet beperkt tot de drie labstoffen; daarbinnen zijn het er maar 18). Zonder filter wordt
+    het maximum onzin.
   * `Monsterophaaldatum` is bij de chemische metingen eveneens **leeg**. De datum staat in
     `Begindatum` (en dezelfde waarde nogmaals in `Resultaatdatum`). Wie alleen op
     `Monsterophaaldatum` leest, houdt voor elk punt en elke stof een lege periode over. Dit
@@ -74,11 +76,18 @@ def _lees_objecten(pad: str) -> dict:
 
 def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
              stoffen: set[str] | None = None) -> dict:
-    """Twee CSV's in, één compacte structuur uit."""
+    """Twee CSV's in, één compacte structuur uit.
+
+    Boekhouding in `telling`: `meegeteld` telt de rijen die de inhoudelijke filters doorstaan
+    (stof, kwaliteitsoordeel, leesbare waarde). Een deel daarvan valt daarna alsnog af omdat het
+    meetobject niet voorkomt in het meetobjectenbestand — dat aantal staat apart in
+    `onbekend_meetobject`, als deelverzameling van `meegeteld` (geen aftrek ervan). De som van
+    alle `n` over `punten` plus `onbekend_meetobject` is dus gelijk aan `meegeteld`.
+    """
     stoffen = stoffen or LABSTOFFEN
     objecten = _lees_objecten(meetobjecten_pad)
     telling = {"rijen": 0, "meegeteld": 0, "hiaatwaarden": 0, "onleesbaar": 0,
-               "buiten_stoffen": 0}
+               "buiten_stoffen": 0, "onbekend_meetobject": 0}
     verzameld = {}          # (puntcode, stofcode) -> dict met waarden
     meetjaar = None
 
@@ -90,10 +99,9 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
             if par not in stoffen:
                 telling["buiten_stoffen"] += 1
                 continue
-            if (r.get("KwaliteitsoordeelCode") or "").strip() == "99":
-                telling["hiaatwaarden"] += 1
-                continue
             if (r.get("KwaliteitsoordeelCode") or "").strip() not in GOEDE_OORDELEN:
+                # Code '99' = "Hiaat waarde": draagt de sentinel 999999999999 i.p.v. een
+                # echte meting. Andere afgekeurde codes vallen hier ook onder.
                 telling["hiaatwaarden"] += 1
                 continue
             waarde = _getal(r.get("Numeriekewaarde", ""))
@@ -122,6 +130,9 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
     for (puntcode, _par), v in verzameld.items():
         obj = objecten.get(puntcode)
         if obj is None:
+            # Meetwaarde verwijst naar een MeetobjectCode die niet in het meetobjectenbestand
+            # staat — de twee WKP-bestanden passen dan niet bij elkaar. Niet stil laten vallen.
+            telling["onbekend_meetobject"] += len(v["waarden"])
             continue
         p = punten.setdefault(puntcode, {**obj, "stoffen": []})
         data = sorted(v["data"])
@@ -161,7 +172,8 @@ def main() -> int:
     t = d["telling"]
     print(f"meetjaar {d['meetjaar']}: {len(d['punten'])} punten, "
           f"{t['meegeteld']} metingen meegeteld van {t['rijen']} rijen "
-          f"({t['hiaatwaarden']} hiaat, {t['onleesbaar']} onleesbaar) -> {uit}")
+          f"({t['hiaatwaarden']} hiaat, {t['onleesbaar']} onleesbaar, "
+          f"{t['onbekend_meetobject']} onbekend meetobject) -> {uit}")
     return 0
 
 
