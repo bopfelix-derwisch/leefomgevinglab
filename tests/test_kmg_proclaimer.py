@@ -65,3 +65,35 @@ def test_de_proclaimer_belooft_geen_vaststelling():
     t = _tekst(p)
     assert "veroorzaakt door" not in t
     assert "toezicht" in t
+
+
+def test_de_tellingen_claimen_niets_over_deze_pagina():
+    meetset_multi = {**MEETSET, "punten": [{"code": "A", "stoffen": [{"code": "Ntot", "n": 52}, {"code": "Zn", "n": 104}]}, {"code": "B", "stoffen": [{"code": "Ntot", "n": 52}]}]}
+    p = proclaimer.bouw(meetset_multi, REGISTER_BRON, "DSO Ozon", True, punten_in_beeld=1)
+    t = _tekst(p)
+    assert "landelijke set" in t
+    assert "alleen die staan in de keuzelijst" in t
+    assert p["gegevens"]["punten_in_beeld"] == 1
+
+
+def test_zonder_beperking_wordt_er_niets_over_een_keuzelijst_gezegd():
+    p = proclaimer.bouw(MEETSET, REGISTER_BRON, "DSO Ozon", True)
+    assert "keuzelijst" not in _tekst(p)
+    assert p["gegevens"]["punten_in_beeld"] is None
+
+
+def test_zonder_meetset_wordt_geen_momentopname_beweerd():
+    leeg = {"beschikbaar": False, "punten": [], "telling": {},
+            "reden": "geen meetset gevonden", "meetjaar": None, "bron": None,
+            "opgehaald_op": None}
+    p = proclaimer.bouw(leeg, REGISTER_BRON, "DSO Ozon", True)
+    t = _tekst(p)
+    assert "onbekende datum" not in t
+    assert "geen opgehaald" in t
+
+
+def test_een_echte_nul_telt_als_nul():
+    nul = {**MEETSET, "telling": {"meegeteld": 0, "hiaatwaarden": 0},
+           "punten": [{"code": "A", "stoffen": [{"code": "Ntot", "n": 7}]}]}
+    p = proclaimer.bouw(nul, REGISTER_BRON, "DSO Ozon", True)
+    assert p["gegevens"]["metingen"] == 0, "7 zou betekenen dat de terugval ten onrechte aansloeg"
