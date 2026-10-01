@@ -125,6 +125,39 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   Let op: de Atlas-lagen zijn publiek maar dragen **geen expliciete licentie** — live bevragen met
   bronvermelding, nooit kopiëren. PFOA komt er niet in voor, terwijl dat juist de stof is waarvan
   de achtergrond boven de norm ligt.
+- ✅ **Kan · mag · gebeurt (`/kmg`, `/api/kmg?meetpunt=&live=`):** de drie lagen van de
+  DSO-voorlichtingsfolder toegepast op water. **Kan** = de regels op het punt, live uit het DSO;
+  **mag** = de vergunningen, live uit de Atlas voor een Schone Maas; **gebeurt** = de gemeten
+  waarden uit het **Waterkwaliteitsportaal** van Informatiehuis Water (meetjaar 2025, Aquo IM
+  Metingen). `scripts/13_fetch_wkp_metingen.py` verdicht 142 MB CSV naar mediaan en maximum per
+  meetpunt en stof: **384.259 rijen → 4822 metingen op 92 meetpunten**, waarvan de pagina er **9**
+  toont (de set is landelijk, de pagina volgt alleen de Maas). **Drie valkuilen van die bron:**
+  `MonsterCompartimentCode` is bij chemische metingen leeg (filteren op `OW` geeft nul stikstof- en
+  zinkmetingen); `KwaliteitsoordeelCode = '99'` ("Hiaat waarde") draagt de sentinel
+  `999999999999` — 3000 van de 384.259 rijen, geteld over álle parameters in het bestand; en
+  `Monsterophaaldatum` is leeg, de datum staat in `Begindatum`. **Geen machine-ingang:** de
+  Digitale Delta API van RWS geeft 401 op elk data-eindpunt en de WKP-module die dit oplost komt
+  begin 2027, dus de meetset is een handmatige momentopname.
+  **Let op de eenheden** — dit is de duurste valkuil van deze use-case: stikstof staat in mg/l maar
+  **PFOA en zink in µg/l**. `toerekening.bijdragen()` rekent intern in mg/l en schaalt de uitkomst
+  naar de eenheid van de meting (`EENHEIDSFACTOR`); een onbekende eenheid faalt luid in plaats van
+  stil mg/l aan te nemen. Zonder die schaling stond zink een factor 1000 te laag op de pagina —
+  alle tests gebruikten mg/l-fixtures, dus dat kwam pas boven bij een live run.
+  Het toerekeningsmodel (`usecases/kmg/toerekening.py`) deelt de vergunde vracht van bovenstroomse
+  lozingen door de jaarafvoer en is **uitdrukkelijk een bovengrens, geen vaststelling** — de woorden
+  "veroorzaakt door" staan niet op de pagina en een test bewaakt dat. Een afvoer van nul werpt een
+  `ValueError`: juist daar valt het model om, en een stille 0,0 zou "deze vergunning draagt niets
+  bij" suggereren. De stroomvolgorde van de Maas (Bovenmaas → Grensmaas → Zandmaas → Bedijkte Maas
+  → Beneden Maas → Bergsche Maas → Haringvliet-oost → -west) is een keuze van dit lab, net als de
+  jaarafvoer per waterlichaam in `service.DEBIET_M3_S`; de KRW-service levert geen van beide.
+  **Wat eruit komt is de boodschap:** het vergunde deel van een gemeten waarde loopt van ~2%
+  (stikstof bij Maastricht) via 13-15% (Belfeld boven) tot **47% (zink bij Eijsden ponton)** — soms
+  verklaart het register bijna niets, soms de helft. PFOA levert een lege bijdragenlijst: die stof
+  komt in het register niet voor. Er zijn **geen KRW-doelen** geladen, dus de pagina toont de
+  metingen **zonder normoordeel**; terugvallen op de illustratieve normen die dit lab elders
+  gebruikt is verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt
+  een **proclaimer** die uit de data zelf wordt opgebouwd, zodat tekst en getallen niet uit de pas
+  kunnen lopen met wat de lezer ziet.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---
