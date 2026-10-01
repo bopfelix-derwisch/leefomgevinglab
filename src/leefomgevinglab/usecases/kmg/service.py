@@ -8,9 +8,19 @@ En daarna de vraag die de folder stelt: ligt het gemeten boven de norm, welke ve
 kunnen dan bijdragen? Het antwoord daarop is een bovengrens, geen vaststelling — zie
 `toerekening.py`.
 """
+from concurrent.futures import ThreadPoolExecutor
+
 from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 
 from . import metingen, proclaimer, toerekening
+
+# Straal voor de KRW-opzoeking per vergunning: klein, want het gaat om het waterlichaam ván die
+# ene coördinaat, niet om een omgeving. Los te zien van `straal_m` in `beeld()`, dat de Atlas
+# afzoekt naar vergunningen in de buurt van het meetpunt.
+_WATERLICHAAM_STRAAL_M = 250
+# Afronding voor het ontdubbelen van vergunningcoördinaten vóór de opzoeking ("op een paar
+# meter"): vergunningen die vrijwel dezelfde locatie delen, delen ook hun opzoeking.
+_ONTDUBBEL_METER = 5.0
 
 # Jaarafvoer per Maas-waterlichaam, m3/s. Keuze van dit lab: de KRW-service levert geen
 # afvoergegevens. Orde van grootte van de Maas bij gemiddelde afvoer.
@@ -44,8 +54,111 @@ def _atlas_standaard(x: float, y: float, straal_m: int):
     return c.vergunningen_bij_punt(x, y, straal_m=straal_m)
 
 
+def _vergunning_coordinaat(post: dict) -> tuple[float, float] | None:
+    """De coördinaat van één vergunning: het eerste voorschrift met een bruikbare `rd`.
+
+    `SmwkAtlasConnector.vergunningen_bij_punt()` vraagt zelf `returnGeometry: "false"` op de
+    vestiging, dus op het register is géén geometrie meer te vinden. De enige coördinaat die
+    overblijft staat op de voorschriften (`meetpunt_X/Y_Coordinaat`), vandaar dat dit op de
+    **ruwe** Atlas-post moet werken, vóór `atlas_register.naar_register()` de voorschriften
+    weggooit.
+    """
+    for v in post.get("voorschriften") or []:
+        rd = v.get("rd") or [None, None]
+        x, y = (list(rd) + [None, None])[:2]
+        if x is None or y is None:
+            continue
+        try:
+            return float(x), float(y)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _waterlichaam_opzoeken(x: float, y: float, haal=None) -> str | None:
+    """Het owl_id van het KRW-waterlichaam op dit punt, via het bestaande, geteste ketenpad."""
+    from leefomgevinglab.usecases.lozing_keten.bronnen import contextset
+    return contextset(x, y, straal_m=_WATERLICHAAM_STRAAL_M, live=True, haal=haal).get("owl_id")
+
+
+def _waterlichaam_per_vergunning(posten_ruw: list[dict], live: bool, haal=None,
+                                  _haal_waterlichaam=None) -> tuple[dict, dict]:
+    """Het KRW-waterlichaam van elke vergunning, uit haar eigen coördinaat.
+
+    Levert (per_sleutel, redenen): per_sleutel mapt de sleutel uit `toerekening.sleutel_post`
+    naar een owl_id, redenen mapt diezelfde sleutel naar een leesbare reden waarom er géén
+    waterlichaam gevonden is. Zonder waterlichaam kan niet bepaald worden of een lozing
+    bovenstrooms ligt, en dan hoort zij — met reden — buiten de toerekening te blijven: een
+    mislukte of lege opzoeking is nooit een reden om te gokken, en nooit een reden om de post
+    stilzwijgend weg te laten.
+
+    `_haal_waterlichaam(x, y) -> str | None` is het injectiepunt voor tests: standaard wordt
+    `lozing_keten.bronnen.contextset()` bevraagd, maar tests kunnen dit vervangen zonder zelf
+    WFS-antwoorden te hoeven bouwen.
+    """
+    opzoeken = _haal_waterlichaam or (lambda x, y: _waterlichaam_opzoeken(x, y, haal))
+
+    per_sleutel: dict[str, str] = {}
+    redenen: dict[str, str] = {}
+
+    if not live:
+        for i, post in enumerate(posten_ruw):
+            redenen[toerekening.sleutel_post(post, i)] = "niet opgezocht (live staat uit)"
+        return per_sleutel, redenen
+
+    coord_per_sleutel: dict[str, tuple[float, float]] = {}
+    for i, post in enumerate(posten_ruw):
+        sleutel = toerekening.sleutel_post(post, i)
+        coord = _vergunning_coordinaat(post)
+        if coord is None:
+            redenen[sleutel] = "geen coördinaat in de bron"
+        else:
+            coord_per_sleutel[sleutel] = coord
+
+    # Ontdubbelen op coördinaat vóór de opzoeking: meerdere vergunningen delen vaak eenzelfde
+    # locatie, en elke opzoeking is een losse WFS-aanroep.
+    def _rond(c: tuple[float, float]) -> tuple[float, float]:
+        return (round(c[0] / _ONTDUBBEL_METER) * _ONTDUBBEL_METER,
+                round(c[1] / _ONTDUBBEL_METER) * _ONTDUBBEL_METER)
+
+    sleutels_per_punt: dict[tuple[float, float], list[str]] = {}
+    for sleutel, coord in coord_per_sleutel.items():
+        sleutels_per_punt.setdefault(_rond(coord), []).append(sleutel)
+
+    def _per_punt(item: tuple[tuple[float, float], list[str]]):
+        punt, sleutels = item
+        x, y = coord_per_sleutel[sleutels[0]]
+        try:
+            owl_id = opzoeken(x, y)
+        except Exception:                          # noqa: BLE001 — een storing is geen gok
+            owl_id = None
+        return sleutels, owl_id
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        resultaten = list(pool.map(_per_punt, sleutels_per_punt.items()))
+
+    for sleutels, owl_id in resultaten:
+        for sleutel in sleutels:
+            if owl_id:
+                per_sleutel[sleutel] = owl_id
+            else:
+                redenen[sleutel] = "geen waterlichaam gevonden bij deze coördinaat"
+
+    return per_sleutel, redenen
+
+
+def _buiten_toerekening(register: list[dict], redenen: dict[str, str]) -> list[dict]:
+    """De posten zonder bekend waterlichaam, met hun reden — nooit stilzwijgend verdwenen."""
+    uit = []
+    for i, post in enumerate(register):
+        reden = redenen.get(toerekening.sleutel_post(post, i))
+        if reden:
+            uit.append({"naam": post.get("naam"), "kenmerk": post.get("kenmerk"), "reden": reden})
+    return uit
+
+
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
-          _haal_regels=None, _haal_atlas=None,
+          _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
           toestaan_zonder_meetpunt: bool = False) -> dict:
     """Kan, mag en gebeurt op één meetpunt."""
     set_ = metingen.laad(pad)
@@ -72,27 +185,35 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
         try:
             posten = (_haal_atlas or _atlas_standaard)(x, y, straal_m)
             reg = atlas_register.naar_register(posten)
-            mag = {"status": "ok", **reg}
+            wl_per_vergunning, redenen = _waterlichaam_per_vergunning(
+                posten, live=True, _haal_waterlichaam=_haal_waterlichaam)
+            mag = {"status": "ok", **reg,
+                   "buiten_toerekening": _buiten_toerekening(reg["register"], redenen)}
         except Exception as exc:                 # noqa: BLE001 — bron mag wegvallen
             mag = {"status": "onbereikbaar", "fout": type(exc).__name__,
-                   "register": [], "telling": {}, "bron": {}, "echt": False}
+                   "register": [], "telling": {}, "bron": {}, "echt": False,
+                   "buiten_toerekening": []}
+            wl_per_vergunning = {}
     else:
         mag = {"status": "overgeslagen", "register": [], "telling": {},
-               "bron": {}, "echt": False}
+               "bron": {}, "echt": False, "buiten_toerekening": []}
+        wl_per_vergunning = {}
 
     # Gebeurt — de metingen
     gebeurt = {"beschikbaar": bool(set_.get("beschikbaar")),
                "reden": set_.get("reden", ""), "meetjaar": set_.get("meetjaar"),
                "stoffen": punt.get("stoffen") or []}
 
-    # De vraag: wie kan bijdragen? Alleen zinvol met een meting én vergunningen.
+    # De vraag: wie kan bijdragen? Alleen zinvol met een meting én vergunningen. Het
+    # waterlichaam per vergunning komt uit haar eigen coördinaat (`wl_per_vergunning`
+    # hierboven) — niet uit het waterlichaam van het meetpunt, anders is elke vergunning
+    # binnen de zoekstraal per definitie "bovenstrooms".
     debiet = DEBIET_M3_S.get(wl, STANDAARD_DEBIET)
-    wl_per_post = {p.get("kenmerk"): wl for p in (mag.get("register") or []) if p.get("kenmerk")}
     vraag = []
     for stof in gebeurt["stoffen"]:
         naam = stof.get("naam")
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
-                                  mag.get("register") or [], wl or "", wl_per_post, debiet,
+                                  mag.get("register") or [], wl or "", wl_per_vergunning, debiet,
                                   eenheid=stof.get("eenheid") or "mg/l")
         vraag.append({"stof": stof.get("code"), "naam": naam, **d})
 

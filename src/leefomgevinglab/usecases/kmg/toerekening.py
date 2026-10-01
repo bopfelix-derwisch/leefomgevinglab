@@ -49,6 +49,18 @@ VOORBEHOUD = (
 )
 
 
+def sleutel_post(post: dict, index: int) -> str:
+    """Stabiele sleutel voor een registerpost: kenmerk, anders locatiecode, anders de positie.
+
+    Niet elke Atlas-post draagt een `kenmerk` — de Atlas-connector behoudt met opzet de posten
+    zonder kenmerk (zie `smwk_atlas.py`), waaronder vier rioolwaterzuiveringen. Een sleutel die
+    bij een leeg kenmerk op `""` uitkomt, laat die posten stil uit elke opzoek-mapping wegvallen.
+    Dezelfde sleutel moet aan beide kanten van de toerekening gebruikt worden: bij het opbouwen
+    van `waterlichaam_per_post` (in `service.py`) én hier bij het opzoeken ervan in `bijdragen()`.
+    """
+    return post.get("kenmerk") or post.get("locatiecode") or f"#{index}"
+
+
 def is_bovenstrooms(waterlichaam: str, meetpunt_waterlichaam: str) -> bool:
     """Ligt `waterlichaam` bovenstrooms van het meetpunt, of is het hetzelfde?
 
@@ -68,6 +80,11 @@ def bijdragen(gemeten: float, parameter: str, register: list[dict],
 
     Er wordt intern in mg/l gerekend, maar de uitkomst staat in `eenheid` — de eenheid van de
     meting zelf, want niet elke stof in de meetset is mg/l.
+
+    `waterlichaam_per_post` wordt opgezocht via `sleutel_post()` — dus op `kenmerk`, en bij een
+    leeg kenmerk op `locatiecode` of de positie in `register`. Een post zonder bekend
+    waterlichaam (de sleutel zit niet in `waterlichaam_per_post`) telt niet mee; dat is geen gok
+    maar een bewuste, zichtbare uitsluiting (zie `service._waterlichaam_per_vergunning`).
 
     Sleutels in de uitkomst:
     - posten[].bijdrage_bovengrens: bovengrens van de concentratiebijdrage, in `eenheid`
@@ -90,8 +107,8 @@ def bijdragen(gemeten: float, parameter: str, register: list[dict],
 
     liters_per_jaar = debiet_m3_s * SECONDEN_PER_JAAR * 1000.0
     posten = []
-    for post in register:
-        wl = waterlichaam_per_post.get(post.get("kenmerk") or "")
+    for i, post in enumerate(register):
+        wl = waterlichaam_per_post.get(sleutel_post(post, i))
         if not wl or not is_bovenstrooms(wl, waterlichaam_meetpunt):
             continue
         vracht_kg = (post.get("vrachten") or {}).get(parameter)
