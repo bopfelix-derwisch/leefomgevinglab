@@ -147,7 +147,7 @@ Voor een meetpunt met een overschrijding:
 
 1. **Welke vergunningen kunnen bijdragen?** Alleen die op een waterlichaam dat bovenstrooms van
    het meetpunt ligt, of op het waterlichaam zelf. Bovenstrooms wordt bepaald met een
-   gecureerde volgorde van de Maas-waterlichamen (Bovenmaas → Grensmaas → Zuidelijke Maas → …),
+   gecureerde volgorde van de Maas-waterlichamen (Bovenmaas → Grensmaas → Zandmaas → …),
    als tabel in de labcode.
 2. **Hoe groot is de bijdrage?** De vergunde vracht in kg/jaar gedeeld door de jaarafvoer van het
    waterlichaam in liters, geeft een concentratiebijdrage in mg/l.
