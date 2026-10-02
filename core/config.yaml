@@ -314,6 +314,10 @@ leefomgevinglab:
     # live achter elkaar kan geen pagina-aanroep zijn. Verversen: scripts/14_bouw_kmg_overzicht.py.
     # Net als de meetset is dit dus een momentopname, en de pagina toont de ophaaldatum.
     overzicht_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/kmg_overzicht.json"
+    # KRW-doelen per waterlichaam, uit dezelfde Download Data-module als de meetwaarden. Bevat de
+    # ecologische en fysisch-chemische doelen (Ntot wel, zink en PFOA niet -- die normen zijn
+    # landelijk en staan in het Bkl). Verversen: scripts/15_fetch_krw_doelen.py.
+    doelen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/krw_doelen_2025.json"
 
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).

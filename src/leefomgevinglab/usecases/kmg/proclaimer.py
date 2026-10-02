@@ -83,7 +83,22 @@ def bouw(meetset: dict, register_bron: dict, regels_bron: str,
         "bovengrens van wat die vergunningen kunnen bijdragen."
     )
 
-    if not doelen_beschikbaar:
+    if doelen_beschikbaar:
+        # Zeggen wat er geladen is én wat niet. "Doelen beschikbaar" is waar en tegelijk maar de
+        # halve waarheid: het doelenbestand draagt de ecologische en fysisch-chemische doelen, geen
+        # chemische stoffen. Zonder deze zin leest een lezer dat alles getoetst is.
+        van_ons += (
+            " De KRW-doelen zijn geladen uit het Waterkwaliteitsportaal, maar dekken niet alles: "
+            "dat bestand bevat de ecologische en fysisch-chemische doelen per waterlichaam — "
+            "stikstof hoort daarbij — en **geen enkele chemische stof**. De normen voor zink en "
+            "PFOA zijn landelijk, staan in het Bkl, en gelden voor zink bovendien voor de opgeloste "
+            "fractie met een correctie voor biobeschikbaarheid. Die hebben wij niet geladen, dus "
+            "over die twee stoffen geven wij geen oordeel. En een doel geldt voor het "
+            "**zomergemiddelde** over april tot en met september, niet voor de jaarmediaan die in "
+            "de tabel staat; wij toetsen daarom op die eerste grootheid en zwijgen zodra wij hem "
+            "niet kunnen berekenen."
+        )
+    else:
         van_ons += (
             " Er zijn geen KRW-doelen geladen, dus deze pagina toont de metingen **zonder "
             "normoordeel**. Terugvallen op de illustratieve normen die dit lab elders gebruikt "

@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 
+from . import doelen as doelen_mod
 from . import duiding, metingen, proclaimer, toerekening
 
 # Straal voor de KRW-opzoeking per vergunning: klein, want het gaat om het waterlichaam ván die
@@ -209,7 +210,7 @@ def stroomprofiel(register: list[dict], wl_per_vergunning: dict[str, str],
 
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
-          toestaan_zonder_meetpunt: bool = False) -> dict:
+          toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None) -> dict:
     """Kan, mag en gebeurt op één meetpunt."""
     set_ = metingen.laad(pad)
     if set_.get("beschikbaar"):
@@ -265,6 +266,9 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
     # hierboven) — niet uit het waterlichaam van het meetpunt, anders is elke vergunning
     # binnen de zoekstraal per definitie "bovenstrooms".
     debiet = DEBIET_M3_S.get(wl, STANDAARD_DEBIET)
+    doelenset = doelen_mod.laad(doelen_pad) if doelen_pad else {"beschikbaar": False,
+                                                                "reden": "geen doelenpad meegegeven",
+                                                                "waterlichamen": {}}
     vraag = []
     for stof in gebeurt["stoffen"]:
         naam = stof.get("naam")
@@ -284,12 +288,14 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                           "reden": f"de meting betreft {stof.get('hoedanigheid_naam') or hoed}, "
                                    f"terwijl een vergunning de totale vracht begrenst; die twee "
                                    f"zijn niet met elkaar te vergelijken",
-                          "voorbehoud": toerekening.VOORBEHOUD})
+                          "voorbehoud": toerekening.VOORBEHOUD,
+                          "doel": doelen_mod.toets(doelenset, wl, stof)})
             continue
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
                                   mag.get("register") or [], wl or "", wl_per_vergunning, debiet,
                                   eenheid=stof.get("eenheid") or "mg/l")
-        vraag.append({**basis, "toerekenbaar": True, "reden": None, **d})
+        vraag.append({**basis, "toerekenbaar": True, "reden": None, **d,
+                      "doel": doelen_mod.toets(doelenset, wl, stof)})
 
     # Hoeveel van de meetset daadwerkelijk in deze keuzelijst staat (zie meetpunten()) — de
     # proclaimer mag niet een hoger aantal beweren dan wat er na filtering overblijft.
@@ -306,6 +312,7 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                                        redenen_vergunning, wl),
         "gebeurt": gebeurt,
         "bijdragen": vraag,
-        "proclaimer": proclaimer.bouw(set_, mag, regels.BRON, doelen_beschikbaar=False,
+        "proclaimer": proclaimer.bouw(set_, mag, regels.BRON,
+                                      doelen_beschikbaar=bool(doelenset.get("beschikbaar")),
                                       punten_in_beeld=in_beeld),
     }

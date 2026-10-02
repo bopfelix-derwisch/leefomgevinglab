@@ -148,6 +148,19 @@
       border:1px solid var(--border); background:var(--panel2); }
     .cbalk .vergund { background:linear-gradient(90deg,var(--accent2),var(--accent)); min-width:2px; }
     .cbalk .rest { background:repeating-linear-gradient(135deg,#1d3550,#1d3550 6px,#24415f 6px,#24415f 12px); }
+    .cbalk { position:relative; }
+    /* De doellijn staat op zijn echte plek op de as, dus een meting die erboven zit laat de balk
+       er zichtbaar overheen lopen. Een doel als los getal naast de balk zou dat verstoppen. */
+    .doellijn { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--weg); }
+    .doellabel { position:absolute; top:-18px; font-size:10px; color:var(--weg);
+      white-space:nowrap; transform:translateX(-50%); }
+    .klasse { display:inline-block; padding:1px 8px; border-radius:9px; font-size:10.5px;
+      font-weight:600; }
+    .klasse.goed { background:rgba(46,204,143,.18); color:var(--accent); }
+    .klasse.matig { background:rgba(255,183,77,.18); color:var(--let); }
+    .klasse.ontoereikend, .klasse.slecht { background:rgba(255,122,107,.18); color:var(--weg); }
+    .gatzin { margin-top:7px; font-size:12.5px; color:var(--text);
+      border-left:2px solid var(--weg); padding:2px 0 2px 10px; }
     .cbalk .onbekend { flex:0 0 26%; background:transparent;
       border-left:1px dashed var(--let); display:flex; align-items:center; justify-content:center; }
     .cbalk .onbekend span { font-size:10px; color:var(--let); white-space:nowrap; padding:0 6px; }
@@ -581,49 +594,86 @@
         el.innerHTML = `<p class="dim">Geen stof op dit punt waarvoor een toerekening mogelijk is.</p>`;
         return;
       }
-      const doelen = d.proclaimer && d.proclaimer.gegevens
-        && d.proclaimer.gegevens.doelen_beschikbaar;
       let h = `<div class="conclusie">`;
       items.forEach(it => {
         const eenheid = it.eenheid || "";
         const som = it.som_bovengrens || 0;
-        const rest = it.restant || 0;
-        const gemeten = som + rest;
-        // Aandelen van de gemeten waarde. Bij een negatief restant -- de vergunde plafonds samen
-        // overtreffen de meting -- is de verhouding niet als balk te tonen; dan zeggen we dat.
-        const pct = gemeten > 0 ? (som / gemeten) * 100 : 0;
-        const negatief = rest < 0;
+        const doel = it.doel || {};
         const hoed = it.hoedanigheid_naam || "";
+        // Met een doel toetsen we op de grondslag van dat doel -- het zomergemiddelde -- en niet op
+        // de mediaan waarmee het staafdiagram hierboven rekent. Dat zijn verschillende grootheden,
+        // en door elkaar halen betekent toetsen tegen de verkeerde meetlat.
+        const getoetst = doel.beschikbaar ? doel.getoetste_waarde : (som + (it.restant || 0));
+        const grondslag = doel.beschikbaar ? (doel.grondslag || "") : "jaarmediaan";
         h += `<div class="cstof"><div class="ckop"><b>${esc(it.naam || it.stof || "")}</b>` +
           (hoed ? ` <span class="dim">· ${esc(hoed)}</span>` : ``) +
-          ` <span class="dim">— gemeten ${nl(gemeten, 4)} ${esc(eenheid)}</span></div>`;
-        if (negatief) {
-          h += `<p class="dim">De vergunde plafonds samen zijn groter dan wat er gemeten wordt ` +
-            `(${nl(som, 4)} tegen ${nl(gemeten, 4)} ${esc(eenheid)}). Dat is geen fout: een ` +
-            `vergunning wordt zelden volledig benut. Een verhouding is hier niet te tekenen.</p>`;
-        } else {
+          ` <span class="dim">— ${esc(grondslag)} ${nl(getoetst, 4)} ${esc(eenheid)}` +
+          (doel.beschikbaar && doel.n ? ` over ${nl(doel.n, 0)} metingen` : ``) +
+          `</span></div>`;
+
+        if (!doel.beschikbaar) {
+          const pctz = getoetst > 0 ? (som / getoetst) * 100 : 0;
           h += `<div class="cbalk">` +
-            `<div class="vergund" style="flex:0 0 ${(pct * 0.74).toFixed(2)}%"></div>` +
+            `<div class="vergund" style="flex:0 0 ${(pctz * 0.74).toFixed(2)}%"></div>` +
             `<div class="rest" style="flex:1 1 auto"></div>` +
-            `<div class="onbekend"><span>${doelen ? `ruimte tot de norm` : `norm niet geladen`}</span></div>` +
-            `</div>` +
+            `<div class="onbekend"><span>geen norm</span></div></div>` +
             `<div class="cnotatie">` +
-            `<span class="v">${nl(som, 4)} ${esc(eenheid)} vergund — ${nl(pct, 1)}%, ` +
-            `in menselijke hand</span>` +
-            `<span class="r">${nl(rest, 4)} ${esc(eenheid)} ${esc(it.restant_label || "restant")} ` +
-            `— ${nl(100 - pct, 1)}%</span>` +
-            `<span class="n">ruimte: onbekend</span></div>`;
+            `<span class="v">${nl(som, 4)} ${esc(eenheid)} vergund — ${nl(pctz, 1)}%</span>` +
+            `<span class="r">${nl(getoetst - som, 4)} ${esc(eenheid)} ` +
+            `${esc(it.restant_label || "restant")}</span></div>` +
+            `<p class="dim">Geen oordeel: ${esc(doel.reden || "er is geen norm geladen")}</p></div>`;
+          return;
+        }
+
+        // Schaal zo dat zowel de meting als het doel op de as passen, met wat lucht erachter.
+        const schaal = Math.max(getoetst, doel.goed_tot || 0) * 1.18;
+        const bDoel = schaal > 0 ? ((doel.goed_tot || 0) / schaal) * 100 : 0;
+        const bVergund = schaal > 0 ? (som / schaal) * 100 : 0;
+        const bRest = schaal > 0 ? ((getoetst - som) / schaal) * 100 : 0;
+        const pct = getoetst > 0 ? (som / getoetst) * 100 : 0;
+        const kl = (doel.klasse || "").toLowerCase();
+        h += `<div class="cbalk">` +
+          `<div class="vergund" style="flex:0 0 ${bVergund.toFixed(2)}%"></div>` +
+          `<div class="rest" style="flex:0 0 ${bRest.toFixed(2)}%"></div>` +
+          `<div style="flex:1 1 auto"></div>` +
+          `<span class="doellabel" style="left:${bDoel.toFixed(2)}%">doel ${nl(doel.goed_tot, 3)}</span>` +
+          `<span class="doellijn" style="left:${bDoel.toFixed(2)}%"></span>` +
+          `</div>` +
+          `<div class="cnotatie">` +
+          `<span class="v">${nl(som, 4)} ${esc(eenheid)} vergund — ${nl(pct, 1)}%, in menselijke hand</span>` +
+          `<span class="r">${nl(getoetst - som, 4)} ${esc(eenheid)} ` +
+          `${esc(it.restant_label || "restant")}</span>` +
+          `<span class="klasse ${esc(kl)}">${esc(doel.klasse || "onbekend")}</span></div>`;
+
+        // De kernzin. Het model geeft een bovengrens, dus het werkelijke effect van het stilleggen
+        // van alle vergunde lozingen is kleiner dan dit -- dat staat erbij, anders leest het als
+        // een belofte.
+        const ruimte = doel.ruimte;
+        if (ruimte !== null && ruimte !== undefined) {
+          if (ruimte >= 0) {
+            h += `<p class="gatzin">Er is nog <b>${nl(ruimte, 3)} ${esc(eenheid)}</b> ruimte tot ` +
+              `het doel van ${nl(doel.goed_tot, 3)}.</p>`;
+          } else {
+            const zonder = getoetst - som;
+            const genoeg = zonder <= (doel.goed_tot || 0);
+            h += `<p class="gatzin">Het doel wordt <b>met ${nl(-ruimte, 3)} ${esc(eenheid)} ` +
+              `overschreden</b>. Zou élke vergunde lozing bovenstrooms stoppen, dan bleef hier ` +
+              `${nl(zonder, 3)} ${esc(eenheid)} over — ` +
+              (genoeg ? `net onder het doel.`
+                      : `<b>nog steeds boven het doel</b>. De vergunde ruimte is dus te klein om ` +
+                        `dit gat te dichten.`) +
+              ` En omdat dit model een bovengrens geeft, is het werkelijke effect kleiner dan dat.</p>`;
+          }
         }
         h += `</div>`;
       });
-      h += `<p class="slot">Dit is de conclusie die deze pagina vandaag kan trekken: hoeveel van ` +
-        `het gemetene in menselijke hand zit. <b>Hoeveel er nog kan</b> staat er niet, en dat is ` +
-        `geen weglating maar het eerlijke antwoord — daarvoor is een KRW-doel per waterlichaam ` +
-        `nodig en dat heeft dit lab niet geladen. De normen voor chemische stoffen staan in het ` +
-        `Bkl (bijlage III voor prioritaire stoffen, IIIa voor Nederlandse specifieke ` +
-        `verontreinigende stoffen zoals zink); het doel voor stikstof totaal is ecologisch en ` +
-        `wordt per waterlichaam vastgesteld, en staat in de KRW-factsheet in het Nationaal ` +
-        `Waterprogramma. Zodra die er zijn, wordt de stippelzone hierboven een getal.</p>`;
+      h += `<p class="slot">De doelen komen uit <b>KRW-doelen</b> van het Waterkwaliteitsportaal ` +
+        `(Informatiehuis Water), rapportagejaar 2025. Zij gelden voor het <b>zomergemiddelde</b> ` +
+        `(april tot en met september) — daarom staat hierboven die grootheid en niet de jaarmediaan ` +
+        `uit de tabel. Voor <b>zink en PFOA</b> staat in dat bestand geen doel per waterlichaam: ` +
+        `die normen zijn landelijk en staan in het Bkl, en voor zink gelden zij bovendien voor de ` +
+        `opgeloste fractie met een correctie voor biobeschikbaarheid. Dit lab heeft die niet ` +
+        `geladen en geeft er dus geen oordeel over.</p>`;
       h += `</div>`;
       el.innerHTML = h;
     }
@@ -696,9 +746,15 @@
             return;
           }
           const w = Math.min(100, (st.aandeel_pct / maxPct) * 100);
-          h += `<span class="cel"><span class="lbl">&nbsp;</span>` +
+          // Het KRW-oordeel naast het vergunde aandeel: juist het contrast is de boodschap. De
+          // klasse verschuift nauwelijks over de hele Maas terwijl het aandeel van 0 tot 16% loopt.
+          const kl = (st.klasse || "").toLowerCase();
+          h += `<span class="cel"><span class="lbl">` +
+            (st.klasse ? `<span class="klasse ${esc(kl)}">${esc(st.klasse)}</span>` : `&nbsp;`) +
+            `</span>` +
             `<span class="mini"><i style="width:${w.toFixed(1)}%"></i></span>` +
-            `<span class="pct">${nl(st.aandeel_pct, 1)}%</span></span>`;
+            `<span class="pct">${nl(st.aandeel_pct, 1)}%` +
+            (st.getoetste_waarde ? ` · ${nl(st.getoetste_waarde, 2)}` : ``) + `</span></span>`;
         });
         h += `</span></div>`;
       });
@@ -711,6 +767,10 @@
         `strook zijn mogelijk.</p>`;
       // Zonder deze waarschuwing leest de strook precies verkeerd: de nullen stroomafwaarts zien
       // eruit als een bevinding over de Maas, terwijl ze een gevolg zijn van onze eigen zoekstraal.
+      h += `<p class="dim">Het label is het KRW-oordeel op het zomergemiddelde, het getal erachter ` +
+        `die waarde zelf. Let op het contrast: de klasse verschuift nauwelijks over de hele Maas ` +
+        `terwijl het vergunde aandeel van bijna niets tot ruim een zesde loopt — de vergunde ` +
+        `lozingen bepalen dit oordeel dus niet.</p>`;
       h += `<p class="geenoordeel">Lees de nullen stroomafwaarts niet als "hier loost niemand". ` +
         `Wij zoeken vergunningen binnen <b>${nl(km, 0)} km van het meetpunt</b>, en voor een punt ` +
         `benedenstrooms liggen de echte bovenstroomse bronnen verder weg dan dat: Brakel ligt 91 km ` +

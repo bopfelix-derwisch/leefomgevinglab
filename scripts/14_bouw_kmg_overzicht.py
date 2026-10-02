@@ -63,15 +63,22 @@ def _stof_regel(bijdrage: dict) -> dict:
         "aandeel_pct": (round(som / gemeten * 100, 2)
                         if toerekenbaar and gemeten > 0 and rest >= 0 else None),
         "posten": len(bijdrage.get("posten") or []),
+        # Het KRW-oordeel hoort in de strook, want juist daar wordt duidelijk dat bijna de hele Maas
+        # op dezelfde klasse uitkomt terwijl het vergunde aandeel sterk verschilt.
+        "klasse": (bijdrage.get("doel") or {}).get("klasse"),
+        "doel_waarde": (bijdrage.get("doel") or {}).get("goed_tot"),
+        "getoetste_waarde": (bijdrage.get("doel") or {}).get("getoetste_waarde"),
+        "doel_grondslag": (bijdrage.get("doel") or {}).get("grondslag"),
     }
 
 
-def bouw(metingen_pad: str, straal_m: int = 50000) -> dict:
+def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None) -> dict:
     punten = service.meetpunten(metingen_pad)
     uit = []
     for i, p in enumerate(punten, 1):
         t0 = time.time()
-        b = service.beeld(p["code"], metingen_pad, live=True, straal_m=straal_m)
+        b = service.beeld(p["code"], metingen_pad, live=True, straal_m=straal_m,
+                          doelen_pad=doelen_pad)
         reg = b["mag"].get("register") or []
         in_band = sum(len(band.get("vergunningen") or [])
                       for band in b["stroomprofiel"]["banden"])
@@ -99,9 +106,10 @@ def main() -> int:
     ap.add_argument("--metingen", required=True, help="pad naar de verdichte meetset")
     ap.add_argument("--uit", required=True, help="pad voor het overzicht-JSON")
     ap.add_argument("--straal", type=int, default=50000, help="zoekstraal in meters")
+    ap.add_argument("--doelen", default=None, help="pad naar de verdichte KRW-doelen")
     a = ap.parse_args()
 
-    d = bouw(a.metingen, straal_m=a.straal)
+    d = bouw(a.metingen, straal_m=a.straal, doelen_pad=a.doelen)
     uit = Path(a.uit)
     uit.parent.mkdir(parents=True, exist_ok=True)
     uit.write_text(json.dumps(d, ensure_ascii=False, indent=1))
