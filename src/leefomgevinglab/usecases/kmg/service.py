@@ -30,6 +30,13 @@ DEBIET_M3_S = {
 }
 STANDAARD_DEBIET = 250.0
 
+# Hoedanigheden waarvan een meting met een vergunde vracht te vergelijken is: de hele stof.
+# `NVT` = niet van toepassing (de stof zelf), `N` = uitgedrukt in stikstof. Alles daarbuiten is
+# een deelgrootheid — `nf` is de opgeloste fractie na filtratie — en daar rekenen we niet aan toe.
+# Bewust een toelatende lijst en geen uitsluitende: een onbekende hoedanigheid levert dan géén
+# toerekening in plaats van een stille vergelijking van twee verschillende grootheden.
+HOEDANIGHEID_VERGELIJKBAAR = {"NVT", "N", ""}
+
 
 def meetpunten(pad: str) -> list[dict]:
     """De beschikbare meetpunten, stroomafwaarts gesorteerd."""
@@ -212,10 +219,28 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
     vraag = []
     for stof in gebeurt["stoffen"]:
         naam = stof.get("naam")
+        hoed = (stof.get("hoedanigheid") or "").strip()
+        basis = {"stof": stof.get("code"), "naam": naam,
+                 "hoedanigheid": hoed, "hoedanigheid_naam": stof.get("hoedanigheid_naam") or ""}
+        if hoed not in HOEDANIGHEID_VERGELIJKBAAR:
+            # Een vergunning begrenst de totale vracht van een stof. Een meting van een deel
+            # daarvan — opgelost zink na filtratie bijvoorbeeld — is een andere grootheid, en de
+            # vergunde vracht eraan toerekenen zou een bijdrage opleveren die groter is dan de
+            # fractie zelf kan dragen. Dan rekenen we niet toe, en zeggen we waarom.
+            vraag.append({**basis, "posten": [], "som_bovengrens": 0.0,
+                          "restant": stof.get("mediaan") or 0.0,
+                          "restant_label": "niet toe te rekenen",
+                          "eenheid": stof.get("eenheid") or "mg/l",
+                          "toerekenbaar": False,
+                          "reden": f"de meting betreft {stof.get('hoedanigheid_naam') or hoed}, "
+                                   f"terwijl een vergunning de totale vracht begrenst; die twee "
+                                   f"zijn niet met elkaar te vergelijken",
+                          "voorbehoud": toerekening.VOORBEHOUD})
+            continue
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
                                   mag.get("register") or [], wl or "", wl_per_vergunning, debiet,
                                   eenheid=stof.get("eenheid") or "mg/l")
-        vraag.append({"stof": stof.get("code"), "naam": naam, **d})
+        vraag.append({**basis, "toerekenbaar": True, "reden": None, **d})
 
     # Hoeveel van de meetset daadwerkelijk in deze keuzelijst staat (zie meetpunten()) — de
     # proclaimer mag niet een hoger aantal beweren dan wat er na filtering overblijft.

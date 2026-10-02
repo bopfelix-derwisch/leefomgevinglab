@@ -9,7 +9,7 @@ De mediaan is de hoofdwaarde, niet het gemiddelde. Meetreeksen bevatten uitschie
 Eijsden heeft mediaan 4,54 en maximum 49,7 µg/l — en één piek mag het beeld niet bepalen. Het
 maximum staat er apart bij, want dat is wat een normtoets interesseert.
 
-Drie dingen die je bij deze bron moet weten, allemaal gemeten op 2026-10-01:
+Vier dingen die je bij deze bron moet weten, allemaal gemeten op 2026-10-01:
 
   * `MonsterCompartimentCode` is bij de chemische metingen **leeg**, niet `OW`. Wie daarop
     filtert houdt nul stikstof- en zinkmetingen over.
@@ -17,6 +17,13 @@ Drie dingen die je bij deze bron moet weten, allemaal gemeten op 2026-10-01:
     999999999999 — 3000 van de 384.259 rijen, geteld over **alle** parameters in het bestand
     (niet beperkt tot de drie labstoffen; daarbinnen zijn het er maar 18). Zonder filter wordt
     het maximum onzin.
+  * **`HoedanigheidCode` scheidt grootheden die er hetzelfde uitzien.** Zink staat op élk
+    Maas-meetpunt in twee reeksen: `NVT` (totaal) en `nf` (opgelost, na filtratie). Bij Eijsden
+    ponton is dat 52 metingen met mediaan 7,15 µg/l tegen 52 met mediaan 2,80. Sleutel je daar
+    niet op, dan rolt er een mediaan van 4,54 uit — een concentratie die niemand heeft gemeten.
+    De KRW-norm voor zink geldt bovendien voor de opgeloste fractie, dus poolen maakt ook het
+    latere normoordeel onbruikbaar. Stikstof (`N`) en PFOA (`NVT`) zijn vandaag uniform, maar
+    `Npg`/`Nnf` bestaan elders in dezelfde download.
   * `Monsterophaaldatum` is bij de chemische metingen eveneens **leeg**. De datum staat in
     `Begindatum` (en dezelfde waarde nogmaals in `Resultaatdatum`). Wie alleen op
     `Monsterophaaldatum` leest, houdt voor elk punt en elke stof een lege periode over. Dit
@@ -87,8 +94,8 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
     stoffen = stoffen or LABSTOFFEN
     objecten = _lees_objecten(meetobjecten_pad)
     telling = {"rijen": 0, "meegeteld": 0, "hiaatwaarden": 0, "onleesbaar": 0,
-               "buiten_stoffen": 0, "onbekend_meetobject": 0}
-    verzameld = {}          # (puntcode, stofcode) -> dict met waarden
+               "buiten_stoffen": 0, "onbekend_meetobject": 0, "gemengde_eenheid": 0}
+    verzameld = {}          # (puntcode, stofcode, hoedanigheid) -> dict met waarden
     meetjaar = None
 
     with open(meetwaarden_pad, encoding="utf-8-sig", newline="") as f:
@@ -109,13 +116,22 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
                 telling["onleesbaar"] += 1
                 continue
             punt = (r.get("MeetobjectCode") or "").strip()
-            sleutel = (punt, par)
+            hoed = (r.get("HoedanigheidCode") or "").strip()
+            eenheid = (r.get("EenheidCode") or "").strip()
+            # Sleutelen op hoedanigheid is niet optioneel: zink komt op élk Maas-meetpunt in twee
+            # reeksen voor, totaal (NVT) en opgelost na filtratie (nf), met medianen die een
+            # factor 2,5 verschillen. Zonder deze sleutel worden die tot één mediaan gepoold en
+            # staat er een concentratie op de pagina die niemand gemeten heeft.
+            sleutel = (punt, par, hoed)
             v = verzameld.setdefault(sleutel, {
                 "code": par,
                 "naam": (r.get("ParameterOmschrijving") or par).strip(),
-                "eenheid": (r.get("EenheidCode") or "").strip(),
-                "waarden": [], "onder_rapportagegrens": 0, "data": [],
+                "eenheid": eenheid,
+                "hoedanigheid": hoed,
+                "hoedanigheid_naam": (r.get("HoedanigheidOmschrijving") or "").strip(),
+                "waarden": [], "onder_rapportagegrens": 0, "data": [], "eenheden": set(),
             })
+            v["eenheden"].add(eenheid)
             v["waarden"].append(waarde)
             if (r.get("Limietsymbool") or "").strip() == "<":
                 v["onder_rapportagegrens"] += 1
@@ -127,7 +143,13 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
             telling["meegeteld"] += 1
 
     punten = {}
-    for (puntcode, _par), v in verzameld.items():
+    for (puntcode, _par, _hoed), v in verzameld.items():
+        # De eenheid werd van de eerste rij van de reeks genomen. Controleer dat de rest
+        # dezelfde draagt: een reeks met twee eenheden levert een mediaan over twee
+        # grootheden, en dat is precies de aanname die dit lab al een factor 1000 heeft gekost.
+        if len(v["eenheden"]) > 1:
+            telling["gemengde_eenheid"] += len(v["waarden"])
+            continue
         obj = objecten.get(puntcode)
         if obj is None:
             # Meetwaarde verwijst naar een MeetobjectCode die niet in het meetobjectenbestand
@@ -138,6 +160,7 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
         data = sorted(v["data"])
         p["stoffen"].append({
             "code": v["code"], "naam": v["naam"], "eenheid": v["eenheid"],
+            "hoedanigheid": v["hoedanigheid"], "hoedanigheid_naam": v["hoedanigheid_naam"],
             "n": len(v["waarden"]),
             "mediaan": round(statistics.median(v["waarden"]), 6),
             "maximum": round(max(v["waarden"]), 6),
@@ -147,7 +170,7 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
         })
 
     for p in punten.values():
-        p["stoffen"].sort(key=lambda s: s["code"])
+        p["stoffen"].sort(key=lambda s: (s["code"], s["hoedanigheid"]))
 
     return {
         "meetjaar": meetjaar,
@@ -173,7 +196,8 @@ def main() -> int:
     print(f"meetjaar {d['meetjaar']}: {len(d['punten'])} punten, "
           f"{t['meegeteld']} metingen meegeteld van {t['rijen']} rijen "
           f"({t['hiaatwaarden']} hiaat, {t['onleesbaar']} onleesbaar, "
-          f"{t['onbekend_meetobject']} onbekend meetobject) -> {uit}")
+          f"{t['onbekend_meetobject']} onbekend meetobject, "
+          f"{t['gemengde_eenheid']} gemengde eenheid) -> {uit}")
     return 0
 
 
