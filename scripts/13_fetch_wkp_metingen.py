@@ -81,6 +81,10 @@ def _lees_objecten(pad: str) -> dict:
     return uit
 
 
+# Het KRW-zomerhalfjaar voor de fysisch-chemische parameters: april tot en met september.
+_ZOMERMAANDEN = {"04", "05", "06", "07", "08", "09"}
+
+
 def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
              stoffen: set[str] | None = None) -> dict:
     """Twee CSV's in, één compacte structuur uit.
@@ -130,9 +134,14 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
                 "hoedanigheid": hoed,
                 "hoedanigheid_naam": (r.get("HoedanigheidOmschrijving") or "").strip(),
                 "waarden": [], "onder_rapportagegrens": 0, "data": [], "eenheden": set(),
+                "paren": [],
             })
             v["eenheden"].add(eenheid)
             v["waarden"].append(waarde)
+            # Datum bij de waarde bewaren: het KRW-oordeel voor de fysisch-chemische parameters
+            # gaat over het **zomergemiddelde**, niet over een jaargemiddelde of -mediaan. Zonder
+            # de maand bij elke waarde is dat achteraf niet meer te berekenen.
+            v["paren"].append((None, waarde))
             if (r.get("Limietsymbool") or "").strip() == "<":
                 v["onder_rapportagegrens"] += 1
             d = ((r.get("Monsterophaaldatum") or "").strip()
@@ -140,6 +149,7 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
                  or (r.get("Resultaatdatum") or "").strip())
             if d:
                 v["data"].append(d)
+            v["paren"][-1] = (d or None, waarde)
             telling["meegeteld"] += 1
 
     punten = {}
@@ -158,6 +168,7 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
             continue
         p = punten.setdefault(puntcode, {**obj, "stoffen": []})
         data = sorted(v["data"])
+        zomer = [w for d, w in v["paren"] if d and d[5:7] in _ZOMERMAANDEN]
         p["stoffen"].append({
             "code": v["code"], "naam": v["naam"], "eenheid": v["eenheid"],
             "hoedanigheid": v["hoedanigheid"], "hoedanigheid_naam": v["hoedanigheid_naam"],
@@ -165,6 +176,11 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
             "mediaan": round(statistics.median(v["waarden"]), 6),
             "maximum": round(max(v["waarden"]), 6),
             "onder_rapportagegrens": v["onder_rapportagegrens"],
+            # Het zomergemiddelde is de grootheid waartegen de KRW-klassengrenzen gelden. Apart
+            # van de mediaan, want die twee zijn niet uitwisselbaar en een pagina die ze door
+            # elkaar haalt toetst tegen de verkeerde norm.
+            "zomergemiddelde": round(statistics.fmean(zomer), 6) if zomer else None,
+            "n_zomer": len(zomer),
             "van": data[0] if data else None,
             "tot": data[-1] if data else None,
         })
