@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 
-from . import metingen, proclaimer, toerekening
+from . import duiding, metingen, proclaimer, toerekening
 
 # Straal voor de KRW-opzoeking per vergunning: klein, want het gaat om het waterlichaam ván die
 # ene coördinaat, niet om een omgeving. Los te zien van `straal_m` in `beeld()`, dat de Atlas
@@ -225,7 +225,10 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
 
     # Kan — de regels op het meetpunt
     if live and x is not None:
-        kan = regels.regels_op_locatie(x, y, rijkswater=True, live=True, _haal=_haal_regels)
+        # Eigen duidingstabel: de gedeelde tabel is voor een lozingsvoornemen geschreven, deze
+        # pagina staat op een meetpunt in de rivier. Zie kmg/duiding.py.
+        kan = duiding.duid_regelingen(regels.regels_op_locatie(
+            x, y, rijkswater=True, live=True, _haal=_haal_regels, tabel=duiding.DUIDING_KMG))
     else:
         kan = {"live": False, "status": "overgeslagen", "regelingen": [],
                "bron": regels.BRON, "telling": {}}
