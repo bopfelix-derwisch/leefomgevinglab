@@ -310,6 +310,10 @@ leefomgevinglab:
     # niet. Ruimer dan de 5 km van /gebruiksruimte, omdat een bovenstroomse lozing tientallen
     # kilometers verderop kan liggen. De proclaimer benoemt deze keuze.
     straal_m: 50000
+    # Het overzicht over alle Maas-meetpunten is voorberekend: een punt kost koud ~166 s, dus negen
+    # live achter elkaar kan geen pagina-aanroep zijn. Verversen: scripts/14_bouw_kmg_overzicht.py.
+    # Net als de meetset is dit dus een momentopname, en de pagina toont de ophaaldatum.
+    overzicht_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/kmg_overzicht.json"
 
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).

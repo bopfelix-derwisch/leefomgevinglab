@@ -75,7 +75,12 @@ def bouw(meetset: dict, register_bron: dict, regels_bron: str,
         "waterlichaam zit, zou een stromingsmodel vergen, en dat hebben wij niet. "
         "Een vergunning begrenst bovendien de totale vracht van een stof. Meet de bron een deel "
         "daarvan — opgelost zink na filtratie bijvoorbeeld — dan rekenen wij daar niets aan toe, "
-        "want dat zijn twee verschillende grootheden."
+        "want dat zijn twee verschillende grootheden. "
+        "En die zoekafstand is een cirkel, geen stroomgebied: voor een meetpunt benedenstrooms "
+        "liggen de werkelijke bovenstroomse lozingen verder weg dan onze straal en vallen zij "
+        "buiten beeld. Hoe verder stroomafwaarts een punt ligt, hoe meer wij missen. Elk getal hier "
+        "is daarom een ondergrens van wat vergund bovenstrooms ligt, en bovenstrooms tegelijk een "
+        "bovengrens van wat die vergunningen kunnen bijdragen."
     )
 
     if not doelen_beschikbaar:

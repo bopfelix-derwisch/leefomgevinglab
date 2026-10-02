@@ -136,6 +136,53 @@
     .balkwaarde { flex:0 0 130px; font-size:11px; color:var(--muted); font-family:ui-monospace,monospace;
       text-align:right; }
 
+    /* Visuele conclusie: de gemeten waarde opgedeeld in wat vergund is en wat niet, met de ruimte
+       tot de norm als uitdrukkelijk onbekend in plaats van weggelaten. Zodra de KRW-doelen er zijn
+       wordt de stippelzone een getal. */
+    .conclusie { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; margin-bottom:14px; }
+    .cstof { margin-bottom:16px; }
+    .cstof:last-child { margin-bottom:0; }
+    .ckop { font-size:13px; margin-bottom:6px; }
+    .cbalk { display:flex; height:22px; border-radius:5px; overflow:hidden;
+      border:1px solid var(--border); background:var(--panel2); }
+    .cbalk .vergund { background:linear-gradient(90deg,var(--accent2),var(--accent)); min-width:2px; }
+    .cbalk .rest { background:repeating-linear-gradient(135deg,#1d3550,#1d3550 6px,#24415f 6px,#24415f 12px); }
+    .cbalk .onbekend { flex:0 0 26%; background:transparent;
+      border-left:1px dashed var(--let); display:flex; align-items:center; justify-content:center; }
+    .cbalk .onbekend span { font-size:10px; color:var(--let); white-space:nowrap; padding:0 6px; }
+    .cnotatie { display:flex; gap:14px; flex-wrap:wrap; margin-top:5px; font-size:11.5px; }
+    .cnotatie .v { color:var(--accent); }
+    .cnotatie .r { color:var(--muted); }
+    .cnotatie .n { color:var(--let); }
+    .conclusie .slot { font-size:12.5px; color:var(--muted); margin-top:12px;
+      border-top:1px solid var(--border); padding-top:10px; }
+
+    /* Strook over alle negen Maas-meetpunten: het patroon dat je op een losse pagina niet ziet.
+       Voorberekend (zie scripts/14), dus met ophaaldatum erbij. */
+    .strook { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; margin-bottom:14px; }
+    .srij { display:flex; align-items:center; gap:10px; padding:4px 0;
+      border-bottom:1px solid rgba(26,58,92,.5); }
+    .srij:last-of-type { border-bottom:none; }
+    .srij.actief { background:rgba(79,195,247,.07); border-radius:6px; }
+    .srij .pnt { flex:0 0 190px; font-size:11.5px; overflow:hidden; text-overflow:ellipsis;
+      white-space:nowrap; }
+    .srij .pnt b { color:#eafff6; font-weight:600; }
+    .srij .pnt i { color:var(--dim); font-style:normal; }
+    .srij .cellen { flex:1; display:flex; gap:8px; flex-wrap:wrap; }
+    .cel { flex:1 1 120px; min-width:104px; }
+    .cel .lbl { font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--dim); }
+    .cel .mini { height:9px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:3px; overflow:hidden; }
+    .cel .mini i { display:block; height:100%; min-width:2px;
+      background:linear-gradient(90deg,var(--accent2),var(--accent)); }
+    .cel .pct { font-size:10.5px; color:var(--muted); font-family:ui-monospace,monospace; }
+    .cel.nvt .pct { color:var(--dim); }
+    .strook .kopregel { display:flex; gap:10px; font-size:9.5px; text-transform:uppercase;
+      letter-spacing:.5px; color:var(--dim); margin-bottom:4px; }
+    .strook .kopregel .pnt { flex:0 0 190px; }
+
     .kopje { margin-bottom:14px; }
     .kopje h4 { font-size:12.5px; color:#eafff6; margin-bottom:4px; }
     .kopje p { font-size:12.5px; color:var(--muted); max-width:900px; }
@@ -213,6 +260,12 @@
 
     <div class="section-title">Welke vergunningen kunnen bijdragen — bovengrens, geen vaststelling</div>
     <div id="bijdragen"></div>
+
+    <div class="section-title">Wat kan hier nog?</div>
+    <div id="conclusie"></div>
+
+    <div class="section-title">En op de andere meetpunten — het patroon over de hele Maas</div>
+    <div id="strook"></div>
 
     <footer>
       <div class="section-title" style="margin-top:0">Verantwoording</div>
@@ -521,6 +574,155 @@
       el.innerHTML = h;
     }
 
+    function tekenConclusie(d) {
+      const el = document.getElementById("conclusie");
+      const items = (d.bijdragen || []).filter(it => it.toerekenbaar !== false);
+      if (!items.length) {
+        el.innerHTML = `<p class="dim">Geen stof op dit punt waarvoor een toerekening mogelijk is.</p>`;
+        return;
+      }
+      const doelen = d.proclaimer && d.proclaimer.gegevens
+        && d.proclaimer.gegevens.doelen_beschikbaar;
+      let h = `<div class="conclusie">`;
+      items.forEach(it => {
+        const eenheid = it.eenheid || "";
+        const som = it.som_bovengrens || 0;
+        const rest = it.restant || 0;
+        const gemeten = som + rest;
+        // Aandelen van de gemeten waarde. Bij een negatief restant -- de vergunde plafonds samen
+        // overtreffen de meting -- is de verhouding niet als balk te tonen; dan zeggen we dat.
+        const pct = gemeten > 0 ? (som / gemeten) * 100 : 0;
+        const negatief = rest < 0;
+        const hoed = it.hoedanigheid_naam || "";
+        h += `<div class="cstof"><div class="ckop"><b>${esc(it.naam || it.stof || "")}</b>` +
+          (hoed ? ` <span class="dim">· ${esc(hoed)}</span>` : ``) +
+          ` <span class="dim">— gemeten ${nl(gemeten, 4)} ${esc(eenheid)}</span></div>`;
+        if (negatief) {
+          h += `<p class="dim">De vergunde plafonds samen zijn groter dan wat er gemeten wordt ` +
+            `(${nl(som, 4)} tegen ${nl(gemeten, 4)} ${esc(eenheid)}). Dat is geen fout: een ` +
+            `vergunning wordt zelden volledig benut. Een verhouding is hier niet te tekenen.</p>`;
+        } else {
+          h += `<div class="cbalk">` +
+            `<div class="vergund" style="flex:0 0 ${(pct * 0.74).toFixed(2)}%"></div>` +
+            `<div class="rest" style="flex:1 1 auto"></div>` +
+            `<div class="onbekend"><span>${doelen ? `ruimte tot de norm` : `norm niet geladen`}</span></div>` +
+            `</div>` +
+            `<div class="cnotatie">` +
+            `<span class="v">${nl(som, 4)} ${esc(eenheid)} vergund — ${nl(pct, 1)}%, ` +
+            `in menselijke hand</span>` +
+            `<span class="r">${nl(rest, 4)} ${esc(eenheid)} ${esc(it.restant_label || "restant")} ` +
+            `— ${nl(100 - pct, 1)}%</span>` +
+            `<span class="n">ruimte: onbekend</span></div>`;
+        }
+        h += `</div>`;
+      });
+      h += `<p class="slot">Dit is de conclusie die deze pagina vandaag kan trekken: hoeveel van ` +
+        `het gemetene in menselijke hand zit. <b>Hoeveel er nog kan</b> staat er niet, en dat is ` +
+        `geen weglating maar het eerlijke antwoord — daarvoor is een KRW-doel per waterlichaam ` +
+        `nodig en dat heeft dit lab niet geladen. De normen voor chemische stoffen staan in het ` +
+        `Bkl (bijlage III voor prioritaire stoffen, IIIa voor Nederlandse specifieke ` +
+        `verontreinigende stoffen zoals zink); het doel voor stikstof totaal is ecologisch en ` +
+        `wordt per waterlichaam vastgesteld, en staat in de KRW-factsheet in het Nationaal ` +
+        `Waterprogramma. Zodra die er zijn, wordt de stippelzone hierboven een getal.</p>`;
+      h += `</div>`;
+      el.innerHTML = h;
+    }
+
+    // Het overzicht is voorberekend en verandert niet per meetpunt, dus eenmaal ophalen en
+    // bewaren; alleen welke rij oplicht hangt van de keuze af.
+    let overzicht = null;
+
+    async function laadStrook(actiefPunt) {
+      const el = document.getElementById("strook");
+      if (overzicht === null) {
+        try {
+          const r = await fetch("/api/kmg/overzicht");
+          overzicht = r.ok ? await r.json() : {beschikbaar: false, reden: `HTTP ${r.status}`};
+        } catch (e) {
+          overzicht = {beschikbaar: false, reden: e.message};
+        }
+      }
+      tekenStrook(el, overzicht, actiefPunt);
+    }
+
+    function tekenStrook(el, o, actiefPunt) {
+      if (!o || !o.beschikbaar) {
+        el.innerHTML = `<p class="dim">Het overzicht over alle meetpunten is niet beschikbaar: ` +
+          `${esc((o && o.reden) || "onbekende reden")}.</p>`;
+        return;
+      }
+      const punten = o.punten || [];
+      if (!punten.length) {
+        el.innerHTML = `<p class="dim">Het overzicht bevat geen meetpunten.</p>`;
+        return;
+      }
+      // De kolommen zijn de stof-hoedanigheidcombinaties die voorkomen, in de orde van het eerste
+      // punt dat ze heeft -- niet hardgecodeerd, want welke stoffen er zijn hangt van de meetset af.
+      const kolommen = [];
+      punten.forEach(p => (p.stoffen || []).forEach(st => {
+        const sleutel = `${st.code}|${st.hoedanigheid || ""}`;
+        if (!kolommen.some(k => k.sleutel === sleutel)) {
+          kolommen.push({sleutel, code: st.code, naam: st.naam,
+                         hoed: st.hoedanigheid_naam || st.hoedanigheid || "",
+                         eenheid: st.eenheid});
+        }
+      }));
+      // Alle minibalken op dezelfde schaal, anders vergelijkt de strook niets. De schaal is het
+      // hoogste aandeel dat voorkomt, met een bodem zodat een strook van bijna-nullen niet
+      // ineens vol oogt.
+      const maxPct = Math.max(5, ...punten.flatMap(p =>
+        (p.stoffen || []).map(st => st.aandeel_pct || 0)));
+
+      let h = `<div class="strook">`;
+      h += `<div class="kopregel"><span class="pnt">meetpunt</span>` +
+        kolommen.map(k => `<span class="cel">${esc(k.code)}` +
+          (k.hoed ? ` · ${esc(k.hoed.slice(0, 14))}` : ``) + `</span>`).join("") + `</div>`;
+
+      punten.forEach(p => {
+        const actief = p.code === actiefPunt;
+        h += `<div class="srij${actief ? " actief" : ""}">` +
+          `<span class="pnt"><b>${esc(p.naam || p.code)}</b> ` +
+          `<i>${esc(p.waterlichaam_naam || "")}</i></span><span class="cellen">`;
+        kolommen.forEach(k => {
+          const st = (p.stoffen || []).find(x => `${x.code}|${x.hoedanigheid || ""}` === k.sleutel);
+          if (!st) {
+            h += `<span class="cel nvt"><span class="lbl">&nbsp;</span>` +
+              `<span class="mini"></span><span class="pct">niet gemeten</span></span>`;
+            return;
+          }
+          if (!st.toerekenbaar || st.aandeel_pct === null) {
+            h += `<span class="cel nvt"><span class="lbl">&nbsp;</span>` +
+              `<span class="mini"></span><span class="pct">n.v.t.</span></span>`;
+            return;
+          }
+          const w = Math.min(100, (st.aandeel_pct / maxPct) * 100);
+          h += `<span class="cel"><span class="lbl">&nbsp;</span>` +
+            `<span class="mini"><i style="width:${w.toFixed(1)}%"></i></span>` +
+            `<span class="pct">${nl(st.aandeel_pct, 1)}%</span></span>`;
+        });
+        h += `</span></div>`;
+      });
+
+      const km = (o.straal_m || 0) / 1000;
+      h += `<p class="dim" style="margin-top:10px">Aandeel van de gemeten waarde dat de vergunde ` +
+        `bovenstroomse lozingen hoogstens kunnen verklaren. Alle balken op dezelfde schaal ` +
+        `(maximum ${nl(maxPct, 1)}%). Voorberekend op ${esc(o.opgehaald_op || "onbekende datum")} ` +
+        `— een los meetpunt hierboven wordt wél live bevraagd, dus kleine verschillen met deze ` +
+        `strook zijn mogelijk.</p>`;
+      // Zonder deze waarschuwing leest de strook precies verkeerd: de nullen stroomafwaarts zien
+      // eruit als een bevinding over de Maas, terwijl ze een gevolg zijn van onze eigen zoekstraal.
+      h += `<p class="geenoordeel">Lees de nullen stroomafwaarts niet als "hier loost niemand". ` +
+        `Wij zoeken vergunningen binnen <b>${nl(km, 0)} km van het meetpunt</b>, en voor een punt ` +
+        `benedenstrooms liggen de echte bovenstroomse bronnen verder weg dan dat: Brakel ligt 91 km ` +
+        `van Belfeld, dus de grote stikstoflozers op de Zandmaas vallen voor Brakel buiten beeld. ` +
+        `Hoe verder stroomafwaarts, hoe meer van het werkelijke stroomgebied wij missen. Een cirkel ` +
+        `is een slechte benadering van een stroomgebied; de juiste vraag is "alle vergunningen op de ` +
+        `bovenstroomse waterlichamen", niet "alles binnen zoveel kilometer". Dat is nog niet gebouwd, ` +
+        `dus elk getal in deze strook is een ondergrens — en stroomafwaarts een steeds lossere.</p>`;
+      h += `</div>`;
+      el.innerHTML = h;
+    }
+
     function tekenProclaimer(d) {
       const p = d.proclaimer || {};
       const kopjes = p.kopjes || [];
@@ -537,7 +739,9 @@
       tekenGebeurt(d);
       tekenProfiel(d);
       tekenBijdragen(d);
+      tekenConclusie(d);
       tekenProclaimer(d);
+      laadStrook(d.meetpunt && d.meetpunt.code);
     }
 
     document.getElementById("meetpunt").addEventListener("change", e => laadBeeld(e.target.value));

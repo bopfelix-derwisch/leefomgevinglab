@@ -363,6 +363,27 @@ def api_kmg_meetpunten():
     return kmg_service.meetpunten(_kmg_pad())
 
 
+@app.get("/api/kmg/overzicht")
+def api_kmg_overzicht():
+    """Het voorberekende overzicht over alle Maas-meetpunten.
+
+    Zacht falen als het bestand er niet is: de pagina moet de rest kunnen tonen en zeggen waarom de
+    strook ontbreekt, net zoals bij een ontbrekende meetset.
+    """
+    pad = Path(_config.get("leefomgevinglab", {}).get("kmg", {}).get(
+        "overzicht_pad", "/mnt/nvme/geluidsmeter/data/external/wkp/kmg_overzicht.json"))
+    if not pad.exists():
+        return {"beschikbaar": False,
+                "reden": "nog niet voorberekend; draai scripts/14_bouw_kmg_overzicht.py",
+                "punten": []}
+    try:
+        return {"beschikbaar": True, **json.loads(pad.read_text(encoding="utf-8"))}
+    except (ValueError, OSError) as exc:
+        return {"beschikbaar": False,
+                "reden": f"het overzichtsbestand is onleesbaar ({type(exc).__name__})",
+                "punten": []}
+
+
 @app.get("/api/kmg")
 def api_kmg(meetpunt: str, live: int = 1):
     try:
