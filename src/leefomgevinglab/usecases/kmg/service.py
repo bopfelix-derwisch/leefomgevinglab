@@ -164,6 +164,49 @@ def _buiten_toerekening(register: list[dict], redenen: dict[str, str]) -> list[d
     return uit
 
 
+def stroomprofiel(register: list[dict], wl_per_vergunning: dict[str, str],
+                  redenen: dict[str, str], wl_meetpunt: str | None) -> dict:
+    """De Maas als reeks waterlichamen, met de vergunningen in de band waar zij liggen.
+
+    De band is de eenheid waarop het toerekeningsmodel rekent, en daarom ook de eenheid van deze
+    verbeelding: binnen een waterlichaam kent het model geen posities, dus de plaat mag die ook
+    niet suggereren. Dat is geen vereenvoudiging maar de waarheid over wat wij weten — waar een
+    lozing precies binnen een waterlichaam zit, zou een stromingsmodel vergen.
+
+    Bovenstrooms staat vóór het meetpunt in de lijst, benedenstrooms erna; `bovenstrooms` zegt per
+    band of de vergunningen erin meegerekend zijn. Let op dat de band van het meetpunt zelf
+    bovenstrooms heet: een lozing op hetzelfde waterlichaam telt mee, ook als zij daarbinnen
+    stroomafwaarts ligt (zie `toerekening.is_bovenstrooms`).
+
+    Vergunningen zonder vindbaar waterlichaam horen in geen enkele band en komen apart terug, met
+    hun reden: wie ze zou weglaten, laat de lezer een plaat zien die volledig lijkt.
+    """
+    in_band: dict[str, list[dict]] = {code: [] for code, _n in toerekening.STROOMVOLGORDE}
+    zonder: list[dict] = []
+    for i, post in enumerate(register):
+        sleutel = toerekening.sleutel_post(post, i)
+        wl = wl_per_vergunning.get(sleutel)
+        item = {"naam": post.get("naam"), "kenmerk": post.get("kenmerk"),
+                "plaats": post.get("plaats"), "vrachten": post.get("vrachten") or {}}
+        if wl and wl in in_band:
+            item["toegerekend"] = bool(wl_meetpunt) and toerekening.is_bovenstrooms(wl, wl_meetpunt)
+            in_band[wl].append(item)
+        else:
+            zonder.append({**item,
+                           "reden": redenen.get(sleutel) or "waterlichaam valt buiten de Maas-reeks"})
+
+    banden = []
+    for code, naam in toerekening.STROOMVOLGORDE:
+        banden.append({
+            "code": code, "naam": naam,
+            "meetpunt": code == wl_meetpunt,
+            "bovenstrooms": bool(wl_meetpunt) and toerekening.is_bovenstrooms(code, wl_meetpunt),
+            "vergunningen": in_band[code],
+        })
+    return {"banden": banden, "zonder_waterlichaam": zonder,
+            "waterlichaam_meetpunt": wl_meetpunt}
+
+
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
           toestaan_zonder_meetpunt: bool = False) -> dict:
@@ -194,6 +237,7 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
             reg = atlas_register.naar_register(posten)
             wl_per_vergunning, redenen = _waterlichaam_per_vergunning(
                 posten, live=True, _haal_waterlichaam=_haal_waterlichaam)
+            redenen_vergunning = redenen
             mag = {"status": "ok", **reg,
                    "buiten_toerekening": _buiten_toerekening(reg["register"], redenen)}
         except Exception as exc:                 # noqa: BLE001 — bron mag wegvallen
@@ -201,10 +245,12 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                    "register": [], "telling": {}, "bron": {}, "echt": False,
                    "buiten_toerekening": []}
             wl_per_vergunning = {}
+            redenen_vergunning = {}
     else:
         mag = {"status": "overgeslagen", "register": [], "telling": {},
                "bron": {}, "echt": False, "buiten_toerekening": []}
         wl_per_vergunning = {}
+        redenen_vergunning = {}
 
     # Gebeurt — de metingen
     gebeurt = {"beschikbaar": bool(set_.get("beschikbaar")),
@@ -253,6 +299,8 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                      "waterlichaam_naam": dict(toerekening.STROOMVOLGORDE).get(wl, "")},
         "kan": kan,
         "mag": mag,
+        "stroomprofiel": stroomprofiel(mag.get("register") or [], wl_per_vergunning,
+                                       redenen_vergunning, wl),
         "gebeurt": gebeurt,
         "bijdragen": vraag,
         "proclaimer": proclaimer.bouw(set_, mag, regels.BRON, doelen_beschikbaar=False,

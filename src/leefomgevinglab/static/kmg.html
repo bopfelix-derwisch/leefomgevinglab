@@ -91,6 +91,38 @@
     .voorbehoud { background:rgba(232,184,74,.08); border:1px solid #5a4520; border-radius:9px;
       padding:10px 13px; font-size:12.5px; color:var(--let); margin-bottom:14px; }
 
+    /* Lengteprofiel: de Maas als reeks waterlichamen, bovenstrooms boven de streep. De band is
+       de eenheid waarop het model rekent, dus ook de eenheid van deze plaat -- binnen een band is
+       de orde willekeurig en dat staat er ook bij. */
+    .profiel { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; margin-bottom:14px; }
+    .band { display:flex; align-items:center; gap:12px; padding:3px 0; }
+    .band .nm { flex:0 0 150px; font-size:11.5px; color:var(--muted); text-align:right;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .band .as { flex:1; display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+      border-left:3px solid var(--border); padding:4px 0 4px 10px; min-height:26px; }
+    .band.boven .as { border-left-color:var(--accent); }
+    .band.onder .as { border-left-color:var(--dim); }
+    .band.hier .nm { color:var(--gebeurt); font-weight:700; }
+    .band.hier .as { border-left-color:var(--gebeurt); background:rgba(79,195,247,.06); }
+    .stip { width:11px; height:11px; border-radius:50%; flex:none; cursor:default;
+      background:var(--accent); border:1px solid var(--accent); }
+    .stip.uit { background:transparent; border-color:var(--dim); }
+    /* Bovenstrooms maar zonder herleidbare vracht: de positie telt mee, er is alleen niets om
+       toe te rekenen. Zonder dit onderscheid lijkt een profiel vol gevulde stippen in tegenspraak
+       met een staafdiagram dat nul zegt -- zoals bij Keizersveer, waar alle tien bovenstroomse
+       vergunningen geen bepaalbare vracht hebben. */
+    .stip.geenvracht { background:transparent; border-color:var(--accent); }
+    .hier-vlag { font-size:11px; color:var(--gebeurt); white-space:nowrap; }
+    .knip { display:flex; align-items:center; gap:10px; margin:6px 0; }
+    .knip .nm { flex:0 0 150px; font-size:10px; text-transform:uppercase; letter-spacing:.6px;
+      color:var(--dim); text-align:right; }
+    .knip .lijn { flex:1; border-top:1px dashed var(--border); }
+    .profiel .leeg { font-size:11px; color:var(--dim); }
+    .legenda { font-size:11px; color:var(--dim); margin-top:10px; display:flex; gap:16px;
+      flex-wrap:wrap; align-items:center; }
+    .legenda span { display:flex; align-items:center; gap:6px; }
+
     .stofblok { background:var(--panel); border:1px solid var(--border); border-radius:10px;
       padding:13px 16px; margin-bottom:12px; }
     .stofkop { font-size:13.5px; margin-bottom:8px; }
@@ -119,6 +151,12 @@
       .controls { flex-direction:column; align-items:stretch; }
       select { min-width:0; width:100%; }
       table, th, td { font-size:11px; }
+      .band, .knip { flex-direction:column; align-items:stretch; gap:2px; }
+      .band .nm, .knip .nm { flex:none; width:100%; text-align:left; }
+      .band .as { border-left:none; border-top:3px solid var(--border); padding:6px 0 0; }
+      .band.boven .as { border-top-color:var(--accent); }
+      .band.onder .as { border-top-color:var(--dim); }
+      .band.hier .as { border-top-color:var(--gebeurt); }
       .balkrij { flex-direction:column; align-items:stretch; gap:2px; }
       .balklabel, .balkwaarde { flex:none; width:100%; text-align:left; white-space:normal; }
       .balk { width:100%; }
@@ -169,6 +207,9 @@
       <h3>Gebeurt — wat hier gemeten wordt</h3>
       <div id="gebeurt"></div>
     </div>
+
+    <div class="section-title">De Maas van boven naar beneden — waar liggen die vergunningen?</div>
+    <div id="profiel"></div>
 
     <div class="section-title">Welke vergunningen kunnen bijdragen — bovengrens, geen vaststelling</div>
     <div id="bijdragen"></div>
@@ -356,6 +397,66 @@
       el.innerHTML = h;
     }
 
+    function tekenProfiel(d) {
+      const el = document.getElementById("profiel");
+      const sp = d.stroomprofiel;
+      if (!sp || !(sp.banden || []).length) {
+        el.innerHTML = `<p class="dim">Geen stroomprofiel beschikbaar voor dit punt.</p>`;
+        return;
+      }
+      const zonder = sp.zonder_waterlichaam || [];
+      let geknipt = false;
+      let h = `<div class="profiel">`;
+
+      sp.banden.forEach(b => {
+        // De streep valt waar bovenstrooms ophoudt: alles eronder is stroomafwaarts van het
+        // meetpunt en wordt niet toegerekend.
+        if (!b.bovenstrooms && !geknipt) {
+          h += `<div class="knip"><span class="nm">stroomafwaarts</span>` +
+               `<span class="lijn"></span></div>`;
+          geknipt = true;
+        }
+        const vs = b.vergunningen || [];
+        const klas = "band " + (b.bovenstrooms ? "boven" : "onder") + (b.meetpunt ? " hier" : "");
+        const stippen = vs.length
+          ? vs.map(v => {
+              const heeftVracht = Object.keys(v.vrachten || {}).length > 0;
+              const klasse = !v.toegerekend ? " uit" : (heeftVracht ? "" : " geenvracht");
+              const staat = !v.toegerekend ? "ligt benedenstrooms"
+                : (heeftVracht ? "kan bijdragen" : "bovenstrooms, maar geen bepaalbare vracht");
+              const t = `${v.naam || "onbekend"}${v.plaats ? " — " + v.plaats : ""} — ${staat}`;
+              return `<i class="stip${klasse}" title="${esc(t)}"></i>`;
+            }).join("")
+          : `<span class="leeg">geen vergunningen</span>`;
+        h += `<div class="${klas}"><span class="nm">${esc(b.naam || b.code || "")}</span>` +
+          `<span class="as">${stippen}` +
+          (b.meetpunt ? `<span class="hier-vlag">◆ meetpunt: ` +
+             `${esc((d.meetpunt && d.meetpunt.naam) || "")}</span>` : ``) +
+          `</span></div>`;
+      });
+
+      h += `<div class="legenda">` +
+        `<span><i class="stip"></i> kan bijdragen</span>` +
+        `<span><i class="stip geenvracht"></i> bovenstrooms, geen bepaalbare vracht</span>` +
+        `<span><i class="stip uit"></i> ligt benedenstrooms</span>` +
+        `<span>◆ meetpunt</span></div>`;
+      // Binnen een band is de orde willekeurig. Dat hoort erbij te staan, anders leest een lezer
+      // een positie die het model niet kent.
+      h += `<p class="dim" style="margin-top:8px">Binnen een band is de orde willekeurig: het ` +
+        `model rekent per waterlichaam en kent geen posities daarbinnen. Een lozing op het ` +
+        `waterlichaam van het meetpunt telt daarom mee, ook als zij daarbinnen stroomafwaarts ` +
+        `ligt — preciezer zou een stromingsmodel vergen.</p>`;
+      if (zonder.length) {
+        const redenen = [...new Set(zonder.map(z => z.reden))];
+        h += `<p class="dim">${nl(zonder.length, 0)} van de ` +
+          `${nl((d.mag && (d.mag.register || []).length) || 0, 0)} vergunningen uit het register ` +
+          `staan in geen enkele band: ` + esc(redenen.join("; ")) + `. Zij zijn niet ` +
+          `toegerekend.</p>`;
+      }
+      h += `</div>`;
+      el.innerHTML = h;
+    }
+
     function tekenBijdragen(d) {
       const el = document.getElementById("bijdragen");
       const items = d.bijdragen || [];
@@ -434,6 +535,7 @@
       tekenKan(d);
       tekenMag(d);
       tekenGebeurt(d);
+      tekenProfiel(d);
       tekenBijdragen(d);
       tekenProclaimer(d);
     }
