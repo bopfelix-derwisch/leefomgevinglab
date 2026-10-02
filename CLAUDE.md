@@ -135,7 +135,11 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   `MonsterCompartimentCode` is bij chemische metingen leeg (filteren op `OW` geeft nul stikstof- en
   zinkmetingen); `KwaliteitsoordeelCode = '99'` ("Hiaat waarde") draagt de sentinel
   `999999999999` — 3000 van de 384.259 rijen, geteld over álle parameters in het bestand; en
-  `Monsterophaaldatum` is leeg, de datum staat in `Begindatum`. **Geen machine-ingang:** de
+  `Monsterophaaldatum` is leeg, de datum staat in `Begindatum`; en **`HoedanigheidCode`
+  scheidt grootheden die hetzelfde heten** — zink staat op élk Maas-punt in twee reeksen, totaal
+  (`NVT`) en opgelost na filtratie (`nf`), bij Eijsden 52 metingen met mediaan 7,15 µg/l tegen 52
+  met 2,80. Zonder die sleutel poolt de verdichting ze tot 4,54: een concentratie die niemand
+  gemeten heeft. De KRW-norm voor zink geldt juist voor de opgeloste fractie. **Geen machine-ingang:** de
   Digitale Delta API van RWS geeft 401 op elk data-eindpunt en de WKP-module die dit oplost komt
   begin 2027, dus de meetset is een handmatige momentopname.
   **Let op de eenheden** — dit is de duurste valkuil van deze use-case: stikstof staat in mg/l maar
@@ -145,14 +149,34 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   alle tests gebruikten mg/l-fixtures, dus dat kwam pas boven bij een live run.
   Het toerekeningsmodel (`usecases/kmg/toerekening.py`) deelt de vergunde vracht van bovenstroomse
   lozingen door de jaarafvoer en is **uitdrukkelijk een bovengrens, geen vaststelling** — de woorden
-  "veroorzaakt door" staan niet op de pagina en een test bewaakt dat. Een afvoer van nul werpt een
+  "veroorzaakt door" staan niet op de pagina, en `tests/test_api_kmg.py` bewaakt dat op de HTML
+  zelf — plus dat de pagina "bovengrens", "kan bijdragen" en "nooit een vaststelling" ook echt
+  uitspreekt, want vermijden is niet genoeg. Een afvoer van nul werpt een
   `ValueError`: juist daar valt het model om, en een stille 0,0 zou "deze vergunning draagt niets
-  bij" suggereren. De stroomvolgorde van de Maas (Bovenmaas → Grensmaas → Zandmaas → Bedijkte Maas
-  → Beneden Maas → Bergsche Maas → Haringvliet-oost → -west) is een keuze van dit lab, net als de
-  jaarafvoer per waterlichaam in `service.DEBIET_M3_S`; de KRW-service levert geen van beide.
-  **Wat eruit komt is de boodschap:** het vergunde deel van een gemeten waarde loopt van ~2%
-  (stikstof bij Maastricht) via 13-15% (Belfeld boven) tot **47% (zink bij Eijsden ponton)** — soms
-  verklaart het register bijna niets, soms de helft. PFOA levert een lege bijdragenlijst: die stof
+  bij" suggereren. **Drie getallen in dat model zijn labkeuzes en komen uit geen bron:** de
+  stroomvolgorde van de Maas (Bovenmaas → Grensmaas → Zandmaas → Bedijkte Maas → Beneden Maas →
+  Bergsche Maas → Haringvliet-oost → -west), de jaarafvoer per waterlichaam
+  (`service.DEBIET_M3_S`) en de zoekstraal (`kmg.straal_m`, 50 km — ruimer dan de 5 km van
+  `/gebruiksruimte`, want bovenstrooms kan tientallen kilometers weg liggen). Alle drie staan nu in
+  de proclaimer benoemd; eerder lazen ze als brongegeven.
+  **Het waterlichaam per vergunning wordt opgezocht uit haar eigen coördinaat**
+  (`service._waterlichaam_per_vergunning()`, uit `voorschriften[].rd`, ontdubbeld en parallel), niet
+  uit dat van het meetpunt. Dat ging eerder mis en maakte `is_bovenstrooms()` dode code: élke
+  vergunning binnen de straal telde mee, ook benedenstroomse. Een vergunning waarvan het
+  waterlichaam niet te vinden is, blijft met reden buiten de toerekening
+  (`mag.buiten_toerekening`) in plaats van stil weg te vallen. **Let op de grofmazigheid:**
+  `is_bovenstrooms(X, X)` is waar, dus een lozing op hetzelfde waterlichaam telt mee ook als zij
+  daarbinnen stroomafwaarts ligt; preciezer zou een stromingsmodel vergen. Pagina en proclaimer
+  zeggen dat nu expliciet.
+  **Een vergunning begrenst de totale vracht**, dus aan een meting van een deelgrootheid wordt
+  níet toegerekend: `HOEDANIGHEID_VERGELIJKBAAR` is een toelatende lijst (`NVT`, `N`), zodat een
+  onbekende hoedanigheid géén toerekening oplevert in plaats van een stille vergelijking van twee
+  verschillende grootheden.
+  **Wat eruit komt is de boodschap:** het vergunde deel van een gemeten waarde loopt van **0%** tot
+  **14%** — 14,3% stikstof en 7,0% zink bij Belfeld boven, 0,1% en 2,1% bij Eijsden ponton, en bij
+  Keizersveer precies niets terwijl er 19 vergunningen in het register staan (geen ervan ligt
+  bovenstrooms). Het register verklaart hoogstens een zevende van wat er gemeten wordt, en op de
+  meeste punten niets. PFOA levert een lege bijdragenlijst: die stof
   komt in het register niet voor. Er zijn **geen KRW-doelen** geladen, dus de pagina toont de
   metingen **zonder normoordeel**; terugvallen op de illustratieve normen die dit lab elders
   gebruikt is verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt

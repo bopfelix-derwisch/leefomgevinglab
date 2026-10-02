@@ -305,6 +305,11 @@ leefomgevinglab:
     # Delta API van RWS geeft 401 en de WKP-module die dit zou oplossen komt begin 2027.
     # Verversen: scripts/13_fetch_wkp_metingen.py op een nieuwe download.
     metingen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json"
+    # Hoe ver bovenstrooms wij naar vergunningen zoeken. Dit is een inhoudelijke keuze van dit
+    # lab, geen gegeven uit een bron: wat erbinnen valt kan worden toegerekend, wat erbuiten valt
+    # niet. Ruimer dan de 5 km van /gebruiksruimte, omdat een bovenstroomse lozing tientallen
+    # kilometers verderop kan liggen. De proclaimer benoemt deze keuze.
+    straal_m: 50000
 
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).

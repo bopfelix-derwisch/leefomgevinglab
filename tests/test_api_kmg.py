@@ -29,6 +29,23 @@ def test_pagina_geeft_200_met_de_subnav(monkeypatch):
     assert "/api/kmg" in r.text
 
 
+def test_de_pagina_stelt_niet_vast_wie_een_overschrijding_teweegbrengt(monkeypatch):
+    """De harde regel uit spec 5.3, bewaakt op de plek waar de woorden bij een lezer komen.
+
+    Deze test bestond niet terwijl CLAUDE.md beweerde van wel. De bestaande woordtests zitten op
+    het toerekeningsmodel en op de proclaimertekst; de HTML -- de enige laag die de lezer echt
+    ziet -- was onbewaakt.
+    """
+    h = _client(monkeypatch).get("/kmg").text.lower()
+    assert "veroorzaakt door" not in h
+    # Een ontkenning als "niet dat zij heeft bijgedragen" is juist gewenst, en met een deelstring
+    # niet van een bewering te onderscheiden -- daarom toetsen we niet op die woorden, maar erop
+    # dat de pagina het voorbehoud zélf uitspreekt. Vermijden is niet genoeg.
+    assert "bovengrens" in h
+    assert "kan bijdragen" in h
+    assert "nooit een vaststelling" in h
+
+
 def test_het_dossier_heeft_nu_zes_leden():
     assert len(wh.LEDEN) == 6
     assert wh.lid("kmg")["pad"] == "/kmg"

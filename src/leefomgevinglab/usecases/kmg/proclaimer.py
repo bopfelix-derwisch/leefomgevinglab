@@ -64,8 +64,18 @@ def bouw(meetset: dict, register_bron: dict, regels_bron: str,
         "Daar zit geen verblijftijd in, geen menging, geen afbraak en geen bezinking, en er wordt "
         "gerekend met de vergunde ruimte in plaats van met de werkelijke lozing. Omdat een "
         "vergunning zelden volledig wordt benut, is elke berekende bijdrage een bovengrens. "
-        "De volgorde van de Maas-waterlichamen waarmee wij 'bovenstrooms' bepalen is eveneens "
-        "door ons vastgelegd; de bron kent die volgorde niet."
+        "Drie getallen in die rekensom zijn van ons en komen uit geen enkele bron: de volgorde "
+        "van de Maas-waterlichamen waarmee wij 'bovenstrooms' bepalen, de jaarafvoer per "
+        "waterlichaam waarmee wij delen, en de afstand waarbinnen wij naar vergunningen zoeken. "
+        "De KRW-service levert geen afvoergegevens en kent geen stroomvolgorde; wij hebben beide "
+        "zelf vastgelegd op de orde van grootte van de Maas. "
+        "En 'bovenstrooms' is bij ons grofmaziger dan het woord suggereert: wij werken op het "
+        "niveau van hele waterlichamen, dus een lozing op hetzelfde waterlichaam als het meetpunt "
+        "telt mee, ook als zij daarbinnen stroomafwaarts ligt. Waar een lozing precies binnen een "
+        "waterlichaam zit, zou een stromingsmodel vergen, en dat hebben wij niet. "
+        "Een vergunning begrenst bovendien de totale vracht van een stof. Meet de bron een deel "
+        "daarvan — opgelost zink na filtratie bijvoorbeeld — dan rekenen wij daar niets aan toe, "
+        "want dat zijn twee verschillende grootheden."
     )
 
     if not doelen_beschikbaar:

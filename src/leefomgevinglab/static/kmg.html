@@ -138,9 +138,13 @@
       <p>De DSO-folder verbeeldt de leefomgeving in drie lagen over elkaar: <b>kan</b> — de regels
         die hier gelden, <b>mag</b> — wat er vergund is, en <b>gebeurt</b> — wat er gemeten wordt.
         Deze pagina legt die drie lagen over één meetpunt aan de Maas, en telt daarna op hoeveel
-        van het gemetene de vergunningen bovenstrooms kúnnen verklaren. De vergunde lozingen
-        verklaren meestal maar een klein deel van wat er gemeten wordt, en wat hieronder staat is
-        een bovengrens — nooit een vaststelling van wie een overschrijding veroorzaakt.</p>
+        van het gemetene de vergunde lozingen kúnnen verklaren. "Bovenstrooms" is daarbij
+        grofmazig: wij werken op het niveau van hele waterlichamen, dus een lozing op hetzelfde
+        waterlichaam als het meetpunt telt mee, ook als zij daarbinnen stroomafwaarts ligt —
+        preciezer zou een stromingsmodel vergen. De vergunde lozingen verklaren meestal maar een
+        klein deel van wat er gemeten wordt, en elk getal hieronder is een <b>bovengrens</b>: een
+        balk betekent dat een vergunning <b>kan bijdragen</b>, niet dat zij heeft bijgedragen.
+        Dit is nooit een vaststelling van wie een overschrijding veroorzaakt.</p>
     </div>
 
     <div class="controls">
@@ -166,7 +170,7 @@
       <div id="gebeurt"></div>
     </div>
 
-    <div class="section-title">Welke vergunningen kunnen bijdragen</div>
+    <div class="section-title">Welke vergunningen kunnen bijdragen — bovengrens, geen vaststelling</div>
     <div id="bijdragen"></div>
 
     <footer>
@@ -324,16 +328,25 @@
         return;
       }
       let h = `<p class="dim">Meetjaar ${esc(g.meetjaar || "onbekend")}</p>` +
-        `<div class="tabelwrap"><table><tr><th>stof</th><th>mediaan</th><th>maximum</th>` +
-        `<th>metingen</th><th>periode</th></tr>` +
+        `<div class="tabelwrap"><table><tr><th>stof</th><th>hoedanigheid</th><th>mediaan</th>` +
+        `<th>maximum</th><th>metingen</th><th>&lt; rapportagegrens</th><th>periode</th></tr>` +
         stoffen.map(s => {
           const periode = (s.van || s.tot) ? `${esc(s.van || "?")} – ${esc(s.tot || "?")}`
             : "onbekend";
+          // Hoedanigheid hoort als eigen kolom en niet als voetnoot: zink komt op elk meetpunt
+          // twee keer voor, als totaal en als opgeloste fractie, met medianen die een factor
+          // 2,5 verschillen. Zonder deze kolom zien die twee rijen eruit als een vergissing.
+          const onderRG = (s.onder_rapportagegrens || 0) > 0
+            ? `${nl(s.onder_rapportagegrens, 0)} van ${nl(s.n, 0)}` : "—";
           return `<tr><td>${esc(s.naam || s.code || "")}</td>` +
+            `<td class="dim">${esc(s.hoedanigheid_naam || s.hoedanigheid || "—")}</td>` +
             `<td>${nl(s.mediaan, 3)} ${esc(s.eenheid || "")}</td>` +
             `<td>${nl(s.maximum, 3)} ${esc(s.eenheid || "")}</td>` +
-            `<td>${nl(s.n, 0)}</td><td>${periode}</td></tr>`;
-        }).join("") + `</table></div>`;
+            `<td>${nl(s.n, 0)}</td><td class="dim">${onderRG}</td><td>${periode}</td></tr>`;
+        }).join("") + `</table></div>` +
+        `<p class="dim">Een waarde onder de rapportagegrens is geen gemeten concentratie maar ` +
+        `een bovengrens van de meetmethode; zulke waarden gaan hier op hun nominale waarde mee ` +
+        `in de mediaan en het maximum.</p>`;
       const doelenBeschikbaar = d.proclaimer && d.proclaimer.gegevens
         && d.proclaimer.gegevens.doelen_beschikbaar;
       if (!doelenBeschikbaar) {
@@ -351,16 +364,42 @@
         return;
       }
       const voorbehoud = items.find(it => it.voorbehoud)?.voorbehoud;
+      // Een leeg antwoord mag niet hetzelfde lezen als een weggevallen bron: zonder register is
+      // "geen vergunning begrenst deze stof" geen uitspraak over wat er vergund is.
+      const magStatus = (d.mag && d.mag.status) || "";
+      const buiten = (d.mag && d.mag.buiten_toerekening) || [];
       let h = voorbehoud ? `<div class="voorbehoud">${esc(voorbehoud)}</div>` : "";
+      if (magStatus === "onbereikbaar") {
+        h += `<p class="geenoordeel">Het vergunningenregister was niet bereikbaar` +
+          `${d.mag && d.mag.fout ? ` (${esc(d.mag.fout)})` : ``}. Wat hieronder staat is daarom ` +
+          `geen uitspraak over wat er vergund is.</p>`;
+      }
+      if (buiten.length) {
+        h += `<p class="dim">${nl(buiten.length, 0)} vergunning(en) uit het register blijven ` +
+          `buiten deze toerekening: ` +
+          esc([...new Set(buiten.map(b => b.reden))].join("; ")) + `.</p>`;
+      }
       h += items.map(it => {
         const posten = it.posten || [];
         const eenheid = it.eenheid || "";
         const schaal = Math.max(1e-12, (it.som_bovengrens || 0) + Math.max(0, it.restant || 0));
+        const hoed = it.hoedanigheid_naam || it.hoedanigheid || "";
         let s = `<div class="stofblok"><div class="stofkop"><b>${esc(it.naam || it.stof || "")}</b> ` +
+          (hoed ? `<span class="dim">· ${esc(hoed)}</span> ` : "") +
           `<span class="dim">(${esc(eenheid)})</span></div>`;
+        if (it.toerekenbaar === false) {
+          // Niet hetzelfde als "geen vergunningen gevonden": hier is de vergelijking zelf
+          // ongeldig. Dat moet anders lezen, anders lijkt een weigering op een leeg antwoord.
+          s += `<p class="dim" style="margin-bottom:8px">Hier rekenen wij niets aan toe: ` +
+            `${esc(it.reden || "de grootheden zijn niet vergelijkbaar")}.</p></div>`;
+          return s;
+        }
         if (!posten.length) {
-          s += `<p class="dim" style="margin-bottom:8px">Deze stof komt niet voor in het register ` +
-            `van vergunningen bovenstrooms; de volledige gemeten waarde telt als ` +
+          s += `<p class="dim" style="margin-bottom:8px">Geen vergunning bovenstrooms van dit ` +
+            `meetpunt begrenst deze stof${magStatus === "onbereikbaar"
+              ? ` — let op: het vergunningenregister was niet bereikbaar, dus dit is geen ` +
+                `uitspraak over wat er vergund is`
+              : ``}; de volledige gemeten waarde telt als ` +
             `${esc(it.restant_label || "restant")}.</p>`;
         }
         s += posten.map(p => {

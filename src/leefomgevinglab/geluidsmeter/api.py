@@ -366,7 +366,8 @@ def api_kmg_meetpunten():
 @app.get("/api/kmg")
 def api_kmg(meetpunt: str, live: int = 1):
     try:
-        return kmg_service.beeld(meetpunt, _kmg_pad(), live=bool(live))
+        straal = _config.get("leefomgevinglab", {}).get("kmg", {}).get("straal_m", 50000)
+        return kmg_service.beeld(meetpunt, _kmg_pad(), live=bool(live), straal_m=straal)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"onbekend meetpunt: {meetpunt}")
 
