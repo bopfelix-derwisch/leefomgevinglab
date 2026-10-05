@@ -72,13 +72,14 @@ def _stof_regel(bijdrage: dict) -> dict:
     }
 
 
-def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None) -> dict:
+def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None,
+         parameters_pad: str | None = None) -> dict:
     punten = service.meetpunten(metingen_pad)
     uit = []
     for i, p in enumerate(punten, 1):
         t0 = time.time()
         b = service.beeld(p["code"], metingen_pad, live=True, straal_m=straal_m,
-                          doelen_pad=doelen_pad)
+                          doelen_pad=doelen_pad, parameters_pad=parameters_pad)
         reg = b["mag"].get("register") or []
         in_band = sum(len(band.get("vergunningen") or [])
                       for band in b["stroomprofiel"]["banden"])
@@ -92,6 +93,15 @@ def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None
             # informatiemodel-betoog op staat -- dus hoort het uit de data te komen en niet uit een
             # tekst die na de volgende verversing niet meer klopt.
             "met_vracht": sum(1 for p_ in reg if p_.get("vrachten")),
+            # Wat het informatiemodel oplevert ten opzichte van de koppeling op Nederlandse naam:
+            # hoeveel stoffen er uit hetzelfde register te halen zijn, en bij hoeveel vergunningen.
+            "model": {
+                **( (b["mag"].get("informatiemodel") or {}).get("telling") or {} ),
+                "stoffen_oud": len({k for p_ in reg for k in (p_.get("vrachten") or {})}),
+                "stoffen_aquo": len({k for p_ in reg for k in (p_.get("vrachten_aquo") or {})}),
+                "posten_oud": sum(1 for p_ in reg if p_.get("vrachten")),
+                "posten_aquo": sum(1 for p_ in reg if p_.get("vrachten_aquo")),
+            },
             "in_band": in_band,
             "zonder_waterlichaam": len(b["stroomprofiel"].get("zonder_waterlichaam") or []),
             "mag_status": b["mag"].get("status"),
@@ -112,9 +122,11 @@ def main() -> int:
     ap.add_argument("--uit", required=True, help="pad voor het overzicht-JSON")
     ap.add_argument("--straal", type=int, default=50000, help="zoekstraal in meters")
     ap.add_argument("--doelen", default=None, help="pad naar de verdichte KRW-doelen")
+    ap.add_argument("--parameters", default=None, help="pad naar de Aquo-parameterreferentie")
     a = ap.parse_args()
 
-    d = bouw(a.metingen, straal_m=a.straal, doelen_pad=a.doelen)
+    d = bouw(a.metingen, straal_m=a.straal, doelen_pad=a.doelen,
+             parameters_pad=a.parameters)
     uit = Path(a.uit)
     uit.parent.mkdir(parents=True, exist_ok=True)
     uit.write_text(json.dumps(d, ensure_ascii=False, indent=1))

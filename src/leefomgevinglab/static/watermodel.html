@@ -261,6 +261,42 @@
       sleutel ontbreekt, is elke volgende laag gebouwd op een tekstvergelijking die stil kan
       breken.</p>
 
+    <div class="section-title">Het model, uitgevoerd op de vergunningen die er liggen</div>
+    <p class="tekst">Het voorstel is niet bij een plaat gebleven. De voorschriften uit de Atlas zijn
+      door het model heen gehaald: elke regel krijgt een Aquo-parametercode, een eenheid met
+      dimensie, een grondslag uit het bemonsteringsvoorschrift — en per veld de <strong>zekerheid</strong>
+      waarmee dat is vastgesteld. Dat laatste is het punt. Een model dat alleen velden vastlegt
+      maakt een onvolledige vergunning er netjes uitzien; een model dat de zekerheid meevoert maakt
+      zichtbaar wat er mist.</p>
+    <div class="kaart" id="dataficering"><h3>Laden…</h3></div>
+    <p class="tekst" id="winst"></p>
+    <p class="tekst">De parameterreferentie is zelf afgeleid uit de meetdata — die draagt bij elke
+      rij zowel <code>ParameterCode</code> als <code>ParameterOmschrijving</code>, dus de koppeling
+      is terug te voeren op een echte levering in plaats van op een lijst uit het hoofd van de
+      bouwer. Dat is meteen de belangrijkste beperking: het is géén volledige Aquo-domeintabel maar
+      de doorsnede van één levering. Zuurgraad, zwevende stof en debiet ontbreken daarin, en die
+      drie alleen al verklaren tweederde van wat niet koppelt. Met de echte Aquo-tabel zou de
+      dekking van 57 naar ruwweg 85 procent gaan.</p>
+    <div class="kaart">
+      <h3>Wat het model zichtbaar maakt dat eerst onzichtbaar was</h3>
+      <ul style="margin-top:4px">
+        <li><strong>Geen enkel voorschrift is volledig.</strong> Niet één van de 367, en steeds om
+          dezelfde reden: de bron kent geen geldigheidsperiode per voorschrift. Een vervallen
+          voorschrift is dus niet van een geldend te onderscheiden.</li>
+        <li><strong>De hoedanigheid ontbreekt overal.</strong> Geen van de 49 parameternamen zegt of
+          het om de totale of de opgeloste fractie gaat. Het model leest een effluentvoorschrift als
+          de totale fractie — de praktijk waarop gehandhaafd wordt — maar legt dat vast als
+          <em>aanname</em>, niet als gegeven.</li>
+        <li><strong>De grondslag bestond al.</strong> Het veld <code>bemonstering</code> onderscheidt
+          een etmaalgemiddelde van een steekmonster, en dat is precies wat bepaalt welke grenswaarde
+          geldt als een stof er meerdere heeft. Het stond er als vrije tekst; het model maakt er een
+          code van. Maar twee van de 367 voorschriften hebben er geen.</li>
+        <li><strong>Samengestelde voorschriften passen niet.</strong> "som 6 metalen (Zn, Cu, Pb, Ni,
+          Cr, As)" is één grenswaarde over zes stoffen. Geen enkele parametercode dekt dat, en het
+          model doet niet alsof. Dat is een registratievraag, geen koppelvraag.</li>
+      </ul>
+    </div>
+
     <div class="section-title">Wat de POC nu al laat zien</div>
     <p class="tekst">Twee van de drie lagen komen machinaal binnen — regels uit het DSO,
       vergunningen uit de Atlas. De metingen zijn een handmatige momentopname: de Digitale Delta API
@@ -431,6 +467,42 @@
         punten.map(rij).join("") + `</tbody></table>`;
     }
 
+    function dataficering(punten) {
+      // Alle punten samen: de dataficering is een eigenschap van het register, niet van een punt.
+      const m = punten.map(p => p.model || {}).filter(x => x.totaal);
+      if (!m.length) return null;
+      const som = k => m.reduce((a, x) => a + (x[k] || 0), 0);
+      return {
+        totaal: som("totaal"), bruikbaar: som("bruikbaar"), onbruikbaar: som("onbruikbaar"),
+        volledig: som("volledig"), zonder_geldigheid: som("zonder_geldigheid"),
+        aangenomen: som("aangenomen_hoedanigheid"),
+        // Stoffen en posten zijn per punt al een telling van unieke sleutels; het maximum is de
+        // eerlijkste samenvatting, want optellen zou dezelfde stof meermaals tellen.
+        stoffen_oud: Math.max(...m.map(x => x.stoffen_oud || 0)),
+        stoffen_aquo: Math.max(...m.map(x => x.stoffen_aquo || 0)),
+        posten_oud: Math.max(...m.map(x => x.posten_oud || 0)),
+        posten_aquo: Math.max(...m.map(x => x.posten_aquo || 0)),
+      };
+    }
+
+    function tekenDataficering(t) {
+      const rij = (lbl, v, af) => {
+        const pct = t.totaal > 0 ? (v / t.totaal) * 100 : 0;
+        return `<div class="tstap"><div class="kop"><span>${esc(lbl)}</span>` +
+          `<span class="val">${nl(v, 0)} · ${nl(pct, 0)}%</span></div>` +
+          `<div class="tbalk"><i class="${af ? "af" : ""}" style="width:${pct.toFixed(1)}%"></i></div></div>`;
+      };
+      return `<h3>${nl(t.totaal, 0)} voorschriften door het model</h3><div class="trechter">` +
+        rij("Bruikbaar: stof, eenheid en waarde codificeerbaar", t.bruikbaar, false) +
+        rij("Onbruikbaar: de stof koppelt niet aan een code", t.onbruikbaar, true) +
+        rij("Volledig: alle velden aanwezig", t.volledig, true) +
+        `</div>` +
+        `<p class="tekst zacht" style="margin-top:10px">Alle ${nl(t.zonder_geldigheid, 0)} ` +
+        `voorschriften missen een geldigheidsperiode en bij alle ${nl(t.aangenomen, 0)} is de ` +
+        `hoedanigheid aangenomen. Daarom is <strong>geen enkel</strong> voorschrift volledig — en ` +
+        `dat is precies wat een informatiemodel hoort te laten zien in plaats van te verbergen.</p>`;
+    }
+
     (async function () {
       let o;
       try {
@@ -476,6 +548,24 @@
         `stroomgebied dekt het grootste deel van het beeld.`;
 
       document.getElementById("tabelwrap").innerHTML = tabel(punten);
+
+      const t = dataficering(punten);
+      if (t) {
+        document.getElementById("dataficering").innerHTML = tekenDataficering(t);
+        document.getElementById("winst").innerHTML =
+          `En wat het oplevert: uit hetzelfde register haalde de koppeling op Nederlandse naam ` +
+          `<strong>${nl(t.stoffen_oud, 0)} stoffen</strong> bij ${nl(t.posten_oud, 0)} ` +
+          `vergunningen; met Aquo-codes zijn dat er <strong>${nl(t.stoffen_aquo, 0)}</strong> bij ` +
+          `${nl(t.posten_aquo, 0)} vergunningen. Dezelfde voorschriften, dezelfde bron — alleen ` +
+          `niet langer weggegooid omdat de stof buiten een handgeschreven lijstje viel. De ` +
+          `toerekening voor stikstof en zink verandert er vandaag niet door, want die stonden al ` +
+          `op dat lijstje; wat verandert is dat de koppeling niet meer stilvalt op een andere ` +
+          `schrijfwijze, en dat de overige stoffen beschikbaar zijn zodra er metingen voor zijn.`;
+      } else {
+        document.getElementById("dataficering").innerHTML =
+          `<p class="tekst zacht">Het modelresultaat zit nog niet in dit overzicht; ververs het ` +
+          `met scripts/14 en de optie --parameters.</p>`;
+      }
 
       const met = punten.filter(p => (p.stoffen || []).some(s => (s.aandeel_pct || 0) > 1));
       const aandelen = punten.flatMap(p => (p.stoffen || [])

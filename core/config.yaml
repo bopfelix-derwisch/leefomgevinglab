@@ -318,6 +318,10 @@ leefomgevinglab:
     # ecologische en fysisch-chemische doelen (Ntot wel, zink en PFOA niet -- die normen zijn
     # landelijk en staan in het Bkl). Verversen: scripts/15_fetch_krw_doelen.py.
     doelen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/krw_doelen_2025.json"
+    # Parameterreferentie voor het informatiemodel lozingsvoorschriften: Aquo-code naast
+    # omschrijving, afgeleid uit de WKP-meetwaarden. Geen volledige Aquo-domeintabel -- wat RWS
+    # niet chemisch meet staat er niet in. Verversen: scripts/16_bouw_aquo_parameters.py.
+    parameters_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_parameters.json"
 
   ozon:
     # DSO Ozon Omgevingsdocument Presenteren v8 (x-api-key; RD via Content-Crs OGC-URI).

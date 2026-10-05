@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 
 from . import doelen as doelen_mod
+from . import lozingsmodel
 from . import duiding, metingen, proclaimer, toerekening
 
 # Straal voor de KRW-opzoeking per vergunning: klein, want het gaat om het waterlichaam ván die
@@ -210,7 +211,8 @@ def stroomprofiel(register: list[dict], wl_per_vergunning: dict[str, str],
 
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
-          toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None) -> dict:
+          toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None,
+          parameters_pad: str | None = None) -> dict:
     """Kan, mag en gebeurt op één meetpunt."""
     set_ = metingen.laad(pad)
     if set_.get("beschikbaar"):
@@ -239,11 +241,31 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
         try:
             posten = (_haal_atlas or _atlas_standaard)(x, y, straal_m)
             reg = atlas_register.naar_register(posten)
+            # Het informatiemodel naast het bestaande register: dezelfde voorschriften, maar
+            # gecodificeerd, met de zekerheid per veld erbij. De vrachten op Aquo-code gaan mee op
+            # de registerpost zodat `toerekening.bijdragen()` erop kan koppelen in plaats van op
+            # de Nederlandse omschrijving.
+            ref = lozingsmodel.laad_parameters(parameters_pad) if parameters_pad else {
+                "beschikbaar": False, "op_naam": {},
+                "reden": "geen parameterreferentie meegegeven"}
+            gedataficeerd = [lozingsmodel.dataficeer_post(p_, ref) for p_ in posten]
+            model_per_sleutel = {toerekening.sleutel_post(g, i): g
+                                 for i, g in enumerate(gedataficeerd)}
+            for i, post in enumerate(reg["register"]):
+                g = model_per_sleutel.get(toerekening.sleutel_post(post, i))
+                if g is not None:
+                    post["vrachten_aquo"] = lozingsmodel.vrachten_op_code(
+                        g, post.get("debiet_m3_per_uur"))
             wl_per_vergunning, redenen = _waterlichaam_per_vergunning(
                 posten, live=True, _haal_waterlichaam=_haal_waterlichaam)
             redenen_vergunning = redenen
             mag = {"status": "ok", **reg,
-                   "buiten_toerekening": _buiten_toerekening(reg["register"], redenen)}
+                   "buiten_toerekening": _buiten_toerekening(reg["register"], redenen),
+                   "informatiemodel": {
+                       "referentie": bool(ref.get("beschikbaar")),
+                       "reden": ref.get("reden"),
+                       "telling": lozingsmodel.tel(
+                           [v for g in gedataficeerd for v in g["voorschriften"]])}}
         except Exception as exc:                 # noqa: BLE001 — bron mag wegvallen
             mag = {"status": "onbereikbaar", "fout": type(exc).__name__,
                    "register": [], "telling": {}, "bron": {}, "echt": False,
@@ -293,7 +315,8 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
             continue
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
                                   mag.get("register") or [], wl or "", wl_per_vergunning, debiet,
-                                  eenheid=stof.get("eenheid") or "mg/l")
+                                  eenheid=stof.get("eenheid") or "mg/l",
+                                  parameter_code=stof.get("code"))
         vraag.append({**basis, "toerekenbaar": True, "reden": None, **d,
                       "doel": doelen_mod.toets(doelenset, wl, stof)})
 

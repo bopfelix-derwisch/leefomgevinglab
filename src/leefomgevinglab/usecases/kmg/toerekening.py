@@ -75,11 +75,17 @@ def is_bovenstrooms(waterlichaam: str, meetpunt_waterlichaam: str) -> bool:
 
 def bijdragen(gemeten: float, parameter: str, register: list[dict],
               waterlichaam_meetpunt: str, waterlichaam_per_post: dict[str, str],
-              debiet_m3_s: float, eenheid: str = "mg/l") -> dict:
+              debiet_m3_s: float, eenheid: str = "mg/l",
+              parameter_code: str | None = None) -> dict:
     """Per vergunning de bovengrens van de bijdrage aan de gemeten concentratie, plus wat overblijft.
 
     Er wordt intern in mg/l gerekend, maar de uitkomst staat in `eenheid` — de eenheid van de
     meting zelf, want niet elke stof in de meetset is mg/l.
+
+    `parameter_code` is de Aquo-code van de gemeten stof. Staat hij er, dan wordt de vergunde
+    vracht op die code opgezocht in `post["vrachten_aquo"]`; anders valt de opzoeking terug op de
+    Nederlandse omschrijving in `post["vrachten"]`. Die terugval blijft bestaan omdat niet elk
+    voorschrift te codificeren is — zie `lozingsmodel.py`.
 
     `waterlichaam_per_post` wordt opgezocht via `sleutel_post()` — dus op `kenmerk`, en bij een
     leeg kenmerk op `locatiecode` of de positie in `register`. Een post zonder bekend
@@ -111,7 +117,17 @@ def bijdragen(gemeten: float, parameter: str, register: list[dict],
         wl = waterlichaam_per_post.get(sleutel_post(post, i))
         if not wl or not is_bovenstrooms(wl, waterlichaam_meetpunt):
             continue
-        vracht_kg = (post.get("vrachten") or {}).get(parameter)
+        # Koppelen op Aquo-code als het informatiemodel die geleverd heeft, anders op de
+        # Nederlandse omschrijving. Dat tweede is de oude weg en werkt alleen zolang twee bronnen
+        # een stof letterlijk hetzelfde schrijven; de code kan niet stilvallen op een andere
+        # schrijfwijze. Zie `lozingsmodel.vrachten_op_code`.
+        vracht_kg = None
+        if parameter_code:
+            post_aquo = (post.get("vrachten_aquo") or {}).get(parameter_code)
+            if post_aquo is not None:
+                vracht_kg = post_aquo.get("kg_jaar") if isinstance(post_aquo, dict) else post_aquo
+        if vracht_kg is None:
+            vracht_kg = (post.get("vrachten") or {}).get(parameter)
         if not vracht_kg:
             continue
         bijdrage = vracht_kg * 1e6 / liters_per_jaar * factor
