@@ -49,6 +49,12 @@ LEDEN = [
      "live": ["DSO Ozon", "Atlas voor een Schone Maas"],
      "synthetisch": ["toerekeningsmodel van dit lab",
                      "momentopname Waterkwaliteitsportaal (geen machine-ingang)"]},
+    {"id": "model", "pad": "/watermodel", "label": "Informatiemodel",
+     "titel": "Van vergunning naar vracht",
+     "samenvatting": "Wat Aquo, CIM-VTH-Flo en een informatiemodel voor lozingsactiviteiten "
+                     "zouden opleveren, met de cijfers uit de POC en tien user stories.",
+     "live": ["cijfers uit /api/kmg/overzicht"],
+     "synthetisch": ["voorstel voor een informatiemodel lozingsactiviteiten (van dit lab)"]},
 ]
 
 LIJNEN = [
@@ -63,7 +69,7 @@ LIJNEN = [
               "waterlichaam. Voor het Maasstroomgebied is er wél een regionaal initiatief — de "
               "Atlas voor een Schone Maas — en juist het contrast met de rest van Nederland laat "
               "zien wat een landelijk register zou opleveren.",
-     "leden": ["keten", "ruimte", "kaart", "knelpunten", "kmg"]},
+     "leden": ["keten", "ruimte", "kaart", "knelpunten", "kmg", "model"]},
     {"id": "stroomafwaarts", "kop": "Het effect ligt stroomafwaarts",
      "tekst": "Een lozing is geen contour om een punt. Hij werkt door in een watersysteem en telt "
               "op bij alles wat verder stroomopwaarts al geloosd wordt. Het CIM-VTH-Flo kent geen "

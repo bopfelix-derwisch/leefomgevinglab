@@ -46,11 +46,23 @@ def test_de_pagina_stelt_niet_vast_wie_een_overschrijding_teweegbrengt(monkeypat
     assert "nooit een vaststelling" in h
 
 
-def test_het_dossier_heeft_nu_zes_leden():
-    assert len(wh.LEDEN) == 6
+def test_het_dossier_kent_de_twee_nieuwe_leden():
+    """Niet alleen tellen maar benoemen: een telling blijft kloppen als een lid vervangen wordt."""
     assert wh.lid("kmg")["pad"] == "/kmg"
+    assert wh.lid("model")["pad"] == "/watermodel"
 
 
 def test_het_nieuwe_lid_verantwoordt_zijn_bronnen():
     l = wh.lid("kmg")
     assert "Waterkwaliteitsportaal" in " ".join(l["live"] + l["synthetisch"])
+
+
+def test_de_informatiemodelpagina_geeft_200_met_de_subnav(monkeypatch):
+    r = _client(monkeypatch).get("/watermodel")
+    assert r.status_code == 200
+    assert 'class="waternav"' in r.text
+    assert r.text.count('aria-current="page"') == 1
+    assert "__WATERNAV__" not in r.text
+    # De cijfers worden live opgehaald; de pagina mag ze niet hardcoderen.
+    assert "/api/kmg/overzicht" in r.text
+

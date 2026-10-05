@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Informatiemodel lozingen</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --let:#ffb74d; --weg:#ff7a6b; --goed:#2ecc8f; --matig:#ffb74d; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.65; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel);
+                border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    .wrap { max-width:900px; margin:0 auto; padding:0 20px 56px; }
+    .hero { padding:26px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:26px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero p { color:var(--muted); font-size:14px; max-width:70ch; }
+    .hero .datum { font-size:11.5px; color:var(--dim); margin-top:10px; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:30px 0 10px; }
+    p + p { margin-top:10px; }
+    .tekst { font-size:14.5px; color:var(--text); max-width:70ch; }
+    .tekst.zacht { color:var(--muted); }
+    ul, ol { margin:10px 0 0 20px; font-size:14.5px; max-width:70ch; }
+    li { margin-bottom:7px; }
+    strong { color:#eafff6; }
+    code { font-family:ui-monospace,monospace; font-size:.9em; background:var(--panel2);
+      padding:1px 5px; border-radius:3px; border:1px solid var(--border); }
+
+    .kaart { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:16px 18px; margin-top:12px; }
+    .kaart h3 { font-size:14px; color:var(--accent); margin-bottom:8px; }
+
+    .citaat { border-left:3px solid var(--accent); padding:8px 0 8px 14px; margin:14px 0;
+      font-size:15px; color:#eafff6; max-width:70ch; }
+
+    /* Trechter: van wat er in het register staat naar wat een vraag kan beantwoorden. */
+    .trechter { display:flex; flex-direction:column; gap:9px; margin-top:4px; }
+    .tstap .kop { display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+      font-size:13px; margin-bottom:3px; }
+    .tstap .val { font-family:ui-monospace,monospace; color:var(--muted);
+      font-variant-numeric:tabular-nums; }
+    .tbalk { height:24px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:4px; overflow:hidden; }
+    .tbalk i { display:block; height:100%; min-width:3px;
+      background:linear-gradient(90deg,var(--accent2),var(--accent)); }
+    .tbalk i.af { background:linear-gradient(90deg,var(--let),var(--weg)); }
+
+    .drie { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+      margin-top:12px; }
+    .drie .kaart { margin-top:0; }
+    .drie .rol { font-size:11.5px; color:var(--dim); margin-bottom:6px; }
+    .drie p { font-size:13.5px; color:var(--muted); }
+
+    .tabelwrap { overflow-x:auto; border:1px solid var(--border); border-radius:10px;
+      margin-top:12px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; min-width:520px; }
+    th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--border);
+      vertical-align:top; }
+    th { background:var(--panel2); color:#b0c4ce; font-size:10px; text-transform:uppercase;
+      letter-spacing:.06em; }
+    tbody tr:last-child td { border-bottom:none; }
+    td.n, th.n { font-variant-numeric:tabular-nums; font-family:ui-monospace,monospace; }
+    .klasse { display:inline-block; padding:1px 8px; border-radius:9px; font-size:10.5px;
+      font-weight:600; }
+    .klasse.goed { background:rgba(46,204,143,.18); color:var(--goed); }
+    .klasse.matig { background:rgba(255,183,77,.18); color:var(--matig); }
+
+    .stories { display:flex; flex-direction:column; gap:9px; margin-top:12px; counter-reset:s; }
+    .story { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:12px 14px 12px 44px; position:relative; }
+    .story::before { counter-increment:s; content:counter(s,decimal-leading-zero);
+      position:absolute; left:14px; top:13px; font-family:ui-monospace,monospace;
+      font-size:11.5px; color:var(--dim); }
+    .story .wens { font-size:14px; }
+    .story .status { font-size:12px; color:var(--muted); margin-top:5px;
+      display:flex; gap:7px; align-items:flex-start; }
+    .stip { width:8px; height:8px; border-radius:50%; flex:none; margin-top:6px; }
+    .stip.nu { background:var(--accent); }
+    .stip.deels { background:var(--let); }
+    .stip.model { background:var(--dim); }
+    .legenda { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--dim);
+      margin-top:10px; }
+    .legenda span { display:flex; align-items:center; gap:6px; }
+
+    footer { border-top:1px solid var(--border); margin-top:30px; padding-top:16px;
+      font-size:12px; color:var(--dim); max-width:70ch; }
+    footer p + p { margin-top:8px; }
+
+    @media (max-width: 900px) {
+      .wrap { padding:0 14px 36px; }
+      table, th, td { font-size:11.5px; }
+      .tstap .kop { flex-direction:column; gap:1px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">informatiemodel</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a><a href="/kmg">Kan · mag · gebeurt</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Van vergunning naar vracht</h2>
+      <p>Wat Aquo, CIM-VTH-Flo en een informatiemodel voor lozingsactiviteiten zouden opleveren —
+        en wat de proof of concept aan de Maas er nu al over laat zien. De cijfers op deze pagina
+        komen uit diezelfde POC en worden hier live opgehaald, zodat de tekst niet uit de pas kan
+        lopen met de data.</p>
+      <p class="datum" id="datum">De cijfers worden opgehaald…</p>
+    </div>
+
+    <div class="section-title">De aanleiding</div>
+    <p class="tekst">De POC legt drie lagen over één meetpunt in de Maas: <strong>kan</strong> — de
+      regels die er gelden, <strong>mag</strong> — de vergunningen, en <strong>gebeurt</strong> — de
+      metingen. Daarna stelt hij de vraag die ertoe doet: welke vergunde lozingen kunnen bijdragen
+      aan wat er gemeten wordt, en hoeveel ruimte is er nog tot het doel?</p>
+    <p class="tekst">Die vraag is te beantwoorden. Maar niet met de vergunningen zoals ze nu zijn
+      opgeslagen — en dat is geen ICT-probleem maar een informatiemodelleringsprobleem.</p>
+
+    <div class="section-title">Wat we empirisch vonden</div>
+    <p class="tekst">Het register achter de POC is echt: de Atlas voor een Schone Maas, met 72
+      vestigingen en 782 vergunde voorschriften, ruimtelijk bevraagbaar. Hieronder het meetpunt
+      waar de vergunningen het meest verklaren van alle negen — het gunstigste geval, dus. De
+      trechter van register naar bruikbaar antwoord ziet er daar zo uit.</p>
+    <div class="kaart" id="trechter">
+      <h3>Laden…</h3>
+    </div>
+    <p class="tekst" id="breed"></p>
+    <p class="tekst">Drie oorzaken, en geen ervan is slordigheid van de vergunningverlener:</p>
+    <ul>
+      <li><strong>Een voorschrift is tekst, geen grootheid.</strong> Soms staat er een vracht, vaker
+        een concentratie plus een debiet waaruit je er een kunt afleiden, en vaak iets wat zich niet
+        laat omrekenen.</li>
+      <li><strong>Eén stof heeft meerdere grenswaarden.</strong> In 45 van de 64 vergunningen staat
+        voor minstens één stof meer dan één waarde — een etmaalgemiddelde naast een maximum.
+        Optellen is fout; welke je moet nemen staat nergens als veld.</li>
+      <li><strong>De stof is een woord, geen code.</strong> De koppeling tussen meting en vergunning
+        draait vandaag op de Nederlandse omschrijving. Daar zit de duurste fout — zie
+        <em>De eerste stap</em>.</li>
+    </ul>
+
+    <div class="section-title">Drie modellen, drie verschillende taken</div>
+    <p class="tekst">Ze overlappen niet en vervangen elkaar niet. Elk dekt een andere kant van
+      dezelfde vraag.</p>
+    <div class="drie">
+      <div class="kaart">
+        <h3>Aquo</h3>
+        <div class="rol">De stof en de meting</div>
+        <p>De waterstandaard. Domeintabellen voor parameter, hoedanigheid, eenheid en compartiment,
+          plus een meetobject met namespace en lokale identificatie. Bestaat, is volwassen, en de
+          meetdata van het Waterkwaliteitsportaal voldoet eraan.</p>
+      </div>
+      <div class="kaart">
+        <h3>CIM-VTH-Flo</h3>
+        <div class="rol">De keten en het besluit</div>
+        <p>Het conceptueel informatiemodel voor vergunningverlening, toezicht en handhaving. Geeft
+          namen aan activiteit, voorschrift, toezichtobject en beoordeling — de relaties die deze
+          POC impliciet al tekent. Zegt niets over stoffen of vrachten.</p>
+      </div>
+      <div class="kaart">
+        <h3>IMEV, als sjabloon</h3>
+        <div class="rol">Het besluit als registreerbaar object</div>
+        <p>Voor externe veiligheid bestaat een informatiemodel dat vastlegt wát een besluit als data
+          oplevert, zodat het in het REV terechtkomt en bevraagbaar is. Voor lozingen bestaat dat
+          niet — en er is geen Register Lozingen.</p>
+      </div>
+    </div>
+    <div class="citaat">Het gat zit niet tussen Aquo en CIM-VTH-Flo. Het zit op de plek waar IMEV
+      staat: er is geen model dat zegt wat een lozingsvergunning als <em>data</em> is.</div>
+
+    <p class="tekst">Een informatiemodel lozingsactiviteiten hoeft niet het hele besluit vast te
+      leggen. Alleen de velden waarmee een voorschrift een grootheid wordt die je kunt optellen,
+      vergelijken en toetsen:</p>
+    <ul>
+      <li>de stof als <strong>Aquo-code</strong>, met hoedanigheid en eenheid — niet als
+        omschrijving;</li>
+      <li>het <strong>type grenswaarde</strong>: jaargemiddelde, etmaalgemiddelde of maximum, zodat
+        duidelijk is welke geldt als er meerdere zijn;</li>
+      <li>het <strong>lozingspunt</strong> als coördinaat en het <strong>waterlichaam</strong> als
+        verklaarde relatie — zoals het meetobjectenbestand dat al doet met
+        <code>HoortbijGeoobjectIdentificatie</code>;</li>
+      <li>het <strong>debiet</strong> als eigen veld, zodat een concentratienorm naar een vracht te
+        herleiden is;</li>
+      <li>de <strong>geldigheidsperiode</strong>, zodat een vervallen voorschrift niet blijft
+        meetellen.</li>
+    </ul>
+    <p class="tekst">Een korte lijst, en hij is kort omdat hij alleen bedient wat de vraag nodig
+      heeft. Dat is precies waarom hij haalbaar is.</p>
+
+    <div class="section-title">Wat dit betekent voor de vergunningen die er nu liggen</div>
+    <p class="tekst">Een informatiemodel verandert niets met terugwerkende kracht. De eerlijke
+      verwachting is drieledig.</p>
+    <div class="tabelwrap">
+      <table>
+        <thead><tr><th>Wat</th><th>Hoe</th><th>Wanneer het effect zichtbaar is</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Nieuwe besluiten</strong></td>
+              <td>Direct in het model vastleggen bij verlening. Geen extra werk, wel een andere
+                invoer.</td>
+              <td>Onmiddellijk, maar het duurt jaren voor het de meerderheid is.</td></tr>
+          <tr><td><strong>Bestaande besluiten</strong></td>
+              <td>Verrijken bij de eerstvolgende wijziging, actualisatie of ambtshalve toets.</td>
+              <td>Loopt mee met de vergunningcyclus — tien jaar of meer.</td></tr>
+          <tr><td><strong>De achterstand</strong></td>
+              <td>Gerichte verrijking van alleen wat telt: de grootste lozers per waterlichaam, per
+                stof die in een KRW-doel voorkomt.</td>
+              <td>Binnen één project, mits de scope klein blijft.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tekst" id="scheef"></p>
+    <p class="tekst">En wat er niet is, blijft zichtbaar als ontbrekend. Een model dat
+      <em>debiet</em> als veld kent, laat zien bij welke vergunningen dat veld leeg is. Nu valt een
+      onbepaalbare vracht stil weg, en lijkt het register vollediger dan het is.</p>
+
+    <div class="section-title">De eerste stap</div>
+    <p class="tekst">Niet het model. De <strong>sleutel</strong>.</p>
+    <p class="tekst">De koppeling tussen een meting en een vergunning draait vandaag op de
+      Nederlandse omschrijving van de stof — <code>"zink"</code> moet letterlijk gelijk zijn aan
+      <code>"zink"</code>. Dat werkt tot de volgende levering, en het verbergt onderscheidingen die
+      wél bestaan.</p>
+    <div class="kaart">
+      <h3>Waarom dit geen detail is</h3>
+      <p class="tekst">Zink wordt op elk Maas-meetpunt in <strong>twee reeksen</strong> gemeten:
+        totaal en opgelost na filtratie. Bij Eijsden ponton is dat 7,15 tegen 2,80 µg/l — een factor
+        2,5. Zonder de hoedanigheid als sleutelveld worden die tot één mediaan van 4,54 samengetrokken:
+        een concentratie die niemand heeft gemeten.</p>
+      <p class="tekst">De KRW-norm voor zink is ≤ 7,80 µg/l en geldt <strong>voor de opgeloste
+        fractie</strong>. Tegen de gepoolde waarde toetsen geeft het juiste antwoord om de verkeerde
+        reden; tegen de totaalreeks toetsen geeft een onterechte bijna-overschrijding.</p>
+    </div>
+    <p class="tekst">De eerste stap is dus de <strong>Aquo-drieslag als samengestelde sleutel</strong>
+      — parameter, hoedanigheid, eenheid — aan de vergunningkant. Klein werk, geen nieuw model en
+      geen nieuw register nodig, en het is de voorwaarde waar al het andere op staat. Zolang die
+      sleutel ontbreekt, is elke volgende laag gebouwd op een tekstvergelijking die stil kan
+      breken.</p>
+
+    <div class="section-title">Wat de POC nu al laat zien</div>
+    <p class="tekst">Twee van de drie lagen komen machinaal binnen — regels uit het DSO,
+      vergunningen uit de Atlas. De metingen zijn een handmatige momentopname: de Digitale Delta API
+      geeft op elk data-eindpunt een 401 en de module die dat oplost komt begin 2027.</p>
+    <div class="tabelwrap" id="tabelwrap">
+      <table><tbody><tr><td>Laden…</td></tr></tbody></table>
+    </div>
+    <p class="tekst" id="kern"></p>
+    <div class="citaat">Het doel wordt met 0,47 mg/l overschreden. Zou élke vergunde lozing
+      bovenstrooms stoppen, dan bleef bij Belfeld 2,51 mg/l over — nog steeds boven het doel van
+      2,50. De vergunde ruimte is te klein om dit gat te dichten.</div>
+
+    <div class="section-title">User stories</div>
+    <p class="tekst">De eerste zes draaien vandaag. De laatste vier vragen het informatiemodel; ze
+      staan erbij omdat ze laten zien wat het model concreet oplevert.</p>
+    <div class="legenda">
+      <span><i class="stip nu"></i> werkt nu</span>
+      <span><i class="stip deels"></i> werkt deels</span>
+      <span><i class="stip model"></i> vraagt het informatiemodel</span>
+    </div>
+    <div class="stories">
+      <div class="story">
+        <div class="wens">Als <strong>vergunningverlener</strong> wil ik op een meetpunt zien welke
+          regels daar gelden en welke daarvan de waterkwaliteit raken, zodat ik niet door twintig
+          documenten hoef die er niet over gaan.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt. Van de twintig regelingen op Belfeld
+          raken er zes de vraag; het omgevingsplan valt af, want over een lozing op rijkswater gaat
+          de minister.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>toezichthouder</strong> wil ik weten welke vergunde lozingen
+          bovenstrooms van mijn meetpunt liggen, zodat ik weet wie ik überhaupt kan aanspreken.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt. Het lengteprofiel plaatst elke
+          vergunning in de band van haar eigen waterlichaam.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>beleidsmedewerker</strong> wil ik zien hoeveel van een gemeten
+          waarde de vergunde lozingen hoogstens kunnen verklaren, zodat ik weet of
+          vergunningverlening hier het instrument is.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt, als bovengrens.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>beleidsmedewerker</strong> wil ik de gemeten waarde tegen het
+          KRW-doel zien, zodat ik weet of er nog ruimte is.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt voor stikstof, op het zomergemiddelde
+          — de grondslag waar de klassengrenzen over gaan.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>lezer</strong> wil ik kunnen nagaan waar elk getal vandaan
+          komt en wat van het lab zelf is, zodat ik weet wat ik moet geloven.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt. De verantwoording wordt uit dezelfde
+          data opgebouwd die de pagina voedt, dus tekst en getallen kunnen niet uit de pas
+          lopen.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>analist</strong> wil ik het patroon over alle meetpunten in
+          één beeld, zodat ik zie of een uitschieter een uitschieter is.</div>
+        <div class="status"><i class="stip nu"></i><span>Werkt, als voorberekende momentopname — één
+          punt live kost koud 166 seconden.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>toezichthouder</strong> wil ik voor zink en PFOA hetzelfde
+          oordeel als voor stikstof.</div>
+        <div class="status"><i class="stip deels"></i><span>Deels. Die normen staan niet per
+          waterlichaam maar landelijk in het Bkl, en voor zink gelden ze op de opgeloste fractie mét
+          biobeschikbaarheidscorrectie. De pagina zegt daarom nu uitdrukkelijk niets.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>vergunningverlener</strong> wil ik bij een aanvraag zien
+          hoeveel vergunde ruimte er op dit waterlichaam al uitgegeven is, zodat ik weet wat ik nog
+          kan vergeven.</div>
+        <div class="status"><i class="stip model"></i><span>Vraagt het model. Nu draagt maar een
+          kwart van de vergunningen een herleidbare vracht; een optelsom daarover is geen
+          optelsom.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>waterbeheerder</strong> wil ik weten welke vergunde
+          voorschriften verlopen of achterhaald zijn, zodat het beeld niet vervuild raakt met ruimte
+          die niemand meer gebruikt.</div>
+        <div class="status"><i class="stip model"></i><span>Vraagt het model: een geldigheidsperiode
+          als veld.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>analist</strong> wil ik alle vergunningen op de bovenstroomse
+          waterlichamen, niet alles binnen een cirkel van 50 km.</div>
+        <div class="status"><i class="stip model"></i><span>Vraagt een verklaarde relatie tussen
+          lozingspunt en waterlichaam. Nu leidt de POC die ruimtelijk af, en stroomafwaarts mist hij
+          daardoor juist de bronnen die ertoe doen.</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">Wat de POC niet kan, en waarom dat eerlijk is</div>
+    <ul>
+      <li><strong>De zoekstraal is een cirkel, geen stroomgebied.</strong> Voor een punt
+        benedenstrooms liggen de echte bovenstroomse lozingen verder weg dan 50 km. Brakel ligt
+        91 km van Belfeld, dus de grote stikstoflozers op de Zandmaas vallen er buiten. Elke nul
+        stroomafwaarts is daarom een ondergrens, geen bevinding.</li>
+      <li><strong>Bovenstrooms is grofmazig.</strong> Het model werkt op hele waterlichamen, dus een
+        lozing op hetzelfde waterlichaam telt mee ook als zij daarbinnen stroomafwaarts ligt.
+        Preciezer zou een stromingsmodel vergen.</li>
+      <li><strong>Het is nooit een vaststelling.</strong> Bij geluid kan het DSO een bijdrage per
+        bedrijf hard maken omdat geluid voorspelbaar dempt. Bij water kan dat niet. Elk getal hier
+        betekent <em>kan bijdragen</em>, niet <em>heeft bijgedragen</em>.</li>
+      <li><strong>De jaren sluiten niet aan.</strong> De officiële KRW-toetsing loopt tot en met
+        2024, de metingen zijn van 2025. Naast elkaar leggen kan alleen als reeks, niet als oordeel
+        over hetzelfde jaar.</li>
+    </ul>
+
+    <footer>
+      <p><strong>Bronnen.</strong> Metingen en KRW-doelen: Waterkwaliteitsportaal, Informatiehuis
+        Water, rapportagejaar 2025 — downloadmodule, geen machine-ingang. Vergunningen: Atlas voor
+        een Schone Maas, publiek maar zonder expliciete licentie, daarom live bevraagd met
+        bronvermelding en nooit gekopieerd. Regels: DSO Ozon. Waterlichamen: KRW-service
+        Rijkswaterstaat. Normen voor chemische stoffen: Besluit kwaliteit leefomgeving, bijlage III
+        en IIIa.</p>
+      <p>Structuur en begrippen van CIM-VTH-Flo komen uit het model van Geonovum; de koppeling aan
+        deze casus en het voorstel voor een informatiemodel lozingsactiviteiten zijn van dit lab.</p>
+    </footer>
+  </div>
+
+  <script>
+    const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+      ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const nl = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n)))
+      ? "—" : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+
+    function trechter(p) {
+      // Van register naar bruikbaar antwoord, in vier stappen. Elke balk draagt zijn eigen getal;
+      // de breedtes zijn aandelen van de eerste stap, zodat de afname zichtbaar is.
+      const totaal = p.register || 0;
+      const bijdragend = Math.max(0, ...(p.stoffen || [])
+        .filter(s => s.toerekenbaar !== false).map(s => s.posten || 0));
+      const rijen = [
+        ["Vergunningen binnen de zoekstraal", totaal, false],
+        ["Te plaatsen op een Maas-waterlichaam", p.in_band || 0, false],
+        ["Met een herleidbare vracht", p.met_vracht || 0, false],
+        ["Die daadwerkelijk bijdragen aan een gemeten stof", bijdragend, true],
+      ];
+      const pct = v => totaal > 0 ? (v / totaal) * 100 : 0;
+      return `<h3>${esc(p.naam || p.code)} · ${esc(p.waterlichaam_naam || "")}</h3>` +
+        `<div class="trechter">` +
+        rijen.map(([lbl, v, af]) =>
+          `<div class="tstap"><div class="kop"><span>${esc(lbl)}</span>` +
+          `<span class="val">${nl(v, 0)}${totaal ? ` · ${nl(pct(v), 0)}%` : ``}</span></div>` +
+          `<div class="tbalk"><i class="${af ? "af" : ""}" style="width:${pct(v).toFixed(1)}%"></i></div>` +
+          `</div>`).join("") +
+        `</div>` +
+        `<p class="tekst zacht" style="margin-top:10px">Van de ${nl(totaal, 0)} vergunningen op dit ` +
+        `punt leveren er ${nl(bijdragend, 0)} een getal op. De overige vallen af omdat hun ` +
+        `waterlichaam niet te bepalen is, omdat er geen vracht uit het voorschrift volgt, of omdat ` +
+        `de stof er niet in voorkomt.</p>`;
+    }
+
+    function tabel(punten) {
+      const rij = p => {
+        const n = (p.stoffen || []).find(s => s.code === "Ntot");
+        if (!n) return "";
+        const kl = (n.klasse || "").toLowerCase();
+        return `<tr><td>${esc(p.naam || p.code)}</td><td>${esc(p.waterlichaam_naam || "")}</td>` +
+          `<td class="n">${nl(n.getoetste_waarde, 2)}</td><td class="n">${nl(n.doel_waarde, 2)}</td>` +
+          `<td>${n.klasse ? `<span class="klasse ${esc(kl)}">${esc(n.klasse)}</span>` : "—"}</td>` +
+          `<td class="n">${n.aandeel_pct === null || n.aandeel_pct === undefined
+            ? "n.v.t." : nl(n.aandeel_pct, 1) + "%"}</td></tr>`;
+      };
+      return `<table><thead><tr><th>Meetpunt</th><th>Waterlichaam</th>` +
+        `<th class="n">Stikstof, zomergem.</th><th class="n">Doel</th><th>Oordeel</th>` +
+        `<th class="n">Vergund aandeel</th></tr></thead><tbody>` +
+        punten.map(rij).join("") + `</tbody></table>`;
+    }
+
+    (async function () {
+      let o;
+      try {
+        const r = await fetch("/api/kmg/overzicht");
+        o = r.ok ? await r.json() : { beschikbaar: false, reden: `HTTP ${r.status}` };
+      } catch (e) { o = { beschikbaar: false, reden: e.message }; }
+
+      if (!o.beschikbaar || !(o.punten || []).length) {
+        const m = `De cijfers konden niet worden opgehaald: ${esc(o.reden || "onbekende reden")}.`;
+        document.getElementById("datum").textContent = "";
+        document.getElementById("trechter").innerHTML = `<p class="tekst zacht">${m}</p>`;
+        document.getElementById("tabelwrap").innerHTML = `<table><tbody><tr><td>${m}</td></tr></tbody></table>`;
+        return;
+      }
+
+      const punten = o.punten;
+      document.getElementById("datum").textContent =
+        `Cijfers uit de POC, voorberekend op ${o.opgehaald_op} met een zoekstraal van ` +
+        `${nl((o.straal_m || 0) / 1000, 0)} km over ${nl(punten.length, 0)} Maas-meetpunten.`;
+
+      // Het meetpunt met het hoogste vergunde aandeel draagt het betoog het duidelijkst.
+      const beste = punten.reduce((a, b) => {
+        const m = p => Math.max(0, ...(p.stoffen || []).map(s => s.aandeel_pct || 0));
+        return m(b) > m(a) ? b : a;
+      }, punten[0]);
+      document.getElementById("trechter").innerHTML = trechter(beste);
+
+      const tot = punten.reduce((a, p) => a + (p.register || 0), 0);
+      const band = punten.reduce((a, p) => a + (p.in_band || 0), 0);
+      const vracht = punten.reduce((a, p) => a + (p.met_vracht || 0), 0);
+      document.getElementById("breed").innerHTML =
+        `Dat beeld is niet uitzonderlijk. Over alle ${nl(punten.length, 0)} Maas-meetpunten samen ` +
+        `leverde de bevraging <strong>${nl(tot, 0)} registertreffers</strong> op. Daarvan waren er ` +
+        `${nl(tot - band, 0)} — <strong>${nl((tot - band) / tot * 100, 0)} procent</strong> — aan ` +
+        `geen enkel waterlichaam te koppelen, en droeg maar ` +
+        `<strong>${nl(vracht / tot * 100, 0)} procent</strong> een herleidbare vracht.`;
+
+      document.getElementById("scheef").innerHTML =
+        `Het goede nieuws zit in die laatste rij. Je hoeft niet 782 voorschriften te hermodelleren: ` +
+        `bij Belfeld boven levert <strong>één</strong> vergunning — Sitech Services — 98,9 procent ` +
+        `van de toegerekende stikstofvracht, en de tweede 1,1 procent. De verdeling is extreem ` +
+        `scheef, en dat maakt gerichte verrijking rendabel: een handvol vergunningen per ` +
+        `stroomgebied dekt het grootste deel van het beeld.`;
+
+      document.getElementById("tabelwrap").innerHTML = tabel(punten);
+
+      const met = punten.filter(p => (p.stoffen || []).some(s => (s.aandeel_pct || 0) > 1));
+      const aandelen = punten.flatMap(p => (p.stoffen || [])
+        .filter(s => s.code === "Ntot" && s.aandeel_pct !== null)
+        .map(s => s.aandeel_pct));
+      document.getElementById("kern").innerHTML =
+        `Daar staat de kern van de zaak in één tabel. <strong>Het oordeel beweegt nauwelijks over ` +
+        `de hele Maas terwijl het vergunde aandeel zwaait van ${nl(Math.min(...aandelen), 1)} naar ` +
+        `${nl(Math.max(...aandelen), 1)} procent</strong> — en maar ${nl(met.length, 0)} van de ` +
+        `${nl(punten.length, 0)} meetpunten heeft überhaupt een aandeel boven de procent. De ` +
+        `vergunningen bepalen dit oordeel dus niet. Dat wordt onafhankelijk bevestigd door het ` +
+        `bestand <em>KRW-belastingen en impacts</em>, waarin Rijkswaterstaat op geen van de ` +
+        `Limburgse Maas-waterlichamen een puntbron als significante belasting registreert: alles ` +
+        `wat significant is, is diffuus of hydromorfologisch.`;
+    })();
+  </script>
+</body>
+</html>

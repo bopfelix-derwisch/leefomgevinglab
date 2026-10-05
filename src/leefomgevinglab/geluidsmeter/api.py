@@ -363,6 +363,12 @@ def api_kmg_meetpunten():
     return kmg_service.meetpunten(_kmg_pad())
 
 
+@app.get("/watermodel", response_class=HTMLResponse)
+def watermodel_page():
+    """Van vergunning naar vracht — wat een informatiemodel voor lozingen zou opleveren."""
+    return _waterpagina("watermodel.html", "model")
+
+
 @app.get("/api/kmg/overzicht")
 def api_kmg_overzicht():
     """Het voorberekende overzicht over alle Maas-meetpunten.

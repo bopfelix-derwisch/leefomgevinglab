@@ -87,6 +87,11 @@ def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None
             "waterlichaam": p.get("waterlichaam"),
             "waterlichaam_naam": p.get("waterlichaam_naam"),
             "register": len(reg),
+            # Hoeveel registerposten een herleidbare vracht dragen. Dit is de maat voor hoe ver je
+            # komt met vergunningen zoals ze nu zijn opgeslagen, en daarmee het cijfer waar het
+            # informatiemodel-betoog op staat -- dus hoort het uit de data te komen en niet uit een
+            # tekst die na de volgende verversing niet meer klopt.
+            "met_vracht": sum(1 for p_ in reg if p_.get("vrachten")),
             "in_band": in_band,
             "zonder_waterlichaam": len(b["stroomprofiel"].get("zonder_waterlichaam") or []),
             "mag_status": b["mag"].get("status"),
