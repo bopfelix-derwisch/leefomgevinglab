@@ -280,17 +280,17 @@
     <div class="kaart">
       <h3>Wat het model zichtbaar maakt dat eerst onzichtbaar was</h3>
       <ul style="margin-top:4px">
-        <li><strong>Geen enkel voorschrift is volledig.</strong> Niet één van de 367, en steeds om
-          dezelfde reden: de bron kent geen geldigheidsperiode per voorschrift. Een vervallen
-          voorschrift is dus niet van een geldend te onderscheiden.</li>
-        <li><strong>De hoedanigheid ontbreekt overal.</strong> Geen van de 49 parameternamen zegt of
+        <li><strong>Geen enkel voorschrift is volledig.</strong> Geen één, en steeds om dezelfde
+          reden: de bron kent geen geldigheidsperiode per voorschrift. Een vervallen voorschrift is
+          dus niet van een geldend te onderscheiden.</li>
+        <li><strong>De hoedanigheid ontbreekt overal.</strong> Geen enkele parameternaam zegt of
           het om de totale of de opgeloste fractie gaat. Het model leest een effluentvoorschrift als
           de totale fractie — de praktijk waarop gehandhaafd wordt — maar legt dat vast als
           <em>aanname</em>, niet als gegeven.</li>
         <li><strong>De grondslag bestond al.</strong> Het veld <code>bemonstering</code> onderscheidt
           een etmaalgemiddelde van een steekmonster, en dat is precies wat bepaalt welke grenswaarde
           geldt als een stof er meerdere heeft. Het stond er als vrije tekst; het model maakt er een
-          code van. Maar twee van de 367 voorschriften hebben er geen.</li>
+          code van — en bij minder dan één procent van de voorschriften ontbreekt het.</li>
         <li><strong>Samengestelde voorschriften passen niet.</strong> "som 6 metalen (Zn, Cu, Pb, Ni,
           Cr, As)" is één grenswaarde over zes stoffen. Geen enkele parametercode dekt dat, en het
           model doet niet alsof. Dat is een registratievraag, geen koppelvraag.</li>
@@ -492,7 +492,10 @@
           `<span class="val">${nl(v, 0)} · ${nl(pct, 0)}%</span></div>` +
           `<div class="tbalk"><i class="${af ? "af" : ""}" style="width:${pct.toFixed(1)}%"></i></div></div>`;
       };
-      return `<h3>${nl(t.totaal, 0)} voorschriften door het model</h3><div class="trechter">` +
+      return `<h3>${nl(t.totaal, 0)} voorschrift-treffers door het model</h3>` +
+        `<p class="tekst zacht" style="margin-bottom:8px">Opgeteld over de meetpunten, dus een ` +
+        `vergunning die bij meer dan één punt in de straal valt telt meer dan eens mee.</p>` +
+        `<div class="trechter">` +
         rij("Bruikbaar: stof, eenheid en waarde codificeerbaar", t.bruikbaar, false) +
         rij("Onbruikbaar: de stof koppelt niet aan een code", t.onbruikbaar, true) +
         rij("Volledig: alle velden aanwezig", t.volledig, true) +
