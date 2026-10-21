@@ -258,6 +258,8 @@
       ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     const nl = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n)))
       ? "—" : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+    // Namen inkorten met een beletselteken, zodat een lange naam niet stil wordt afgekapt.
+    const kort = (t, n) => (t || "").length > n ? (t || "").slice(0, n - 1) + "…" : (t || "");
     const cijfer = (v, k) => `<div class="cijfer"><div class="v">${v}</div>` +
       `<div class="k">${esc(k)}</div></div>`;
 
@@ -276,20 +278,34 @@
     // twee echt het verschil, en niet een ander plaatje.
     // Breedte strak om de breedste inhoud van de twee platen: de balk met bijschrift op de
     // tweede eindigt rond x=494. Ruimer zou beide tekeningen alleen kleiner schalen.
-    const GEO = { B: 512, asX: 212, segH: 62, top: 30 };
-    GEO.H = GEO.top + STROOM.length * GEO.segH + 42;
+    // Segmenthoogte volgt uit de inhoud, niet andersom. Een meetpunt is op de tweede plaat drie
+    // elementen hoog -- naam, balk, bijschrift -- samen ruim 34 px. Alleen de segmenten die twee
+    // meetpunten dragen krijgen die ruimte dubbel; de rest blijft laag, anders wordt de figuur
+    // onnodig lang terwijl er niets in staat.
+    const GEO = { B: 512, asX: 212, top: 30, regel: 40, basis: 54 };
     const breedte = i => 13 + i * 3.1;            // de rivier verbreedt stroomafwaarts
-    const yMidden = i => GEO.top + i * GEO.segH + GEO.segH / 2;
 
-    function bandSvg(titel, id) {
+    // Per plaat uitgerekend, want het aantal punten per waterlichaam bepaalt de hoogte.
+    function meetlat(punten) {
+      const hoogte = STROOM.map(([code]) => {
+        const n = punten.filter(p => p.waterlichaam === code).length;
+        return Math.max(GEO.basis, n * GEO.regel + 14);
+      });
+      const yTop = [];
+      hoogte.reduce((acc, h, i) => { yTop[i] = acc; return acc + h; }, GEO.top);
+      return { hoogte, yTop, H: GEO.top + hoogte.reduce((a, b) => a + b, 0) + 42 };
+    }
+
+    function bandSvg(titel, id, L) {
       // Eigen gradient-id per plaat: twee svg's op een pagina mogen niet hetzelfde id dragen.
-      const { asX, segH, top } = GEO;
-      const links = STROOM.map((_, i) => `${asX - breedte(i)},${top + i * segH}`).join(" ");
-      const rechts = STROOM.map((_, i) => `${asX + breedte(i)},${top + i * segH}`)
-        .reverse().join(" ");
-      const onderL = `${asX - breedte(STROOM.length)},${top + STROOM.length * segH}`;
-      const onderR = `${asX + breedte(STROOM.length)},${top + STROOM.length * segH}`;
-      return `<svg viewBox="0 0 ${GEO.B} ${GEO.H}" role="img" aria-label="${esc(titel)}">` +
+      const { asX } = GEO;
+      const mid = i => L.yTop[i] + L.hoogte[i] / 2;
+      const onder = GEO.top + L.hoogte.reduce((a, b) => a + b, 0);
+      const links = STROOM.map((_, i) => `${asX - breedte(i)},${L.yTop[i]}`).join(" ");
+      const rechts = STROOM.map((_, i) => `${asX + breedte(i)},${L.yTop[i]}`).reverse().join(" ");
+      const onderL = `${asX - breedte(STROOM.length)},${onder}`;
+      const onderR = `${asX + breedte(STROOM.length)},${onder}`;
+      return `<svg viewBox="0 0 ${GEO.B} ${L.H}" role="img" aria-label="${esc(titel)}">` +
         `<defs><linearGradient id="rv-${id}" x1="0" y1="0" x2="0" y2="1">` +
         `<stop offset="0" stop-color="#1b4a6b"/><stop offset="1" stop-color="#2b6f8f"/>` +
         `</linearGradient></defs>` +
@@ -297,23 +313,24 @@
         `stroke="#2e6a8a" stroke-width="1"/>` +
         `<text x="${asX}" y="16" fill="#5b7385" font-size="11" text-anchor="middle">` +
         `Belgische grens</text>` +
-        `<text x="${asX}" y="${GEO.H - 10}" fill="#5b7385" font-size="11" text-anchor="middle">` +
+        `<text x="${asX}" y="${L.H - 10}" fill="#5b7385" font-size="11" text-anchor="middle">` +
         `Haringvliet · zee</text>` +
         STROOM.map(([, naam], i) =>
-          `<text x="${asX - breedte(i) - 12}" y="${yMidden(i) + 4}" fill="#8aa0b2" ` +
+          `<text x="${asX - breedte(i) - 12}" y="${mid(i) + 4}" fill="#8aa0b2" ` +
           `font-size="12" text-anchor="end">${esc(naam)}</text>` +
-          (i > 0 ? `<line x1="${asX - breedte(i) - 6}" y1="${top + i * segH}" ` +
-            `x2="${asX + breedte(i) + 6}" y2="${top + i * segH}" stroke="#1a3a5c" ` +
+          (i > 0 ? `<line x1="${asX - breedte(i) - 6}" y1="${L.yTop[i]}" ` +
+            `x2="${asX + breedte(i) + 6}" y2="${L.yTop[i]}" stroke="#1a3a5c" ` +
             `stroke-width="1" stroke-dasharray="3 3"/>` : ``)).join("");
     }
 
     function tekenRivier(punten) {
       const { asX } = GEO;
+      const L = meetlat(punten);
       let svg = bandSvg(
-        "De Maas van de Belgische grens tot zee, met het KRW-oordeel per meetpunt", "res");
+        "De Maas van de Belgische grens tot zee, met het KRW-oordeel per meetpunt", "res", L);
 
       STROOM.forEach(([code, naam], i) => {
-        const yy = yMidden(i);
+        const yy = L.yTop[i] + L.hoogte[i] / 2;
         const hier = punten.filter(p => p.waterlichaam === code);
         if (!hier.length) {
           svg += `<text x="${asX + breedte(i) + 16}" y="${yy + 4}" fill="#45606e" ` +
@@ -323,13 +340,13 @@
         hier.forEach((p, j) => {
           const n = (p.stoffen || []).find(st => st.code === "Ntot");
           const kl = (n && n.klasse || "").toLowerCase();
-          const py = yy + (hier.length > 1 ? (j - (hier.length - 1) / 2) * 22 : 0);
+          const py = yy + (j - (hier.length - 1) / 2) * GEO.regel;
           const aandeel = n && n.aandeel_pct !== null && n.aandeel_pct !== undefined
             ? n.aandeel_pct : null;
           svg += `<circle cx="${asX}" cy="${py}" r="6" fill="${KLEUR[kl] || "#5b7385"}" ` +
             `stroke="#080c14" stroke-width="1.5"/>`;
           svg += `<text x="${asX + breedte(i) + 16}" y="${py - 1}" fill="#e0e6ed" font-size="12">` +
-            `${esc((p.naam || p.code).slice(0, 30))}</text>`;
+            `${esc(kort(p.naam || p.code, 26))}</text>`;
           svg += `<text x="${asX + breedte(i) + 16}" y="${py + 13}" fill="#8aa0b2" ` +
             `font-size="11">` +
             (n && n.getoetste_waarde !== null && n.getoetste_waarde !== undefined
@@ -357,12 +374,13 @@
       const aantal = p => (p.model || {}).stoffen_aquo || 0;
       const schaal = Math.max(1, ...punten.map(aantal));
       const balkMax = 80;
+      const L = meetlat(punten);
       let svg = bandSvg(
         "Dezelfde rivier, met per meetpunt het aantal stoffen dat vergund is tegenover het " +
-        "aantal dat gemeten wordt", "was");
+        "aantal dat gemeten wordt", "was", L);
 
       STROOM.forEach(([code], i) => {
-        const yy = yMidden(i);
+        const yy = L.yTop[i] + L.hoogte[i] / 2;
         const hier = punten.filter(p => p.waterlichaam === code);
         const x0 = asX + breedte(i) + 16;
         if (!hier.length) {
@@ -371,26 +389,27 @@
           return;
         }
         hier.forEach((p, j) => {
-          const py = yy + (hier.length > 1 ? (j - (hier.length - 1) / 2) * 24 : 0);
+          const py = yy + (j - (hier.length - 1) / 2) * GEO.regel;
           const m = p.model || {};
           const na = aantal(p), voor = m.stoffen_oud || 0;
           const gemeten = new Set((p.stoffen || []).map(st => st.code)).size;
           const bNa = (na / schaal) * balkMax, bVoor = (voor / schaal) * balkMax;
           svg += `<circle cx="${asX}" cy="${py}" r="5" fill="#26a69a" stroke="#080c14" ` +
             `stroke-width="1.5"/>`;
-          svg += `<text x="${x0}" y="${py - 7}" fill="#e0e6ed" font-size="11.5">` +
-            `${esc((p.naam || p.code).slice(0, 28))}</text>`;
+          svg += `<text x="${x0}" y="${py - 8}" fill="#e0e6ed" font-size="11.5">` +
+            `${esc(kort(p.naam || p.code, 26))}</text>`;
           // Volle balk: wat ná de wasstraat te koppelen is. Donker deel: wat de koppeling op
           // Nederlandse naam al opleverde. Het verschil is wat het model toevoegt.
-          svg += `<rect x="${x0}" y="${py + 1}" width="${Math.max(1, bNa).toFixed(1)}" ` +
+          svg += `<rect x="${x0}" y="${py - 2}" width="${Math.max(1, bNa).toFixed(1)}" ` +
             `height="8" rx="2" fill="#2ecc8f" opacity="0.85"/>`;
           if (bVoor > 0) {
-            svg += `<rect x="${x0}" y="${py + 1}" width="${Math.max(1, bVoor).toFixed(1)}" ` +
+            svg += `<rect x="${x0}" y="${py - 2}" width="${Math.max(1, bVoor).toFixed(1)}" ` +
               `height="8" rx="2" fill="#15543f"/>`;
           }
-          svg += `<text x="${x0 + Math.max(bNa, 2) + 8}" y="${py + 9}" fill="#8aa0b2" ` +
-            `font-size="11">${nl(voor, 0)} → ${nl(na, 0)} vergund · ` +
-            `${nl(gemeten, 0)} gemeten</text>`;
+          // Bijschrift onder de balk, niet erachter: achter de balk hangt de lengte ervan af
+          // van de data en loopt het bij een lange balk de viewBox uit.
+          svg += `<text x="${x0}" y="${py + 18}" fill="#8aa0b2" font-size="11">` +
+            `${nl(voor, 0)} → ${nl(na, 0)} vergund · ${nl(gemeten, 0)} gemeten</text>`;
         });
       });
 
