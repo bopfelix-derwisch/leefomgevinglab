@@ -86,6 +86,14 @@
     .klasse.goed { background:rgba(46,204,143,.18); color:var(--accent); }
     .klasse.matig { background:rgba(255,183,77,.18); color:var(--let); }
 
+    /* De drie lagen van de folder, als drie platen over elkaar. Dit is het beeld waar het hele
+       dossier op staat; het hoort bovenaan en niet verstopt in een tab. */
+    .lagen { position:relative; margin:22px 0 10px; padding:6px 0 10px; }
+    .lagen svg { width:100%; height:auto; display:block; }
+    .lagenlegenda { display:flex; gap:18px; flex-wrap:wrap; font-size:12px; margin-top:4px; }
+    .lagenlegenda span { display:flex; align-items:center; gap:7px; color:var(--muted); }
+    .lagenlegenda i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
     /* Rivierschema: de uitkomst op zijn plek in het stroomgebied. Geen kaart maar een
        doorsnede van boven naar beneden, want dat is de as waarop het model redeneert. */
     .rivier { background:var(--panel); border:1px solid var(--border); border-radius:10px;
@@ -134,8 +142,11 @@
         niet "wie is de dader", maar: <b>welke vergunde lozingen bovenstrooms kunnen hieraan
         bijdragen, en hoeveel ruimte is er nog tot het doel?</b></p>
       <p class="toelichting">Dat is één vraag, en hij raakt drie werelden die elk hun eigen bron,
-        eigen beheerder en eigen informatiemodel hebben: de regels, de vergunningen en de metingen.
-        Het hele dossier bestaat om te laten zien waar die drie wel en niet op elkaar aansluiten.</p>
+        eigen beheerder en eigen informatiemodel hebben. De DSO-folder verbeeldt ze als drie lagen
+        over elkaar; zo ziet dat er voor water uit.</p>
+      <div class="lagen" id="lagen"></div>
+      <p class="toelichting">Elke laag komt ergens anders vandaan, en ze sluiten niet op elkaar
+        aan. Daar gaan de volgende vier vragen over.</p>
     </div>
 
     <div class="stap">
@@ -272,6 +283,69 @@
       ["NL94_1", "Haringvliet-oost"], ["NL94_11", "Haringvliet-west"],
     ];
     const KLEUR = { goed: "#2ecc8f", matig: "#ffb74d", ontoereikend: "#ff8a4c", slecht: "#ff7a6b" };
+
+    // De drie lagen van de folder, in perspectief over elkaar. Geen data-afhankelijke plaat maar
+    // de verbeelding zelf -- met per laag wat die laag in deze casus wél en niet levert, want juist
+    // dat verschil is waar het dossier over gaat.
+    function tekenLagen(bron) {
+      const B = 560, H = 330, bx = 120, by = 56, bw = 330, bh = 74, dy = 86, scheef = 62;
+      const lagen = [
+        { kleur: "#2ecc8f", vlak: "rgba(46,204,143,.14)", kop: "KAN",
+          wat: "de regels die hier gelden",
+          bron: bron.kan || "DSO Ozon — live" },
+        { kleur: "#e8b84b", vlak: "rgba(232,184,75,.14)", kop: "MAG",
+          wat: "wat er vergund is",
+          bron: bron.mag || "Atlas voor een Schone Maas — live" },
+        { kleur: "#4fc3f7", vlak: "rgba(79,195,247,.14)", kop: "GEBEURT",
+          wat: "wat er gemeten wordt",
+          bron: bron.gebeurt || "Waterkwaliteitsportaal — momentopname" },
+      ];
+
+      // Een parallellogram per laag: links-boven begint elke volgende laag iets lager en naar
+      // links, zodat ze als stapel lezen zonder dat een laag de andere afdekt.
+      const vlak = (y) => `${bx + scheef},${y} ${bx + scheef + bw},${y} ` +
+        `${bx + bw},${y + bh} ${bx},${y + bh}`;
+
+      let svg = `<svg viewBox="0 0 ${B} ${H}" role="img" aria-label="De drie lagen kan, mag en ` +
+        `gebeurt over elkaar, met per laag de bron">`;
+
+      lagen.forEach((l, i) => {
+        const y = by + i * dy;
+        svg += `<polygon points="${vlak(y)}" fill="${l.vlak}" stroke="${l.kleur}" ` +
+          `stroke-width="1.5"/>`;
+        svg += `<text x="${bx + scheef + 16}" y="${y + 26}" fill="${l.kleur}" font-size="15" ` +
+          `font-weight="700" letter-spacing="1.5">${esc(l.kop)}</text>`;
+        svg += `<text x="${bx + scheef + 16}" y="${y + 45}" fill="#e0e6ed" font-size="12.5">` +
+          `${esc(l.wat)}</text>`;
+        svg += `<text x="${bx + scheef + 16}" y="${y + 62}" fill="#8aa0b2" font-size="11">` +
+          `${esc(l.bron)}</text>`;
+      });
+
+      // Eén plek die door alle drie de lagen heen prikt: dat is de vraag. De x schuift per laag
+      // mee met de scheefstand, zodat het echt dezelfde plek in het vlak is en niet alleen op het
+      // scherm. Eén doorlopende lijn met een stip per laag leest als "dezelfde plek, drie lagen".
+      const stippen = lagen.map((_, i) => {
+        const yy = by + i * dy + bh / 2;
+        return { x: bx + scheef + bw - 54 - (bh / 2 / bh) * scheef, y: yy };
+      });
+      svg += `<line x1="${stippen[0].x}" y1="${stippen[0].y}" ` +
+        `x2="${stippen[stippen.length - 1].x}" y2="${stippen[stippen.length - 1].y}" ` +
+        `stroke="#ff7a6b" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.8"/>`;
+      stippen.forEach(pt => {
+        svg += `<circle cx="${pt.x}" cy="${pt.y}" r="5" fill="#ff7a6b" stroke="#080c14" ` +
+          `stroke-width="1.5"/>`;
+      });
+      const laatste = stippen[stippen.length - 1];
+      svg += `<text x="${laatste.x + 12}" y="${laatste.y + 4}" fill="#ff7a6b" ` +
+        `font-size="11.5">één meetpunt</text>`;
+      svg += `<text x="${bx}" y="${H - 12}" fill="#5b7385" font-size="11">` +
+        `De vraag staat op één plek in de rivier en snijdt door alle drie de lagen.</text>`;
+      svg += `</svg>`;
+
+      return svg + `<div class="lagenlegenda">` +
+        lagen.map(l => `<span><i style="background:${l.kleur}"></i> ${esc(l.kop.toLowerCase())}: ` +
+          `${esc(l.bron)}</span>`).join("") + `</div>`;
+    }
 
     // De rivierband wordt door twee platen gedeeld: het resultaat (stap 4) en wat de wasstraat
     // ervan maakt (stap 5). Zelfde geometrie, andere rechterkant -- zo is het verschil tussen de
@@ -464,6 +538,14 @@
         return;
       }
       const P = o.punten;
+
+      // Stap 1 — de drie lagen, met de bronnen zoals ze er vandaag bij staan.
+      document.getElementById("lagen").innerHTML = tekenLagen({
+        kan: "DSO Ozon — live op de coördinaat",
+        mag: "Atlas voor een Schone Maas — live",
+        gebeurt: g ? `${g.bron} — momentopname van ${g.opgehaald_op}`
+                   : "Waterkwaliteitsportaal — momentopname",
+      });
 
       // Stap 2 — de regels. Live uit het overzicht, want deze twee getallen veranderen: toen de
       // Omgevingsregeling in de DSO-uitvraag opdook ging "raakt de waterkwaliteit" van 6 naar 8.
