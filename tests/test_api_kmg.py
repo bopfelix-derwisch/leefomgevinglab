@@ -66,3 +66,20 @@ def test_de_informatiemodelpagina_geeft_200_met_de_subnav(monkeypatch):
     # De cijfers worden live opgehaald; de pagina mag ze niet hardcoderen.
     assert "/api/kmg/overzicht" in r.text
 
+
+
+def test_de_verhaalpagina_geeft_200_met_de_subnav(monkeypatch):
+    r = _client(monkeypatch).get("/waterverhaal")
+    assert r.status_code == 200
+    assert 'class="waternav"' in r.text
+    assert r.text.count('aria-current="page"') == 1
+    assert "__WATERNAV__" not in r.text
+    # De cijfers worden live opgehaald, niet in de tekst gezet.
+    assert "/api/kmg/overzicht" in r.text
+
+
+def test_het_verhaal_staat_vooraan_in_het_dossier():
+    """Het is de instap, dus het hoort meteen na het overzicht te staan."""
+    ids = [l["id"] for l in wh.LEDEN]
+    assert ids[0] == "overzicht"
+    assert ids[1] == "verhaal"

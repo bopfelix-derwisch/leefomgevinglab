@@ -363,6 +363,12 @@ def api_kmg_meetpunten():
     return kmg_service.meetpunten(_kmg_pad())
 
 
+@app.get("/waterverhaal", response_class=HTMLResponse)
+def waterverhaal_page():
+    """Het waterdossier in vijf vragen — de korte doorloop, bedoeld als instap en voor een demo."""
+    return _waterpagina("waterverhaal.html", "verhaal")
+
+
 @app.get("/watermodel", response_class=HTMLResponse)
 def watermodel_page():
     """Van vergunning naar vracht — wat een informatiemodel voor lozingen zou opleveren."""

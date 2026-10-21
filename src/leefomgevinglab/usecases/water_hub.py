@@ -15,6 +15,12 @@ LEDEN = [
      "samenvatting": "Wat er speelt bij één directe lozing op een rijkswater, en waar in dit lab "
                      "je elk stuk daarvan terugvindt.",
      "live": [], "synthetisch": []},
+    {"id": "verhaal", "pad": "/waterverhaal", "label": "In het kort",
+     "titel": "Het waterdossier in vijf vragen",
+     "samenvatting": "Van informatiebehoefte naar bronnen, resultaat en wat een informatiemodel "
+                     "oplevert \u2014 de korte doorloop door het dossier.",
+     "live": ["cijfers uit /api/kmg"],
+     "synthetisch": []},
     {"id": "keten", "pad": "/lozing", "label": "Keten",
      "titel": "Doelbeeld: de keten in 8 stappen",
      "samenvatting": "Van aanvraag via het DSO-loket tot handhaving volgens de LHSO, met de knip "

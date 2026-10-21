@@ -55,3 +55,25 @@ def test_de_telling_loopt_mee_met_de_verfijning():
 def test_een_lege_kan_laag_blijft_ongemoeid():
     kan = {"status": "onbereikbaar", "regelingen": [], "telling": {}}
     assert duiding.duid_regelingen(kan) == kan
+
+
+def test_de_omgevingsregeling_wordt_expliciet_geduid():
+    """Zij verscheen later in de DSO-uitvraag en viel daardoor op de terugval."""
+    d = _duid("Ministeriële Regeling", "Omgevingsregeling")
+    assert d["van_toepassing"] is True
+    assert "meet" in d["betekenis"] and "rekenregels" in d["betekenis"]
+
+
+def test_een_onbekend_type_telt_niet_mee_als_rakend():
+    """De gedeelde terugval valt open; op een meetpunt hoort hij dicht te vallen."""
+    onbekend = regels.duiding({"type": "Iets Nieuws", "titel": "X"}, rijkswater=True,
+                              tabel=duiding.DUIDING_KMG)
+    assert onbekend["van_toepassing"] is True, "de gedeelde terugval valt open"
+    gesloten = duiding.sluit_onbekend(onbekend)
+    assert gesloten["van_toepassing"] is False
+    assert "niet geduid" in gesloten["betekenis"]
+
+
+def test_sluit_onbekend_raakt_een_geduid_type_niet():
+    plan = _duid("Omgevingsplan")
+    assert duiding.sluit_onbekend(plan) == plan

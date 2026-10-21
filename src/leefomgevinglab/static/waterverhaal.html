@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Het waterdossier in vijf vragen</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --let:#ffb74d; --weg:#ff7a6b; --gebeurt:#4fc3f7; --mag:#e8b84b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.7; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel);
+                border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    .wrap { max-width:780px; margin:0 auto; padding:0 20px 80px; }
+
+    .hero { padding:40px 0 26px; }
+    .hero h2 { font-size:clamp(28px,5vw,38px); font-weight:800; color:#eafff6; line-height:1.15;
+      margin-bottom:14px; text-wrap:balance; }
+    .hero p { color:var(--muted); font-size:16px; max-width:62ch; }
+
+    /* Vijf stappen die echt een volgorde zijn: van de vraag naar wat ervoor nodig is.
+       Daarom genummerd -- de nummering zegt hier iets. */
+    .stap { border-top:1px solid var(--border); padding:34px 0 0; margin-top:34px; }
+    .stap .nr { font-family:ui-monospace,monospace; font-size:12px; color:var(--accent);
+      letter-spacing:.14em; }
+    .stap h3 { font-size:clamp(21px,3.4vw,26px); font-weight:700; color:#eafff6;
+      margin:6px 0 12px; line-height:1.25; text-wrap:balance; }
+    .antwoord { font-size:17px; color:var(--text); max-width:62ch; }
+    .antwoord b { color:#eafff6; }
+    .toelichting { font-size:14.5px; color:var(--muted); max-width:62ch; margin-top:12px; }
+
+    .bewijs { background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--l);
+      border-radius:10px; padding:16px 18px; margin-top:18px; }
+    .bewijs.regels { --l:var(--accent); }
+    .bewijs.meting { --l:var(--gebeurt); }
+    .bewijs.uitkomst { --l:var(--mag); }
+    .bewijs.model { --l:var(--let); }
+    .bewijs .lbl { font-size:10.5px; text-transform:uppercase; letter-spacing:.1em;
+      color:var(--dim); margin-bottom:8px; }
+    .bewijs p { font-size:14.5px; color:var(--muted); }
+    .bewijs p + p { margin-top:8px; }
+    .bewijs b { color:var(--text); }
+
+    .cijfers { display:flex; gap:26px; flex-wrap:wrap; margin:4px 0 2px; }
+    .cijfer .v { font-size:26px; font-weight:800; color:#eafff6; line-height:1.1;
+      font-variant-numeric:tabular-nums; }
+    .cijfer .k { font-size:12px; color:var(--dim); }
+
+    .dieper { font-size:13px; margin-top:14px; }
+    .dieper a { color:var(--accent); text-decoration:none; border-bottom:1px solid #1d4a3a;
+      padding-bottom:1px; }
+    .dieper a:hover { border-bottom-color:var(--accent); }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; min-width:440px; }
+    .tabelwrap { overflow-x:auto; margin-top:4px; }
+    th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
+    th { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim);
+      font-weight:600; }
+    tbody tr:last-child td { border-bottom:none; }
+    td.n { font-variant-numeric:tabular-nums; font-family:ui-monospace,monospace; }
+    .klasse { display:inline-block; padding:1px 8px; border-radius:9px; font-size:10.5px;
+      font-weight:600; }
+    .klasse.goed { background:rgba(46,204,143,.18); color:var(--accent); }
+    .klasse.matig { background:rgba(255,183,77,.18); color:var(--let); }
+
+    .nodig { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      margin-top:18px; }
+    .nodig div { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:13px 15px; }
+    .nodig .w { font-size:14px; color:#eafff6; font-weight:600; }
+    .nodig .t { font-size:13px; color:var(--muted); margin-top:4px; }
+
+    footer { border-top:1px solid var(--border); margin-top:44px; padding-top:18px;
+      font-size:12.5px; color:var(--dim); max-width:62ch; }
+
+    @media (max-width: 900px) {
+      .wrap { padding:0 14px 48px; }
+      .cijfers { gap:18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">waterdossier</span>
+    <nav><a href="/">Home</a><a href="/water">Alle pagina's</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Het waterdossier in vijf vragen</h2>
+      <p>Eén vraag van een waterbeheerder, en wat ervoor nodig is om hem te beantwoorden. De
+        cijfers hieronder komen uit de proof of concept en worden live opgehaald.</p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">01</div>
+      <h3>Wat is de informatiebehoefte?</h3>
+      <p class="antwoord">Een meting op de Maas is hoger dan het doel. De vraag die dan opkomt is
+        niet "wie is de dader", maar: <b>welke vergunde lozingen bovenstrooms kunnen hieraan
+        bijdragen, en hoeveel ruimte is er nog tot het doel?</b></p>
+      <p class="toelichting">Dat is één vraag, en hij raakt drie werelden die elk hun eigen bron,
+        eigen beheerder en eigen informatiemodel hebben: de regels, de vergunningen en de metingen.
+        Het hele dossier bestaat om te laten zien waar die drie wel en niet op elkaar aansluiten.</p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">02</div>
+      <h3>Waar halen we de regels vandaan?</h3>
+      <p class="antwoord">Uit het <b>DSO</b>, live op de coördinaat van het meetpunt. Dat werkt — maar
+        het meeste wat eruit komt gaat niet over water.</p>
+      <div class="bewijs regels">
+        <div class="lbl" id="regelbron">Laden…</div>
+        <div class="cijfers" id="regelcijfers"></div>
+        <p>De rest is het Omgevingsprogramma Retail, het Warmteprogramma, het actieplan geluid,
+          voorbeschermingsregels voor datacentra. Ook het <b>omgevingsplan</b> valt af: over een
+          lozing op rijkswater gaat niet de gemeente maar de minister.</p>
+        <p>En wat er principieel <b>niet</b> uit komt is de norm. De omgevingswaarden voor
+          waterkwaliteit staan in het Bkl, en die hangen aan een wáterlichaam via het
+          waterprogramma — niet aan een punt in een omgevingsplan. Een locatiebevraging kan ze dus
+          nooit vinden, hoe goed je ook bevraagt.</p>
+      </div>
+      <p class="dieper"><a href="/kmg">Zie de laag "kan" op kan · mag · gebeurt →</a></p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">03</div>
+      <h3>Waar halen we de metingen vandaan?</h3>
+      <p class="antwoord">Uit het <b>Waterkwaliteitsportaal</b> — met de hand. Er is geen
+        machine-ingang.</p>
+      <div class="bewijs meting">
+        <div class="lbl" id="meetbron">Laden…</div>
+        <div class="cijfers" id="meetcijfers"></div>
+        <p id="meettekst"></p>
+        <p>De Digitale Delta API van Rijkswaterstaat geeft op elk data-eindpunt een <b>401</b>, en de
+          module van het Waterkwaliteitsportaal die dit oplost komt <b>begin 2027</b>. Tot die tijd
+          is deze laag een momentopname die iemand downloadt.</p>
+      </div>
+      <p class="toelichting">Wat de bron wél goed doet is Aquo volgen. Elke meting draagt een
+        parametercode, een hoedanigheid en een eenheid. Dat klinkt als een detail tot je het mist:
+        zink staat op elk meetpunt in twee reeksen — totaal en opgelost — die een factor 2,5
+        verschillen, en de KRW-norm geldt alleen voor de opgeloste. Zonder dat veld trek je er één
+        mediaan van die niemand heeft gemeten.</p>
+      <p class="dieper"><a href="/kmg">Zie de laag "gebeurt" →</a></p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">04</div>
+      <h3>Wat is het resultaat?</h3>
+      <p class="antwoord" id="uitkomst">Laden…</p>
+      <div class="bewijs uitkomst">
+        <div class="lbl">Stikstof op de Maas, zomergemiddelde tegen het KRW-doel</div>
+        <div class="tabelwrap" id="tabel"></div>
+        <p id="patroon"></p>
+      </div>
+      <p class="toelichting">Dat wordt onafhankelijk bevestigd: in <i>KRW-belastingen en impacts</i>
+        registreert Rijkswaterstaat op geen van de Limburgse Maas-waterlichamen een <b>puntbron</b>
+        als significante belasting. Alles wat significant is, is diffuus of hydromorfologisch.</p>
+      <p class="dieper"><a href="/kmg">Zie de toerekening en het lengteprofiel →</a></p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">05</div>
+      <h3>Wat kan een informatiemodel hier helpen?</h3>
+      <p class="antwoord">De koppeling tussen een meting en een vergunning draaide op de Nederlandse
+        stofnaam. Met een <b>Aquo-code</b> als sleutel komt er uit hetzelfde register veel meer
+        bruikbaars — en wordt zichtbaar wat er ontbreekt.</p>
+      <div class="bewijs model">
+        <div class="lbl">Dezelfde vergunningen, door het voorgestelde model</div>
+        <div class="cijfers" id="modelcijfers"></div>
+        <p id="modeltekst"></p>
+      </div>
+      <p class="toelichting">Die nul is geen fout maar de bevinding. Geen enkel voorschrift draagt
+        een geldigheidsperiode, dus een vervallen voorschrift is niet van een geldend te
+        onderscheiden. En geen enkele parameternaam zegt of een grenswaarde over de totale of de
+        opgeloste fractie gaat — terwijl daar bij zink de norm van afhangt.</p>
+      <p class="dieper"><a href="/watermodel">Zie het informatiemodel en de user stories →</a></p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">→</div>
+      <h3>Wat is nodig?</h3>
+      <p class="antwoord">Vier dingen, in volgorde van wat ze opleveren.</p>
+      <div class="nodig">
+        <div>
+          <div class="w">De Aquo-domeintabel</div>
+          <div class="t">Nu is de referentie afgeleid uit één meetbestand. Met de echte tabel gaat
+            de dekking van ruim de helft naar ongeveer 85 procent.</div>
+        </div>
+        <div>
+          <div class="w">Hoedanigheid in het voorschrift</div>
+          <div class="t">Eén veld. Zonder dat veld is een zinkvoorschrift niet met een zinknorm te
+            vergelijken, want die geldt op de opgeloste fractie.</div>
+        </div>
+        <div>
+          <div class="w">Geldigheidsperiode per voorschrift</div>
+          <div class="t">Zonder begin- en einddatum telt vergunde ruimte mee die misschien al
+            jaren vervallen is.</div>
+        </div>
+        <div>
+          <div class="w">Het waterlichaam als verklaarde relatie</div>
+          <div class="t">Nu leiden we het ruimtelijk af uit een cirkel van 50 km. Een stroomgebied
+            is geen cirkel: stroomafwaarts missen we juist de bronnen die ertoe doen.</div>
+        </div>
+      </div>
+      <p class="toelichting">Geen van vier vraagt een nieuw register. Drie ervan zijn velden die bij
+        verlening ingevuld kunnen worden, en het vierde is een relatie die aan de meetkant al
+        bestaat: het meetobjectenbestand zegt per meetpunt bij welk waterlichaam het hoort.</p>
+    </div>
+
+    <footer>
+      <p>Bronnen: regels uit DSO Ozon (live) · vergunningen uit de Atlas voor een Schone Maas
+        (live, publiek zonder expliciete licentie, daarom bevraagd en nooit gekopieerd) · metingen
+        en KRW-doelen uit het Waterkwaliteitsportaal van Informatiehuis Water, meetjaar 2025 ·
+        waterlichamen uit de KRW-service van Rijkswaterstaat. De toerekening is een model van dit
+        lab en is uitdrukkelijk een bovengrens, nooit een vaststelling.</p>
+    </footer>
+  </div>
+
+  <script>
+    const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+      ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const nl = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n)))
+      ? "—" : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+    const cijfer = (v, k) => `<div class="cijfer"><div class="v">${v}</div>` +
+      `<div class="k">${esc(k)}</div></div>`;
+
+    async function haal(url) {
+      try {
+        const r = await fetch(url);
+        return r.ok ? await r.json() : null;
+      } catch (e) { return null; }
+    }
+
+    (async function () {
+      // Twee snelle aanroepen: het voorberekende overzicht, en een enkel meetpunt zonder live
+      // bronbevraging (0,2 s) voor de herkomst van de meetset.
+      const [o, punt] = await Promise.all([
+        haal("/api/kmg/overzicht"),
+        haal("/api/kmg?meetpunt=NL80_BELFBVN&live=0"),
+      ]);
+
+      // Stap 3 — herkomst van de metingen
+      const g = punt && punt.proclaimer && punt.proclaimer.gegevens;
+      if (g) {
+        document.getElementById("meetbron").textContent =
+          `${g.bron} · ${g.houder} · meetjaar ${g.meetjaar}`;
+        document.getElementById("meetcijfers").innerHTML =
+          cijfer(nl(g.metingen, 0), "metingen") +
+          cijfer(nl(g.meetpunten, 0), "meetpunten landelijk") +
+          cijfer(nl(g.punten_in_beeld, 0), "op de Maas");
+        document.getElementById("meettekst").innerHTML =
+          `Uit een bestand van 142 MB verdicht tot een mediaan, een maximum en een ` +
+          `zomergemiddelde per meetpunt en stof. Opgehaald op <b>${esc(g.opgehaald_op)}</b> — ` +
+          `met de hand, want anders kan het niet.`;
+      } else {
+        document.getElementById("meetbron").textContent = "Herkomst niet op te halen";
+      }
+
+      if (!o || !o.beschikbaar || !(o.punten || []).length) {
+        document.getElementById("uitkomst").textContent =
+          "De uitkomsten konden niet worden opgehaald.";
+        return;
+      }
+      const P = o.punten;
+
+      // Stap 2 — de regels. Live uit het overzicht, want deze twee getallen veranderen: toen de
+      // Omgevingsregeling in de DSO-uitvraag opdook ging "raakt de waterkwaliteit" van 6 naar 8.
+      const metKan = P.filter(p => (p.kan || {}).regelingen);
+      if (metKan.length) {
+        // Vast aan Belfeld: de alinea hieronder noemt regelingen uit Venlo met naam. Een ander
+        // meetpunt zou andere documenten hebben en de tekst eronder onwaar maken.
+        const k = metKan.find(p => p.code === "NL80_BELFBVN") || metKan[0];
+        document.getElementById("regelbron").textContent =
+          `Gemeten op ${k.naam} · ${o.opgehaald_op}`;
+        document.getElementById("regelcijfers").innerHTML =
+          cijfer(nl(k.kan.regelingen, 0), "regelingen op het punt") +
+          cijfer(nl(k.kan.raakt, 0), "raken de waterkwaliteit");
+      } else {
+        document.getElementById("regelbron").textContent =
+          "De regelslaag zit nog niet in dit overzicht";
+      }
+
+      // Stap 4 — het resultaat
+      const n = p => (p.stoffen || []).find(s => s.code === "Ntot");
+      const metN = P.filter(p => n(p) && n(p).aandeel_pct !== null);
+      const aandelen = metN.map(p => n(p).aandeel_pct);
+      const klassen = [...new Set(metN.map(p => n(p).klasse).filter(Boolean))];
+      document.getElementById("uitkomst").innerHTML =
+        `De vergunde lozingen verklaren <b>${nl(Math.min(...aandelen), 1)} tot ` +
+        `${nl(Math.max(...aandelen), 1)} procent</b> van wat er aan stikstof gemeten wordt. ` +
+        `Het KRW-oordeel beweegt daar nauwelijks op mee — en dat is het antwoord: ` +
+        `<b>vergunningverlening is hier niet de knop waar het aan ligt.</b>`;
+
+      document.getElementById("tabel").innerHTML =
+        `<table><thead><tr><th>Meetpunt</th><th class="n">Gemeten</th><th class="n">Doel</th>` +
+        `<th>Oordeel</th><th class="n">Vergund</th></tr></thead><tbody>` +
+        metN.map(p => {
+          const s = n(p), kl = (s.klasse || "").toLowerCase();
+          return `<tr><td>${esc(p.naam || p.code)}</td>` +
+            `<td class="n">${nl(s.getoetste_waarde, 2)}</td>` +
+            `<td class="n">${nl(s.doel_waarde, 2)}</td>` +
+            `<td><span class="klasse ${esc(kl)}">${esc(s.klasse || "—")}</span></td>` +
+            `<td class="n">${nl(s.aandeel_pct, 1)}%</td></tr>`;
+        }).join("") + `</tbody></table>`;
+
+      // Het oordeel per klasse tellen zegt meer dan een opsomming van de klassen, en een
+      // verhoudingsgetal tussen het hoogste en laagste aandeel zou onzin zijn: het laagste is nul.
+      const perKlasse = {};
+      metN.forEach(p => { const k = n(p).klasse || "onbekend";
+                          perKlasse[k] = (perKlasse[k] || 0) + 1; });
+      const telling = Object.entries(perKlasse)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `${nl(v, 0)}× <b>${esc(k)}</b>`).join(", ");
+      document.getElementById("patroon").innerHTML =
+        `Alles in milligram per liter, als zomergemiddelde — de grondslag waar de KRW-grenzen over ` +
+        `gaan. Over ${nl(metN.length, 0)} meetpunten: ${telling}. Het vergunde aandeel loopt ` +
+        `ondertussen van ${nl(Math.min(...aandelen), 1)} tot ${nl(Math.max(...aandelen), 1)} ` +
+        `procent — zonder dat het oordeel meebeweegt.`;
+
+      // Stap 5 — het informatiemodel
+      const m = P.map(p => p.model || {}).filter(x => x.totaal);
+      if (m.length) {
+        const som = k => m.reduce((a, x) => a + (x[k] || 0), 0);
+        const max = k => Math.max(...m.map(x => x[k] || 0));
+        document.getElementById("modelcijfers").innerHTML =
+          cijfer(`${nl(max("stoffen_oud"), 0)} → ${nl(max("stoffen_aquo"), 0)}`, "stoffen uit het register") +
+          cijfer(`${nl(som("bruikbaar") / som("totaal") * 100, 0)}%`, "voorschriften bruikbaar") +
+          cijfer(nl(som("volledig"), 0), "voorschriften volledig");
+        document.getElementById("modeltekst").innerHTML =
+          `Op de stofnaam koppelen leverde <b>${nl(max("stoffen_oud"), 0)}</b> stoffen op; op ` +
+          `Aquo-code zijn dat er <b>${nl(max("stoffen_aquo"), 0)}</b>. Dezelfde bron, dezelfde ` +
+          `voorschriften — alleen niet langer weggegooid omdat de stof buiten een handgeschreven ` +
+          `lijstje viel. De uitkomst voor stikstof en zink verandert er niet door; wat verandert ` +
+          `is dat de koppeling niet meer stilvalt op een andere schrijfwijze.`;
+      } else {
+        document.getElementById("modeltekst").textContent =
+          "Het modelresultaat zit nog niet in dit overzicht.";
+      }
+    })();
+  </script>
+</body>
+</html>

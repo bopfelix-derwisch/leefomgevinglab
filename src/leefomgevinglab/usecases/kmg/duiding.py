@@ -52,6 +52,9 @@ DUIDING_KMG = {
                   "maar van het programma — zie de titel.", False),
     "Aanwijzingsbesluit N2000": ("Natura 2000: instandhoudingsdoelen kunnen strenger uitpakken dan "
                                  "de KRW-norm en werken hard door in een lozingsvergunning.", True),
+    "Ministeriële Regeling": ("De Omgevingsregeling. Raakt dit wél, maar anders dan de andere "
+                              "lagen: hij schrijft geen grenswaarde voor maar de meet- en "
+                              "rekenregels waarmee een lozing wordt bepaald en getoetst.", True),
 }
 
 # Titelwoorden waaraan een programma te herkennen is dat wél over water gaat. Bewust ruim: een
@@ -80,6 +83,23 @@ def verfijn_programma(regeling: dict) -> dict:
                           "zonder normoordeel.")}
 
 
+def sluit_onbekend(regeling: dict) -> dict:
+    """Een regelingtype dat deze tabel niet kent, telt niet mee — en zegt dat.
+
+    De gedeelde `regels._ONBEKEND` zet een onbekend type op van_toepassing=True: voor een
+    lozingsvoornemen is dat de voorzichtige kant, want je wilt niets over het hoofd zien. Op een
+    meetpunt is het omgekeerd. Deze pagina telt hoeveel van de regelingen de waterkwaliteit raken,
+    en een type waarvan wij niet weten wat het doet, mag dat getal niet opdrijven. Nagekomen geval:
+    toen de Omgevingsregeling in de DSO-uitvraag verscheen, telde zij ongemerkt mee als relevant.
+    """
+    if "niet geclassificeerd" not in (regeling.get("betekenis") or ""):
+        return regeling
+    return {**regeling, "van_toepassing": False,
+            "betekenis": (f"Type '{regeling.get('type') or 'onbekend'}' is door dit lab niet "
+                          f"geduid voor een meetpunt. Niet meegeteld als rakend aan de "
+                          f"waterkwaliteit: wat wij niet kunnen plaatsen, tellen wij niet mee.")}
+
+
 def duid_regelingen(kan: dict) -> dict:
     """De regelingen in een KAN-laag naverwerken: programma's op titel beoordelen, dan hertellen.
 
@@ -95,5 +115,6 @@ def duid_regelingen(kan: dict) -> dict:
     regelingen = kan.get("regelingen") or []
     if not regelingen:
         return kan
-    uit, telling = regels.samenvatten([verfijn_programma(r) for r in regelingen])
+    uit, telling = regels.samenvatten(
+        [sluit_onbekend(verfijn_programma(r)) for r in regelingen])
     return {**kan, "regelingen": uit, "telling": telling}

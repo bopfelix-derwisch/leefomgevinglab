@@ -105,6 +105,13 @@ def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None
             "in_band": in_band,
             "zonder_waterlichaam": len(b["stroomprofiel"].get("zonder_waterlichaam") or []),
             "mag_status": b["mag"].get("status"),
+            # De regelslaag erbij: hoeveel regelingen het DSO op dit punt teruggeeft en hoeveel
+            # daarvan de waterkwaliteit raken. Op /waterverhaal stonden die twee hardgecodeerd, en
+            # ze waren binnen drie weken achterhaald (6 werd 8 toen de Omgevingsregeling opdook).
+            "kan": {"status": b["kan"].get("status"),
+                    "regelingen": len(b["kan"].get("regelingen") or []),
+                    "raakt": sum(1 for r in (b["kan"].get("regelingen") or [])
+                                 if r.get("van_toepassing"))},
             "stoffen": [_stof_regel(x) for x in (b.get("bijdragen") or [])],
         })
         print(f"  [{i}/{len(punten)}] {p['code']:<22} {time.time() - t0:5.1f}s "
