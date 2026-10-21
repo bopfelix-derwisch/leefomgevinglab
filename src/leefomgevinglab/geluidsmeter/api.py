@@ -403,7 +403,8 @@ def api_kmg(meetpunt: str, live: int = 1):
         return kmg_service.beeld(meetpunt, _kmg_pad(), live=bool(live),
                                  straal_m=kmg.get("straal_m", 50000),
                                  doelen_pad=kmg.get("doelen_pad"),
-                                 parameters_pad=kmg.get("parameters_pad"))
+                                 parameters_pad=kmg.get("parameters_pad"),
+                                 normen_pad=kmg.get("normen_pad"))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"onbekend meetpunt: {meetpunt}")
 

@@ -181,6 +181,11 @@ def verdicht(meetobjecten_pad: str, meetwaarden_pad: str,
             # elkaar haalt toetst tegen de verkeerde norm.
             "zomergemiddelde": round(statistics.fmean(zomer), 6) if zomer else None,
             "n_zomer": len(zomer),
+            # Het jaargemiddelde hoort bij de chemische normen: de KRW-norm voor zink is een
+            # JG-MKN (jaargemiddelde) naast een MAC-MKN (maximum). Dat staat met zoveel woorden
+            # in de toetsresultaten -- WaardebewerkingsmethodeOmschrijving is "Jaargemiddelde"
+            # respectievelijk "Maximum" -- dus beide grondslagen zijn hier nodig.
+            "jaargemiddelde": round(statistics.fmean(v["waarden"]), 6) if v["waarden"] else None,
             "van": data[0] if data else None,
             "tot": data[-1] if data else None,
         })

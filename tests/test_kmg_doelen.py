@@ -55,11 +55,59 @@ def test_zonder_zomergemiddelde_komt_er_geen_oordeel():
     assert "zomergemiddelde" in t["reden"]
 
 
-def test_zink_krijgt_geen_oordeel_en_zegt_waarom():
-    t = doelen.toets(SET, "NL91ZM", {"code": "Zn", "naam": "zink", "zomergemiddelde": 6.7})
+NORMEN = {
+    "beschikbaar": True, "opgehaald_op": "2026-10-21",
+    "bron": {"naam": "Waterkwaliteitsportaal — KRW-toetsresultaten"},
+    "normen": {"NL80_BELFBVN": [
+        {"parameter": "Zn", "hoedanigheid": "nf", "eenheid": "ug/l",
+         "grondslag": "jaargemiddelde", "norm": 7.8, "meetjaar": "2024",
+         "normgroep": "KRW spec. verontr. stoffen SGBP 2022-2027 - zoet"},
+        {"parameter": "Zn", "hoedanigheid": "nf", "eenheid": "ug/l",
+         "grondslag": "maximum", "norm": 16.6, "meetjaar": "2024",
+         "normgroep": "KRW spec. verontr. stoffen SGBP 2022-2027 - zoet"},
+    ]},
+}
+
+
+def _zink(hoed="nf", jaargem=5.78, maximum=8.65):
+    return {"code": "Zn", "naam": "zink", "hoedanigheid": hoed, "eenheid": "ug/l",
+            "jaargemiddelde": jaargem, "maximum": maximum, "zomergemiddelde": 6.68, "n": 13}
+
+
+def test_zink_krijgt_zijn_echte_norm_op_het_jaargemiddelde():
+    """De KRW-norm voor zink is een JG-MKN; de bron zegt dat zelf via de bewerkingsmethode."""
+    t = doelen.toets(SET, "NL91ZM", _zink(), normenset=NORMEN, meetpunt="NL80_BELFBVN")
+    assert t["beschikbaar"] is True
+    assert t["soort"] == "chemische norm"
+    assert t["grondslag"] == "jaargemiddelde"
+    assert t["goed_tot"] == 7.8
+    assert t["getoetste_waarde"] == 5.78
+    assert t["klasse"] == "voldoet"
+    assert t["ruimte"] == pytest.approx(2.02)
+
+
+def test_de_tweede_grens_reist_mee():
+    t = doelen.toets(SET, "NL91ZM", _zink(), normenset=NORMEN, meetpunt="NL80_BELFBVN")
+    neven = {n["grondslag"]: n for n in t["nevengrenzen"]}
+    assert neven["maximum"]["norm"] == 16.6
+    assert neven["maximum"]["waarde"] == 8.65
+
+
+def test_de_zinknorm_geldt_alleen_voor_de_opgeloste_fractie():
+    """Tegen de totaalreeks leggen zou de verkeerde grootheid toetsen."""
+    t = doelen.toets(SET, "NL91ZM", _zink(hoed="NVT"), normenset=NORMEN, meetpunt="NL80_BELFBVN")
+    assert t["beschikbaar"] is False, "NVT is de totaalreeks; daar hoort deze norm niet bij"
+
+
+def test_een_meetpunt_zonder_toets_krijgt_geen_oordeel():
+    t = doelen.toets(SET, "NL91ZM", _zink(), normenset=NORMEN, meetpunt="NL80_HEEL")
     assert t["beschikbaar"] is False
-    assert "Bkl" in t["reden"]
-    assert "opgeloste" in t["reden"], "de zinknorm geldt voor de opgeloste fractie"
+    assert t["soort"] == "geen norm gevonden"
+
+
+def test_zonder_normenbestand_blijft_stikstof_gewoon_werken():
+    t = doelen.toets(SET, "NL91ZM", _stof(zomer=2.97))
+    assert t["beschikbaar"] is True and t["klasse"] == "matig"
 
 
 def test_pfoa_krijgt_geen_oordeel():

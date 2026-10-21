@@ -212,7 +212,7 @@ def stroomprofiel(register: list[dict], wl_per_vergunning: dict[str, str],
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
           toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None,
-          parameters_pad: str | None = None) -> dict:
+          parameters_pad: str | None = None, normen_pad: str | None = None) -> dict:
     """Kan, mag en gebeurt op één meetpunt."""
     set_ = metingen.laad(pad)
     if set_.get("beschikbaar"):
@@ -291,6 +291,8 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
     doelenset = doelen_mod.laad(doelen_pad) if doelen_pad else {"beschikbaar": False,
                                                                 "reden": "geen doelenpad meegegeven",
                                                                 "waterlichamen": {}}
+    normenset = doelen_mod.laad_normen(normen_pad) if normen_pad else {
+        "beschikbaar": False, "normen": {}, "reden": "geen normenpad meegegeven"}
     vraag = []
     for stof in gebeurt["stoffen"]:
         naam = stof.get("naam")
@@ -311,14 +313,14 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                                    f"terwijl een vergunning de totale vracht begrenst; die twee "
                                    f"zijn niet met elkaar te vergelijken",
                           "voorbehoud": toerekening.VOORBEHOUD,
-                          "doel": doelen_mod.toets(doelenset, wl, stof)})
+                          "doel": doelen_mod.toets(doelenset, wl, stof, normenset, code)})
             continue
         d = toerekening.bijdragen(stof.get("mediaan") or 0.0, naam,
                                   mag.get("register") or [], wl or "", wl_per_vergunning, debiet,
                                   eenheid=stof.get("eenheid") or "mg/l",
                                   parameter_code=stof.get("code"))
         vraag.append({**basis, "toerekenbaar": True, "reden": None, **d,
-                      "doel": doelen_mod.toets(doelenset, wl, stof)})
+                      "doel": doelen_mod.toets(doelenset, wl, stof, normenset, code)})
 
     # Hoeveel van de meetset daadwerkelijk in deze keuzelijst staat (zie meetpunten()) — de
     # proclaimer mag niet een hoger aantal beweren dan wat er na filtering overblijft.
@@ -336,6 +338,7 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
         "gebeurt": gebeurt,
         "bijdragen": vraag,
         "proclaimer": proclaimer.bouw(set_, mag, regels.BRON,
-                                      doelen_beschikbaar=bool(doelenset.get("beschikbaar")),
+                                      doelen_beschikbaar=bool(doelenset.get("beschikbaar")
+                                                              or normenset.get("beschikbaar")),
                                       punten_in_beeld=in_beeld),
     }
