@@ -205,6 +205,7 @@
         <div class="cijfers" id="modelcijfers"></div>
         <p id="modeltekst"></p>
       </div>
+      <div class="rivier" id="wasstraat"></div>
       <p class="toelichting">Die nul is geen fout maar de bevinding. Geen enkel voorschrift draagt
         een geldigheidsperiode, dus een vervallen voorschrift is niet van een geldend te
         onderscheiden. En geen enkele parameternaam zegt of een grenswaarde over de totale of de
@@ -270,44 +271,49 @@
     ];
     const KLEUR = { goed: "#2ecc8f", matig: "#ffb74d", ontoereikend: "#ff8a4c", slecht: "#ff7a6b" };
 
-    function tekenRivier(punten) {
-      // Breedte strak om de inhoud: de langste puntnaam eindigt rond x=458, dus een bredere
-      // viewBox zou de tekening alleen maar kleiner schalen in dezelfde container.
-      const B = 492, asX = 212, segH = 62, top = 30;
-      const H = top + STROOM.length * segH + 42;
-      const breedte = i => 13 + i * 3.1;          // de rivier verbreedt stroomafwaarts
-      const y = i => top + i * segH + segH / 2;
+    // De rivierband wordt door twee platen gedeeld: het resultaat (stap 4) en wat de wasstraat
+    // ervan maakt (stap 5). Zelfde geometrie, andere rechterkant -- zo is het verschil tussen de
+    // twee echt het verschil, en niet een ander plaatje.
+    // Breedte strak om de breedste inhoud van de twee platen: de balk met bijschrift op de
+    // tweede eindigt rond x=494. Ruimer zou beide tekeningen alleen kleiner schalen.
+    const GEO = { B: 512, asX: 212, segH: 62, top: 30 };
+    GEO.H = GEO.top + STROOM.length * GEO.segH + 42;
+    const breedte = i => 13 + i * 3.1;            // de rivier verbreedt stroomafwaarts
+    const yMidden = i => GEO.top + i * GEO.segH + GEO.segH / 2;
 
-      // Eén doorlopende band, van smal bij de grens naar breed bij zee.
+    function bandSvg(titel, id) {
+      // Eigen gradient-id per plaat: twee svg's op een pagina mogen niet hetzelfde id dragen.
+      const { asX, segH, top } = GEO;
       const links = STROOM.map((_, i) => `${asX - breedte(i)},${top + i * segH}`).join(" ");
       const rechts = STROOM.map((_, i) => `${asX + breedte(i)},${top + i * segH}`)
         .reverse().join(" ");
       const onderL = `${asX - breedte(STROOM.length)},${top + STROOM.length * segH}`;
       const onderR = `${asX + breedte(STROOM.length)},${top + STROOM.length * segH}`;
-
-      let svg = `<svg viewBox="0 0 ${B} ${H}" role="img" ` +
-        `aria-label="De Maas van de Belgische grens tot zee, met het KRW-oordeel per meetpunt">` +
-        `<defs><linearGradient id="rv" x1="0" y1="0" x2="0" y2="1">` +
+      return `<svg viewBox="0 0 ${GEO.B} ${GEO.H}" role="img" aria-label="${esc(titel)}">` +
+        `<defs><linearGradient id="rv-${id}" x1="0" y1="0" x2="0" y2="1">` +
         `<stop offset="0" stop-color="#1b4a6b"/><stop offset="1" stop-color="#2b6f8f"/>` +
         `</linearGradient></defs>` +
-        `<polygon points="${links} ${onderL} ${onderR} ${rechts}" fill="url(#rv)" ` +
-        `stroke="#2e6a8a" stroke-width="1"/>`;
-
-      svg += `<text x="${asX}" y="16" fill="#5b7385" font-size="11" text-anchor="middle">` +
+        `<polygon points="${links} ${onderL} ${onderR} ${rechts}" fill="url(#rv-${id})" ` +
+        `stroke="#2e6a8a" stroke-width="1"/>` +
+        `<text x="${asX}" y="16" fill="#5b7385" font-size="11" text-anchor="middle">` +
         `Belgische grens</text>` +
-        `<text x="${asX}" y="${H - 10}" fill="#5b7385" font-size="11" text-anchor="middle">` +
-        `Haringvliet · zee</text>`;
+        `<text x="${asX}" y="${GEO.H - 10}" fill="#5b7385" font-size="11" text-anchor="middle">` +
+        `Haringvliet · zee</text>` +
+        STROOM.map(([, naam], i) =>
+          `<text x="${asX - breedte(i) - 12}" y="${yMidden(i) + 4}" fill="#8aa0b2" ` +
+          `font-size="12" text-anchor="end">${esc(naam)}</text>` +
+          (i > 0 ? `<line x1="${asX - breedte(i) - 6}" y1="${top + i * segH}" ` +
+            `x2="${asX + breedte(i) + 6}" y2="${top + i * segH}" stroke="#1a3a5c" ` +
+            `stroke-width="1" stroke-dasharray="3 3"/>` : ``)).join("");
+    }
+
+    function tekenRivier(punten) {
+      const { asX } = GEO;
+      let svg = bandSvg(
+        "De Maas van de Belgische grens tot zee, met het KRW-oordeel per meetpunt", "res");
 
       STROOM.forEach(([code, naam], i) => {
-        const yy = y(i);
-        svg += `<text x="${asX - breedte(i) - 12}" y="${yy + 4}" fill="#8aa0b2" font-size="12" ` +
-          `text-anchor="end">${esc(naam)}</text>`;
-        if (i > 0) {
-          svg += `<line x1="${asX - breedte(i) - 6}" y1="${top + i * segH}" ` +
-            `x2="${asX + breedte(i) + 6}" y2="${top + i * segH}" stroke="#1a3a5c" ` +
-            `stroke-width="1" stroke-dasharray="3 3"/>`;
-        }
-
+        const yy = yMidden(i);
         const hier = punten.filter(p => p.waterlichaam === code);
         if (!hier.length) {
           svg += `<text x="${asX + breedte(i) + 16}" y="${yy + 4}" fill="#45606e" ` +
@@ -344,6 +350,61 @@
         `<p class="onder">De breedte van de band loopt mee met de rivier, niet met een meetwaarde. ` +
         `De Bedijkte Maas heeft in deze proef geen meetpunt — dat gat is echt en blijft daarom ` +
         `staan.</p>`;
+    }
+
+    function tekenWasstraat(punten) {
+      const { asX } = GEO;
+      const aantal = p => (p.model || {}).stoffen_aquo || 0;
+      const schaal = Math.max(1, ...punten.map(aantal));
+      const balkMax = 80;
+      let svg = bandSvg(
+        "Dezelfde rivier, met per meetpunt het aantal stoffen dat vergund is tegenover het " +
+        "aantal dat gemeten wordt", "was");
+
+      STROOM.forEach(([code], i) => {
+        const yy = yMidden(i);
+        const hier = punten.filter(p => p.waterlichaam === code);
+        const x0 = asX + breedte(i) + 16;
+        if (!hier.length) {
+          svg += `<text x="${x0}" y="${yy + 4}" fill="#45606e" font-size="11.5" ` +
+            `font-style="italic">geen meetpunt in deze proef</text>`;
+          return;
+        }
+        hier.forEach((p, j) => {
+          const py = yy + (hier.length > 1 ? (j - (hier.length - 1) / 2) * 24 : 0);
+          const m = p.model || {};
+          const na = aantal(p), voor = m.stoffen_oud || 0;
+          const gemeten = new Set((p.stoffen || []).map(st => st.code)).size;
+          const bNa = (na / schaal) * balkMax, bVoor = (voor / schaal) * balkMax;
+          svg += `<circle cx="${asX}" cy="${py}" r="5" fill="#26a69a" stroke="#080c14" ` +
+            `stroke-width="1.5"/>`;
+          svg += `<text x="${x0}" y="${py - 7}" fill="#e0e6ed" font-size="11.5">` +
+            `${esc((p.naam || p.code).slice(0, 28))}</text>`;
+          // Volle balk: wat ná de wasstraat te koppelen is. Donker deel: wat de koppeling op
+          // Nederlandse naam al opleverde. Het verschil is wat het model toevoegt.
+          svg += `<rect x="${x0}" y="${py + 1}" width="${Math.max(1, bNa).toFixed(1)}" ` +
+            `height="8" rx="2" fill="#2ecc8f" opacity="0.85"/>`;
+          if (bVoor > 0) {
+            svg += `<rect x="${x0}" y="${py + 1}" width="${Math.max(1, bVoor).toFixed(1)}" ` +
+              `height="8" rx="2" fill="#15543f"/>`;
+          }
+          svg += `<text x="${x0 + Math.max(bNa, 2) + 8}" y="${py + 9}" fill="#8aa0b2" ` +
+            `font-size="11">${nl(voor, 0)} → ${nl(na, 0)} vergund · ` +
+            `${nl(gemeten, 0)} gemeten</text>`;
+        });
+      });
+
+      svg += `</svg>`;
+      return svg +
+        `<div class="rlegenda">` +
+        `<span><i style="background:#15543f"></i> op stofnaam koppelbaar</span>` +
+        `<span><i style="background:#2ecc8f"></i> op Aquo-code koppelbaar</span>` +
+        `<span>daarachter: hoeveel stoffen er op dat punt gemeten worden</span></div>` +
+        `<p class="onder">Dezelfde vergunningen, dezelfde rivier — alleen anders ontsloten. Wat ` +
+        `opvalt is niet de groei maar het gat erna: op de Grensmaas en de Zandmaas staan ` +
+        `<b>33 stoffen vergund tegenover 2 gemeten</b>. Vergunde ruimte waar geen meting ` +
+        `tegenover staat is niet te toetsen — en dat was vóór de wasstraat onzichtbaar, want toen ` +
+        `kende het register er maar drie.</p>`;
     }
 
     async function haal(url) {
@@ -450,6 +511,7 @@
           cijfer(`${nl(max("stoffen_oud"), 0)} → ${nl(max("stoffen_aquo"), 0)}`, "stoffen uit het register") +
           cijfer(`${nl(som("bruikbaar") / som("totaal") * 100, 0)}%`, "voorschriften bruikbaar") +
           cijfer(nl(som("volledig"), 0), "voorschriften volledig");
+        document.getElementById("wasstraat").innerHTML = tekenWasstraat(P);
         document.getElementById("modeltekst").innerHTML =
           `Op de stofnaam koppelen leverde <b>${nl(max("stoffen_oud"), 0)}</b> stoffen op; op ` +
           `Aquo-code zijn dat er <b>${nl(max("stoffen_aquo"), 0)}</b>. Dezelfde bron, dezelfde ` +
