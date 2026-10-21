@@ -86,6 +86,26 @@
     .klasse.goed { background:rgba(46,204,143,.18); color:var(--accent); }
     .klasse.matig { background:rgba(255,183,77,.18); color:var(--let); }
 
+    /* Zink van begin tot eind: wat elke laag voor deze ene stof oplevert, en wat je er dan mee
+       in handen hebt. Drie kolommen in de kleur van hun laag, met de uitkomst eronder. */
+    .zink { margin-top:18px; }
+    .zkolommen { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+    .zkol { background:var(--panel); border:1px solid var(--border);
+      border-top:3px solid var(--l); border-radius:9px; padding:13px 15px; }
+    .zkol.kan { --l:var(--kan); } .zkol.mag { --l:var(--mag); } .zkol.gebeurt { --l:var(--gebeurt); }
+    .zkol .kop { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--l);
+      font-weight:700; }
+    .zkol .groot { font-size:21px; font-weight:800; color:#eafff6; margin-top:6px;
+      font-variant-numeric:tabular-nums; line-height:1.15; }
+    .zkol .bij { font-size:12px; color:var(--muted); margin-top:4px; }
+    .zslot { background:var(--panel2); border:1px solid var(--border); border-left:4px solid var(--weg);
+      border-radius:9px; padding:14px 16px; margin-top:12px; }
+    .zslot .kop { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--weg);
+      font-weight:700; margin-bottom:7px; }
+    .zslot p { font-size:14px; color:var(--text); }
+    .zslot p + p { margin-top:9px; }
+    .zslot b { color:#eafff6; }
+
     /* De drie lagen van de folder, als drie platen over elkaar. Dit is het beeld waar het hele
        dossier op staat; het hoort bovenaan en niet verstopt in een tab. */
     .lagen { position:relative; margin:22px 0 10px; padding:6px 0 10px; }
@@ -190,6 +210,14 @@
     </div>
 
     <div class="stap">
+      <div class="nr">3b</div>
+      <h3>Wat hebben we dan in handen? Zink van begin tot eind</h3>
+      <p class="antwoord">Eén stof door alle drie de lagen, op één meetpunt. Zink is het
+        leerzaamste geval, want hier is élke laag gevuld — en loopt het tóch spaak.</p>
+      <div class="zink" id="zink"></div>
+    </div>
+
+    <div class="stap">
       <div class="nr">04</div>
       <h3>Wat is het resultaat?</h3>
       <p class="antwoord" id="uitkomst">Laden…</p>
@@ -283,6 +311,87 @@
       ["NL94_1", "Haringvliet-oost"], ["NL94_11", "Haringvliet-west"],
     ];
     const KLEUR = { goed: "#2ecc8f", matig: "#ffb74d", ontoereikend: "#ff8a4c", slecht: "#ff7a6b" };
+
+    // Zink van begin tot eind. Twee bronnen: het meetpunt-antwoord draagt de meting en de norm,
+    // het overzicht de toerekening (die vraagt een live Atlas-bevraging en zit daarom in de
+    // momentopname). Beide zijn hier nodig, en dat is precies de pointe.
+    function tekenZink(punt, overzichtPunt) {
+      const reeksen = ((punt && punt.bijdragen) || []).filter(b => b.stof === "Zn");
+      if (!reeksen.length) {
+        return `<p class="tekst zacht">Zink is op dit meetpunt niet gemeten.</p>`;
+      }
+      const ovZn = ((overzichtPunt && overzichtPunt.stoffen) || []).filter(s => s.code === "Zn");
+      const ov = h => ovZn.find(s => (s.hoedanigheid || "") === h) || {};
+      const metNorm = reeksen.find(b => (b.doel || {}).beschikbaar);
+      const metToerekening = reeksen.find(b => (ov(b.hoedanigheid || "").posten || 0) > 0);
+      const eh = (metNorm || reeksen[0]).eenheid || "µg/l";
+
+      const kolommen = [
+        { klasse: "kan", kop: "Kan — de norm",
+          groot: metNorm ? `≤ ${nl(metNorm.doel.goed_tot, 2)} ${esc(eh)}` : "geen norm",
+          bij: metNorm
+            ? `KRW-norm op het ${esc(metNorm.doel.grondslag)}, voor de ` +
+              `<b>${esc(metNorm.hoedanigheid_naam || "opgeloste fractie")}</b>. Gecorrigeerd voor ` +
+              `biobeschikbaarheid, dus hij verschilt per plek.`
+            : `Niet in de KRW-doelen per waterlichaam gevonden.` },
+        { klasse: "mag", kop: "Mag — het vergunde",
+          groot: metToerekening
+            ? `${nl(ov(metToerekening.hoedanigheid || "").vergund, 3)} ${esc(eh)}`
+            : "niet toe te rekenen",
+          bij: metToerekening
+            ? `Bovengrens van ${nl(ov(metToerekening.hoedanigheid || "").posten, 0)} vergunningen ` +
+              `bovenstrooms, op de <b>totale vracht</b> — want de vergunning zegt niet welke ` +
+              `fractie zij begrenst.`
+            : `Geen vergunning bovenstrooms begrenst deze stof.` },
+        { klasse: "gebeurt", kop: "Gebeurt — de meting",
+          groot: reeksen.map(b => {
+            const d = b.doel || {};
+            const w = d.beschikbaar ? d.getoetste_waarde : null;
+            return w !== null ? nl(w, 2) : null;
+          }).filter(x => x !== null).join(" / ") || "—",
+          bij: `${nl(reeksen.length, 0)} reeksen op dit punt: ` +
+            reeksen.map(b => `<b>${esc(b.hoedanigheid_naam || b.hoedanigheid || "?")}</b>`)
+              .join(" en ") + `. De norm geldt maar voor één ervan.` },
+      ];
+
+      let h = `<div class="zkolommen">` + kolommen.map(k =>
+        `<div class="zkol ${k.klasse}"><div class="kop">${esc(k.kop)}</div>` +
+        `<div class="groot">${k.groot}</div><div class="bij">${k.bij}</div></div>`).join("") +
+        `</div>`;
+
+      // De slotsom. Hier staat of het oordeel en de toerekening op dezelfde grootheid slaan, en
+      // dat is bij zink juist niet zo -- daar gaat deze pagina over.
+      const normHoed = metNorm ? (metNorm.hoedanigheid || "") : null;
+      const toerHoed = metToerekening ? (metToerekening.hoedanigheid || "") : null;
+      const zelfde = normHoed !== null && normHoed === toerHoed;
+      h += `<div class="zslot"><div class="kop">Wat hebben we in handen?</div>`;
+      if (metNorm) {
+        const d = metNorm.doel;
+        h += `<p>Een <b>echt oordeel</b>: ${nl(d.getoetste_waarde, 2)} tegen ` +
+          `${nl(d.goed_tot, 2)} ${esc(eh)} — <b>${esc(d.klasse)}</b>, met ` +
+          `${nl(d.ruimte, 2)} ${esc(eh)} ruimte. Niet verzonnen: deze norm staat in de ` +
+          `KRW-toetsresultaten van ${esc(d.normjaar || "recent")}, per meetpunt.</p>`;
+      }
+      if (metToerekening) {
+        h += `<p>En een <b>toerekening</b>: wat ${nl(ov(toerHoed).posten, 0)} vergunde lozingen ` +
+          `bovenstrooms hoogstens kunnen bijdragen.</p>`;
+      }
+      if (metNorm && metToerekening && !zelfde) {
+        h += `<p>Maar niet op dezelfde grootheid. <b>Het oordeel slaat op de opgeloste fractie, ` +
+          `de toerekening op de totale.</b> De norm is gedefinieerd op het ene, de vergunning ` +
+          `begrenst het andere, en niets in de vergunning zegt welke van de twee zij bedoelt. ` +
+          `De twee helften van het antwoord liggen er dus — en zijn niet te verbinden zonder een ` +
+          `aanname.</p>`;
+        h += `<p>Daarvoor is geen nieuwe meting nodig en geen nieuw register. Eén veld in het ` +
+          `voorschrift, de hoedanigheid, sluit dit gat. Dat is wat een informatiemodel hier ` +
+          `oplevert.</p>`;
+      } else if (metNorm && !metToerekening) {
+        h += `<p>Maar geen van beide helften op dezelfde reeks: de stof waarvoor een norm geldt, ` +
+          `wordt door geen vergunning bovenstrooms begrensd — althans niet herkenbaar.</p>`;
+      }
+      h += `</div>`;
+      return h;
+    }
 
     // De drie lagen van de folder, in perspectief over elkaar. Geen data-afhankelijke plaat maar
     // de verbeelding zelf -- met per laag wat die laag in deze casus wél en niet levert, want juist
@@ -563,6 +672,10 @@
         document.getElementById("regelbron").textContent =
           "De regelslaag zit nog niet in dit overzicht";
       }
+
+      // Stap 3b — zink van begin tot eind
+      const ovBelfeld = P.find(p => p.code === "NL80_BELFBVN");
+      document.getElementById("zink").innerHTML = tekenZink(punt, ovBelfeld);
 
       // Stap 4 — het resultaat
       const n = p => (p.stoffen || []).find(s => s.code === "Ntot");
