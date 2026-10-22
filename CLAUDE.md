@@ -168,6 +168,29 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   `is_bovenstrooms(X, X)` is waar, dus een lozing op hetzelfde waterlichaam telt mee ook als zij
   daarbinnen stroomafwaarts ligt; preciezer zou een stromingsmodel vergen. Pagina en proclaimer
   zeggen dat nu expliciet.
+  **Het informatiemodel lozingsvoorschriften** (`usecases/kmg/lozingsmodel.py`) codificeert elk
+  Atlas-voorschrift en voert per veld een **zekerheid** mee: uit de bron, afgeleid, aangenomen of
+  ontbrekend. Dat tweede is het punt — een model dat alleen velden vastlegt maakt een onvolledige
+  vergunning er netjes uitzien. Uitkomst over de negen meetpunten: **85% bruikbaar, nul volledig**.
+  Die nul is de bevinding: geen enkel voorschrift draagt een geldigheidsperiode, en bij alle is de
+  hoedanigheid een aanname (`HOEDANIGHEID_AANNAME`, effluent gelezen als totale fractie).
+  De parameterreferentie is de **Aquo-domeintabel Parameter**, op te halen als CSV van
+  `https://www.aquo.nl/images/aquo/a/a3/Parameter.csv` — aquo.nl is een wiki en publiceert elke
+  domeintabel zo. 5630 geldige codes; de 1479 vervallen worden overgeslagen. Dat is gemeten tegen
+  de vorige aanpak (afleiden uit de WKP-meetwaarden, 492 codes): **57% → 84% bruikbaar** op
+  dezelfde 367 voorschriften, en de gekoppelde stoffen per register van **3 → 42**. De winst zit in
+  alledaagse begrippen die RWS niet chemisch meet maar die in elke vergunning staan: `Zuurgraad` →
+  `pH`, `Zwevende stof` → `ZS`, `Debiet` → `Q`. Ook `"som 6 metalen (Zn, Cu, Pb, Ni, Cr, As)"`
+  heeft een code (`smetln6`) — dit lab nam eerst aan van niet.
+  `toerekening.bijdragen()` koppelt daardoor op Aquo-code (`vrachten_aquo`) met de Nederlandse
+  omschrijving als terugval. **De chemische normen** komen uit `KRW-toetsresultaten`
+  (`scripts/17`): zink ≤ 7,80 µg/l op het **jaargemiddelde** van de **opgeloste** fractie, per punt
+  gecorrigeerd voor biobeschikbaarheid (3,99 bij de Haringvlietsluis). De koppeling meetpunt ↔
+  toetsing gaat op `MeetobjectLokaalID` plus de stroomgebiedsnamespace van het waterlichaam, want
+  RWS publiceert metingen onder `NL80` en toetsingen onder `NL91`/`NL94`. Let op: in datzelfde
+  bestand staan ook klassengrenzen van de fysisch-chemische maatlatten, waar `Normwaarde` de grens
+  is van de klasse waarin de waarde viel — die worden uitgesloten op het oordeel ("Voldoet" hoort
+  bij een norm, een klassenaam bij een maatlat).
   **Een vergunning begrenst de totale vracht**, dus aan een meting van een deelgrootheid wordt
   níet toegerekend: `HOEDANIGHEID_VERGELIJKBAAR` is een toelatende lijst (`NVT`, `N`), zodat een
   onbekende hoedanigheid géén toerekening oplevert in plaats van een stille vergelijking van twee

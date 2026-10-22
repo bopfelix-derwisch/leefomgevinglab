@@ -270,13 +270,17 @@
       zichtbaar wat er mist.</p>
     <div class="kaart" id="dataficering"><h3>Laden…</h3></div>
     <p class="tekst" id="winst"></p>
-    <p class="tekst">De parameterreferentie is zelf afgeleid uit de meetdata — die draagt bij elke
-      rij zowel <code>ParameterCode</code> als <code>ParameterOmschrijving</code>, dus de koppeling
-      is terug te voeren op een echte levering in plaats van op een lijst uit het hoofd van de
-      bouwer. Dat is meteen de belangrijkste beperking: het is géén volledige Aquo-domeintabel maar
-      de doorsnede van één levering. Zuurgraad, zwevende stof en debiet ontbreken daarin, en die
-      drie alleen al verklaren tweederde van wat niet koppelt. Met de echte Aquo-tabel zou de
-      dekking van 57 naar ruwweg 85 procent gaan.</p>
+    <p class="tekst">De parameterreferentie komt uit <b>Aquo zelf</b>: aquo.nl publiceert elke
+      domeintabel als CSV, en de tabel <em>Parameter</em> levert 5630 geldige codes met hun
+      omschrijvingen en alternatieve termen. Vervallen codes — 1479 stuks — gaan eruit; koppelen
+      aan een code die niet meer geldt is erger dan niet koppelen.</p>
+    <p class="tekst">Eerder leidde dit lab die tabel af uit de meetdata, omdat de WKP-levering
+      Aquo-conform is. Dat werkte, maar het was de doorsnede van één bestand: 492 parameters, en
+      alles wat Rijkswaterstaat niet chemisch meet ontbrak. <b>Het verschil is gemeten: van 210
+      bruikbare voorschriften naar 309 van dezelfde 367, van 57 naar 84 procent.</b> De winst zit
+      in alledaagse begrippen die in elke vergunning staan — <code>Zuurgraad</code> wordt
+      <code>pH</code>, <code>Zwevende stof</code> wordt <code>ZS</code>, <code>Debiet</code> wordt
+      <code>Q</code>.</p>
     <div class="kaart">
       <h3>Wat het model zichtbaar maakt dat eerst onzichtbaar was</h3>
       <ul style="margin-top:4px">
@@ -291,9 +295,11 @@
           een etmaalgemiddelde van een steekmonster, en dat is precies wat bepaalt welke grenswaarde
           geldt als een stof er meerdere heeft. Het stond er als vrije tekst; het model maakt er een
           code van — en bij minder dan één procent van de voorschriften ontbreekt het.</li>
-        <li><strong>Samengestelde voorschriften passen niet.</strong> "som 6 metalen (Zn, Cu, Pb, Ni,
-          Cr, As)" is één grenswaarde over zes stoffen. Geen enkele parametercode dekt dat, en het
-          model doet niet alsof. Dat is een registratievraag, geen koppelvraag.</li>
+        <li><strong>Ook een samengesteld voorschrift heeft een code.</strong> "som 6 metalen
+          (Zn, Cu, Pb, Ni, Cr, As)" is één grenswaarde over zes stoffen, en dit lab nam eerst aan
+          dat geen enkele code dat dekt. Onjuist: Aquo kent hem als <code>smetln6</code>. Dat is
+          precies waarom je een standaard gebruikt in plaats van een eigen lijstje — de gevallen
+          waarvan je denkt dat ze uitzonderlijk zijn, zijn dat meestal niet.</li>
       </ul>
     </div>
 

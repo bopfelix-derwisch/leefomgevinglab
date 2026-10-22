@@ -24,12 +24,17 @@ er meerdere zijn. Maar twee dingen ontbreken volledig:
   besluitdatum per vergunning. Een vervallen voorschrift is dus niet van een geldend te
   onderscheiden.
 
-**De parameterreferentie is afgeleid, niet verzonnen.** `scripts/16` leidt uit de WKP-meetwaarden
-een tabel af van `ParameterCode` naast `ParameterOmschrijving` — 492 parameters uit één levering.
-Dat is geen volledige Aquo-domeintabel: stoffen die Rijkswaterstaat niet chemisch meet ontbreken,
-waaronder zwevende stof, Kjeldahl-stikstof, debiet, temperatuur en minerale olie. Een voorschrift
-daarover blijft ongecodeerd en krijgt dat als reden mee. Een echte implementatie haalt deze tabel
-bij Aquo zelf.
+**De parameterreferentie komt uit Aquo zelf.** `scripts/16` leest de **Aquo-domeintabel
+Parameter** — aquo.nl publiceert elke domeintabel als CSV — en houdt daaruit 5630 geldige codes
+over; de 1479 vervallen codes gaan eruit, want koppelen aan een code die niet meer geldt levert
+schijnzekerheid op. Alternatieve termen tellen mee als ingang, want daar zitten juist de
+schrijfwijzen in die een vergunning gebruikt.
+
+Dat is gemeten tegen de vorige aanpak, waarin de tabel werd afgeleid uit de WKP-meetwaarden: op
+dezelfde 367 voorschriften gaat het van 210 bruikbaar (57%) naar 309 (84%). De winst zit in
+alledaagse begrippen die Rijkswaterstaat niet als chemische meting publiceert maar die in elke
+vergunning staan — `Zuurgraad` → `pH`, `Zwevende stof` → `ZS`, `Debiet` → `Q`, `stikstof Kjeldahl`
+→ `NKj`. De afleiding uit een meetbestand blijft als terugval bestaan voor wie die tabel niet heeft.
 """
 import json
 from pathlib import Path
@@ -127,8 +132,8 @@ def dataficeer(voorschrift: dict, referentie: dict) -> dict:
         parameter = _veld(None, "ontbreekt", "de bron noemt geen parameter", naam_bron=None)
     else:
         parameter = _veld(None, "ontbreekt",
-                          "de naam komt niet voor in de parameterreferentie; die bevat alleen wat "
-                          "Rijkswaterstaat chemisch meet", naam_bron=naam_bron)
+                          "deze naam komt niet voor in de parameterreferentie en is dus niet "
+                          "eenduidig aan een Aquo-code te koppelen", naam_bron=naam_bron)
 
     eh = EENHEDEN.get(eenheid_bron)
     if eh:
