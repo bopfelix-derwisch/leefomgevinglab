@@ -190,6 +190,28 @@
 
     <div class="stap">
       <div class="nr">03</div>
+      <h3>Waar halen we de vergunningen vandaan?</h3>
+      <p class="antwoord">Uit de <b>Atlas voor een Schone Maas</b>, live en ruimtelijk bevraagbaar.
+        Dat is een regionaal initiatief — landelijk bestaat er geen register van wie wat waar
+        loost.</p>
+      <div class="bewijs mag">
+        <div class="lbl" id="vergunbron">Laden…</div>
+        <div class="cijfers" id="verguncijfers"></div>
+        <p id="verguntekst"></p>
+        <p>Een voorschrift is tekst, geen grootheid. Soms staat er een vracht in kilogram per jaar,
+          vaker een concentratie plus een debiet waaruit je er een kunt afleiden, en vaak iets wat
+          zich niet laat omrekenen. En in <b>45 van de 64</b> vergunningen staat voor minstens één
+          stof méér dan één grenswaarde — een etmaalgemiddelde naast een maximum. Optellen is dan
+          fout, en welke je moet nemen staat nergens als veld.</p>
+      </div>
+      <p class="toelichting">Dit is de laag waar het informatiemodel over gaat. De regels en de
+        metingen komen gestructureerd binnen; de vergunningen niet — en juist zij bepalen hoeveel
+        ruimte er vergeven is.</p>
+      <p class="dieper"><a href="/watermodel">Zie wat een informatiemodel hiermee doet →</a></p>
+    </div>
+
+    <div class="stap">
+      <div class="nr">04</div>
       <h3>Waar halen we de metingen vandaan?</h3>
       <p class="antwoord">Uit het <b>Waterkwaliteitsportaal</b> — met de hand. Er is geen
         machine-ingang.</p>
@@ -210,7 +232,7 @@
     </div>
 
     <div class="stap">
-      <div class="nr">3b</div>
+      <div class="nr">4b</div>
       <h3>Wat hebben we dan in handen? Zink van begin tot eind</h3>
       <p class="antwoord">Eén stof door alle drie de lagen, op één meetpunt. Zink is het
         leerzaamste geval, want hier is élke laag gevuld — en loopt het tóch spaak.</p>
@@ -218,7 +240,7 @@
     </div>
 
     <div class="stap">
-      <div class="nr">04</div>
+      <div class="nr">05</div>
       <h3>Wat is het resultaat?</h3>
       <p class="antwoord" id="uitkomst">Laden…</p>
       <div class="rivier" id="rivier"></div>
@@ -234,7 +256,7 @@
     </div>
 
     <div class="stap">
-      <div class="nr">05</div>
+      <div class="nr">06</div>
       <h3>Wat kan een informatiemodel hier helpen?</h3>
       <p class="antwoord">De koppeling tussen een meting en een vergunning draaide op de Nederlandse
         stofnaam. Met een <b>Aquo-code</b> als sleutel komt er uit hetzelfde register veel meer
@@ -624,7 +646,7 @@
         haal("/api/kmg?meetpunt=NL80_BELFBVN&live=0"),
       ]);
 
-      // Stap 3 — herkomst van de metingen
+      // Stap 4 — herkomst van de metingen
       const g = punt && punt.proclaimer && punt.proclaimer.gegevens;
       if (g) {
         document.getElementById("meetbron").textContent =
@@ -656,6 +678,29 @@
                    : "Waterkwaliteitsportaal — momentopname",
       });
 
+      // Stap 3 — de vergunningen. Het punt met het grootste register, want daar is het
+      // trechtereffect het duidelijkst.
+      const metReg = P.filter(p => (p.register || 0) > 0);
+      if (metReg.length) {
+        const r = metReg.reduce((a, b) => (b.register > a.register ? b : a), metReg[0]);
+        const m = r.model || {};
+        document.getElementById("vergunbron").textContent =
+          `Atlas voor een Schone Maas · bevraagd rond ${r.naam} · ${o.opgehaald_op}`;
+        document.getElementById("verguncijfers").innerHTML =
+          cijfer(nl(r.register, 0), "vergunningen in de straal") +
+          cijfer(nl(r.in_band, 0), "op een Maas-waterlichaam") +
+          cijfer(nl(r.met_vracht, 0), "met een herleidbare vracht");
+        const tot = metReg.reduce((a, p) => a + (p.register || 0), 0);
+        const band = metReg.reduce((a, p) => a + (p.in_band || 0), 0);
+        document.getElementById("verguntekst").innerHTML =
+          `Over alle meetpunten samen: <b>${nl(tot, 0)} registertreffers</b>, waarvan ` +
+          `${nl(tot - band, 0)} aan geen enkel waterlichaam te koppelen zijn. Een vergunning ` +
+          `draagt geen coördinaat van het lozingspunt en geen verwijzing naar het waterlichaam; ` +
+          `dit lab leidt dat ruimtelijk af uit de voorschriften.`;
+      } else {
+        document.getElementById("vergunbron").textContent = "Vergunningen niet op te halen";
+      }
+
       // Stap 2 — de regels. Live uit het overzicht, want deze twee getallen veranderen: toen de
       // Omgevingsregeling in de DSO-uitvraag opdook ging "raakt de waterkwaliteit" van 6 naar 8.
       const metKan = P.filter(p => (p.kan || {}).regelingen);
@@ -673,11 +718,11 @@
           "De regelslaag zit nog niet in dit overzicht";
       }
 
-      // Stap 3b — zink van begin tot eind
+      // Stap 4b — zink van begin tot eind
       const ovBelfeld = P.find(p => p.code === "NL80_BELFBVN");
       document.getElementById("zink").innerHTML = tekenZink(punt, ovBelfeld);
 
-      // Stap 4 — het resultaat
+      // Stap 5 — het resultaat
       const n = p => (p.stoffen || []).find(s => s.code === "Ntot");
       const metN = P.filter(p => n(p) && n(p).aandeel_pct !== null);
       const aandelen = metN.map(p => n(p).aandeel_pct);
@@ -716,7 +761,7 @@
         `ondertussen van ${nl(Math.min(...aandelen), 1)} tot ${nl(Math.max(...aandelen), 1)} ` +
         `procent — zonder dat het oordeel meebeweegt.`;
 
-      // Stap 5 — het informatiemodel
+      // Stap 6 — het informatiemodel
       const m = P.map(p => p.model || {}).filter(x => x.totaal);
       if (m.length) {
         const som = k => m.reduce((a, x) => a + (x[k] || 0), 0);
