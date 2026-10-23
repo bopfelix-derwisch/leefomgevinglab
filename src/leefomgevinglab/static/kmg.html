@@ -8,7 +8,8 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
       --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
-      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --let:#ffb74d; --weg:#ff7a6b; }
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --gemeld:#b388ff;
+      --let:#ffb74d; --weg:#ff7a6b; }
     body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
            line-height:1.6; }
     a { color:inherit; }
@@ -59,6 +60,19 @@
     .laag.kan { --l: var(--kan); }
     .laag.mag { --l: var(--mag); }
     .laag.gebeurt { --l: var(--gebeurt); }
+    .laag.gemeld { --l: var(--gemeld); }
+    /* Benutting: welk deel van de vergunde ruimte daadwerkelijk gemeld wordt. */
+    .benut { display:flex; align-items:center; gap:10px; margin:6px 0; }
+    .benut .nm { flex:0 0 190px; font-size:12px; color:#eafff6; overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap; }
+    .benut .staaf { flex:1; height:13px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:4px; overflow:hidden; min-width:50px; }
+    .benut .staaf i { display:block; height:100%; min-width:2px;
+      background:linear-gradient(90deg,#7c4dff,var(--gemeld)); }
+    .benut .val { flex:0 0 190px; font-size:11px; color:var(--muted); text-align:right;
+      font-family:ui-monospace,monospace; }
+    .kopvlag { display:inline-block; padding:1px 7px; border-radius:9px; font-size:10px;
+      border:1px solid var(--border); color:var(--dim); margin-left:6px; }
     .laag h3 { font-size:14px; margin-bottom:8px; color:var(--l); text-transform:uppercase;
       letter-spacing:.04em; }
 
@@ -268,6 +282,11 @@
       <div id="gebeurt"></div>
     </div>
 
+    <div class="laag gemeld">
+      <h3>Gemeld — wat de inrichting zelf rapporteert</h3>
+      <div id="gemeld"></div>
+    </div>
+
     <div class="section-title">De Maas van boven naar beneden — waar liggen die vergunningen?</div>
     <div id="profiel"></div>
 
@@ -460,6 +479,57 @@
         h += `<p class="geenoordeel">Er is geen KRW-doel geladen voor deze stoffen: hierboven ` +
           `staan alleen de metingen, zonder normoordeel.</p>`;
       }
+      el.innerHTML = h;
+    }
+
+    function tekenGemeld(d) {
+      const el = document.getElementById("gemeld");
+      const g = (d.mag || {}).gemeld;
+      if (!g || g.status === "overgeslagen") {
+        el.innerHTML = `<p class="dim">Niet opgehaald (live staat uit).</p>`;
+        return;
+      }
+      if (g.status !== "ok") {
+        el.innerHTML = `<p class="dim">${esc((g.bron || {}).naam || "E-PRTR")} onbereikbaar — ` +
+          `${esc(g.fout || "onbekende fout")}.</p>`;
+        return;
+      }
+      const posten = g.posten || [];
+      const t = g.telling || {};
+      let h = `<p class="dim">${esc((g.bron || {}).naam || "E-PRTR")} · ` +
+        `inrichtingen binnen ${nl(g.straal_m, 0)} m van het lozingspunt</p>`;
+
+      // Eerst waar beide helften er zijn: dat is het punt van deze laag.
+      const metBenut = posten.filter(p => Object.values(p.benutting || {}).some(b => b));
+      if (metBenut.length) {
+        metBenut.forEach(p => {
+          Object.entries(p.benutting || {}).forEach(([stof, b]) => {
+            if (!b) return;
+            const pct = Math.max(0, Math.min(100, b.benut_pct));
+            h += `<div class="benut"><span class="nm">${esc(p.naam || "")} · ${esc(stof)}</span>` +
+              `<span class="staaf"><i style="width:${pct.toFixed(1)}%"></i></span>` +
+              `<span class="val">${nl(b.gemeld_kg, 0)} van ${nl(b.vergund_kg, 0)} kg · ` +
+              `${nl(b.benut_pct, 1)}%</span></div>`;
+          });
+        });
+        h += `<p class="dim" style="margin-top:8px">De balk is het deel van de vergunde vracht ` +
+          `dat daadwerkelijk gemeld wordt. Wat erbuiten valt is <b>vergunde ruimte die niet ` +
+          `gebruikt wordt</b> — en die staat nergens geregistreerd.</p>`;
+      } else {
+        h += `<p class="dim">Geen vergunning op dit punt is aan een gemelde wateremissie te ` +
+          `koppelen.</p>`;
+      }
+
+      h += `<p class="dim" style="margin-top:10px">Van ${nl(posten.length, 0)} vergunningen: ` +
+        `${nl(t.gekoppeld || 0, 0)} met een watermelding, ` +
+        `${nl(t.zonder_watermelding || 0, 0)} wel gekoppeld maar zonder watermelding, ` +
+        `${nl(t.naam_wijkt_af || 0, 0)} met een inrichting in de buurt onder een andere naam, ` +
+        `${nl(t.niets_in_de_buurt || 0, 0)} zonder inrichting binnen de straal.</p>`;
+      h += `<p class="geenoordeel">Twee dingen om niet te lezen wat er niet staat. De koppeling ` +
+        `berust op nabijheid plus naamgelijkenis — er is <b>geen gedeelde identificatie</b> ` +
+        `tussen een vergunning en een E-PRTR-inrichting, al kent de Atlas er wel een veld voor ` +
+        `(leeg). En een ontbrekende melding is <b>geen nul</b>: E-PRTR dekt alleen inrichtingen ` +
+        `boven de Europese rapportagedrempel.</p>`;
       el.innerHTML = h;
     }
 
@@ -797,6 +867,7 @@
       tekenKan(d);
       tekenMag(d);
       tekenGebeurt(d);
+      tekenGemeld(d);
       tekenProfiel(d);
       tekenBijdragen(d);
       tekenConclusie(d);
