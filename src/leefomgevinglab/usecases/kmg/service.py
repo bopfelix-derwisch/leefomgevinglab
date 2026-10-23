@@ -10,9 +10,11 @@ kunnen dan bijdragen? Het antwoord daarop is een bovengrens, geen vaststelling �
 """
 from concurrent.futures import ThreadPoolExecutor
 
+from leefomgevinglab.connectors import eprtr
 from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 
 from . import doelen as doelen_mod
+from . import koppeling as kp_mod
 from . import lozingsmodel
 from . import duiding, metingen, proclaimer, toerekening
 
@@ -31,6 +33,10 @@ DEBIET_M3_S = {
     "NL94_5": 270.0, "NL94_6": 280.0, "NL94_1": 300.0, "NL94_11": 310.0,
 }
 STANDAARD_DEBIET = 250.0
+
+# De Nederlandse naam waaronder `atlas_register` een vracht wegschrijft, per Aquo-code. Nodig om
+# een gemelde vracht naast de vergunde te kunnen leggen zolang het register nog op naam sleutelt.
+_NL_VAN_AQUO = {"Zn": "zink", "Ntot": "stikstof totaal", "PFOA": "perfluoroctaanzuur"}
 
 # Hoedanigheden waarvan een meting met een vergunde vracht te vergelijken is: de hele stof.
 # `NVT` = niet van toepassing (de stof zelf), `N` = uitgedrukt in stikstof. Alles daarbuiten is
@@ -209,10 +215,61 @@ def stroomprofiel(register: list[dict], wl_per_vergunning: dict[str, str],
             "waterlichaam_meetpunt": wl_meetpunt}
 
 
+def _meldingen_bij_register(posten_ruw: list[dict], register: list[dict], live: bool,
+                            _haal=None, straal_m: int = 400) -> dict:
+    """Per vergunning de gemelde emissies, met de kwaliteit van de koppeling erbij.
+
+    Twee dingen die hier bewust zo staan. De bevraging gaat op álle media en pas `gemeld_per_stof`
+    filtert op water: anders is "deze inrichting meldt niets naar water" niet te onderscheiden van
+    "hier staat geen inrichting", en dat zijn verschillende uitspraken. En de zoekstraal is krap —
+    met 1500 m kreeg Sappi de zinkmelding van een naburig recyclingbedrijf toegewezen.
+    """
+    if not live:
+        return {"status": "overgeslagen", "bron": eprtr.BRON, "posten": [], "telling": {}}
+    haal = _haal or _meldingen_standaard
+    uit, telling = [], {"gekoppeld": 0, "niets_in_de_buurt": 0, "naam_wijkt_af": 0,
+                        "zonder_watermelding": 0}
+    try:
+        for i, post in enumerate(register):
+            ruw = next((p for p in posten_ruw if p.get("naam") == post.get("naam")), None)
+            rd = next((v.get("rd") for v in ((ruw or {}).get("voorschriften") or [])
+                       if v.get("rd")), None)
+            if rd is None:
+                continue
+            k = kp_mod.koppel(post.get("naam") or "", rd, haal(rd[0], rd[1], straal_m))
+            stoffen = kp_mod.gemeld_per_stof(k)
+            if not k.get("gekoppeld"):
+                telling[k.get("soort", "").replace(" ", "_") or "onbekend"] = telling.get(
+                    k.get("soort", "").replace(" ", "_") or "onbekend", 0) + 1
+            elif not stoffen:
+                telling["zonder_watermelding"] += 1
+            else:
+                telling["gekoppeld"] += 1
+            uit.append({"sleutel": toerekening.sleutel_post(post, i),
+                        "naam": post.get("naam"), "koppeling": k, "stoffen": stoffen,
+                        "benutting": {
+                            stof: kp_mod.benutting((post.get("vrachten") or {}).get(naam_nl), g["kg_jaar"])
+                            for stof, g in stoffen.items()
+                            for naam_nl in [_NL_VAN_AQUO.get(stof)] if naam_nl}})
+    except Exception as exc:                 # noqa: BLE001 — bron mag wegvallen
+        return {"status": "onbereikbaar", "fout": type(exc).__name__,
+                "bron": eprtr.BRON, "posten": [], "telling": {}}
+    return {"status": "ok", "bron": eprtr.BRON, "straal_m": straal_m,
+            "posten": uit, "telling": telling}
+
+
+def _meldingen_standaard(x: float, y: float, straal_m: int):
+    from leefomgevinglab.geluidsmeter.config import load_config
+    cfg = load_config().get("leefomgevinglab", {})
+    c = eprtr.EprtrConnector(cache_dir=cfg.get("cache_dir", "/tmp/llab_cache"))
+    return c.meldingen_bij_punt(x, y, straal_m=straal_m, alleen_water=False)
+
+
 def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
           toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None,
-          parameters_pad: str | None = None, normen_pad: str | None = None) -> dict:
+          parameters_pad: str | None = None, normen_pad: str | None = None,
+          _haal_meldingen=None, meldingen: bool = True) -> dict:
     """Kan, mag en gebeurt op één meetpunt."""
     set_ = metingen.laad(pad)
     if set_.get("beschikbaar"):
@@ -259,8 +316,13 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
             wl_per_vergunning, redenen = _waterlichaam_per_vergunning(
                 posten, live=True, _haal_waterlichaam=_haal_waterlichaam)
             redenen_vergunning = redenen
+            # Gemeld — wat de inrichting zelf rapporteert te lozen (E-PRTR). Als enige bron in
+            # deze keten machinaal bevraagbaar. De koppeling is een heuristiek en draagt dat mee.
+            gemeld = _meldingen_bij_register(
+                posten, reg["register"], live=bool(meldingen), _haal=_haal_meldingen)
             mag = {"status": "ok", **reg,
                    "buiten_toerekening": _buiten_toerekening(reg["register"], redenen),
+                   "gemeld": gemeld,
                    "informatiemodel": {
                        "referentie": bool(ref.get("beschikbaar")),
                        "reden": ref.get("reden"),
