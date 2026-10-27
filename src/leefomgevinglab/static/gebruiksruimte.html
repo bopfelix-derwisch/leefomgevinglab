@@ -52,6 +52,29 @@
     .antwoord.ja .kop { color:var(--ok); } .antwoord.nee .kop { color:var(--weg); }
     .antwoord p { font-size:14px; color:var(--text); margin-top:5px; max-width:900px; }
     .antwoord .kt { font-size:12.5px; color:var(--let); margin-top:7px; }
+    .antwoord .vervolg { font-size:13px; color:var(--text); margin-top:10px; max-width:900px;
+      border-left:2px solid var(--blauw); padding-left:11px; }
+    .antwoord .vervolg b { color:var(--blauw); }
+
+    /* De beoordelingsvolgorde. Twee van de drie stappen worden hier niet gerekend, en dat moet je
+       aan de plaat kunnen zien -- vandaar dat de niet-gerekende stappen gedimd zijn en niet
+       weggelaten. Weglaten zou precies de indruk wekken die deze plaat moet wegnemen. */
+    .volgorde { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      margin-bottom:4px; }
+    .vstap { display:flex; gap:12px; background:var(--panel); border:1px solid var(--border);
+      border-radius:10px; padding:12px 15px; opacity:.62; }
+    .vstap.hier { opacity:1; border-color:var(--accent2); background:rgba(46,204,143,.06); }
+    .vnr { font-family:ui-monospace,monospace; font-size:19px; font-weight:700; color:var(--dim);
+      line-height:1.1; flex:none; }
+    .vstap.hier .vnr { color:var(--accent); }
+    .vnaam { font-size:13px; color:#eafff6; font-weight:600; display:flex; gap:8px;
+      flex-wrap:wrap; align-items:baseline; }
+    .vgrond { font-size:10.5px; color:var(--dim); font-weight:400;
+      font-family:ui-monospace,monospace; }
+    .vvlag { font-size:9.5px; font-weight:700; padding:1px 7px; border-radius:8px;
+      background:rgba(46,204,143,.16); color:var(--ok); border:1px solid #1d5c3f; }
+    .vvlag.uit { background:transparent; color:var(--dim); border-color:var(--border); }
+    .vwat { font-size:12px; color:var(--muted); margin-top:4px; }
 
     .kolommen { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:14px; align-items:start; }
     @media (max-width:1000px){ .kolommen { grid-template-columns:1fr; } }
@@ -151,11 +174,22 @@
 
     <div id="antwoord"></div>
 
+    <div class="section-title">Hoe een lozing wordt beoordeeld — en welke stap hier gerekend wordt</div>
+    <p class="lead">De rekensom hieronder is de <b>immissietoets</b>: de derde en laatste stap. Twee
+      stappen gaan eraan vooraf, en die gelden <b>ongeacht</b> hoeveel ruimte het water nog heeft.
+      Daarom staan ze hier, gedimd maar niet weggelaten.</p>
+    <div class="volgorde" id="volgorde"></div>
+
     <div class="section-title">De rekensom: ruimte tot de norm, per parameter</div>
     <p class="lead">De ruimte is wat er nog bij mag vóórdat de norm wordt geraakt: het verschil
       tussen de norm en de gemeten achtergrondconcentratie, maal het debiet van het waterlichaam.
       De vracht van bestaande vergunningen zit al ín die achtergrond — die staat er apart bij, om te
       laten zien hoeveel van de huidige belasting in menselijke hand is.</p>
+    <p class="lead">Lees "er is nog ruimte" niet als een voorraad die te vergeven valt. Ruimte is
+      geen recht om haar te gebruiken, en een ruim waterlichaam is geen argument om een
+      bronmaatregel achterwege te laten. Andersom is <b>past niet</b> geen eindoordeel maar de
+      aanleiding voor strengere voorwaarden dan BBT — BBT+ (art. 8.30 Bkl); weigeren komt pas in
+      beeld als ook dat niet volstaat (art. 8.22, lid 1 Bkl).</p>
     <div class="kaart" id="ruimte"></div>
 
     <div class="section-title">Wat er geldt en wat er al ligt</div>
@@ -204,7 +238,25 @@
         '<p style="font-size:12.5px;color:var(--muted)">Voornemen: '+esc(D.voornemen.soort)+
         ' van '+nl(D.voornemen.debiet_m3_per_uur)+' m³/uur op '+esc(D.water.naam)+
         ' bij '+esc(D.locatie.gemeente)+'. Bevoegd gezag: '+esc(D.bevoegd_gezag.lozingsactiviteit)+'.</p>'+
+        (c.vervolg ? '<div class="vervolg"><b>En dan?</b> '+esc(c.vervolg)+'</div>' : '')+
         (c.kanttekening ? '<div class="kt">'+esc(c.kanttekening)+'</div>' : '')+'</div>';
+    }
+
+    // De drie stappen van de beoordeling, met de enige die hier gerekend wordt gemarkeerd. Dit
+    // staat vóór de rekensom en niet erna: wie de getallen leest moet eerst weten welke vraag ze
+    // beantwoorden.
+    function tekenVolgorde(){
+      const b = D.ruimte.beoordeling;
+      if (!b) { $("volgorde").innerHTML = ""; return; }
+      $("volgorde").innerHTML = b.volgorde.map(s =>
+        '<div class="vstap'+(s.in_dit_lab?' hier':'')+'">'+
+          '<div class="vnr">'+s.nr+'</div>'+
+          '<div><div class="vnaam">'+esc(s.naam)+
+            '<span class="vgrond">'+esc(s.grondslag)+'</span>'+
+            (s.in_dit_lab ? '<span class="vvlag">dit is de rekensom hieronder</span>'
+                          : '<span class="vvlag uit">niet in dit lab</span>')+'</div>'+
+          '<div class="vwat">'+esc(s.wat)+'</div></div>'+
+        '</div>').join("");
     }
 
     function tekenRuimte(){
@@ -227,7 +279,13 @@
             '<span><b>gevraagd</b> '+nl(p.gevraagd_kg_jaar,2)+' kg/jaar</span>'+
             '<span><b>nu vergund</b> '+nl(p.vergund_kg_jaar,1)+' kg/jaar uit '+p.vergunningen+' vergunningen'+
               (p.grootste_vergunde ? ', grootste: '+esc(p.grootste_vergunde) : '')+'</span>'+
-          '</div><div class="uitleg">'+esc(p.toelichting)+'</div></div>';
+          '</div><div class="uitleg">'+esc(p.toelichting)+'</div>'+
+          // Alleen bij een knellende of geblokkeerde parameter: daar zegt het vervolg iets wat de
+          // balk niet laat zien. Bij "past" zou het op elke kaart dezelfde zin herhalen; die staat
+          // al één keer boven de rekensom.
+          (p.oordeel !== "past" && p.vervolg
+            ? '<div class="uitleg" style="color:var(--blauw);margin-top:4px">'+esc(p.vervolg)+'</div>'
+            : '')+'</div>';
       }).join("");
     }
 
@@ -279,7 +337,7 @@
         'uit de <a href="/balo">BALO-analyse</a>. Indicatief, geen operationeel overheidssysteem.';
     }
 
-    function teken(){ tekenLocaties(); tekenAntwoord(); tekenRuimte(); tekenRegels(); tekenRegister(); tekenFns(); }
+    function teken(){ tekenLocaties(); tekenAntwoord(); tekenVolgorde(); tekenRuimte(); tekenRegels(); tekenRegister(); tekenFns(); }
 
     $("locaties").addEventListener("click", e => {
       const t=e.target.closest("[data-loc]"); if(!t) return;

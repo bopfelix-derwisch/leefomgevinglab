@@ -500,3 +500,64 @@ def test_zonder_live_valt_terug_op_leeg_register_tenzij_het_de_ijssel_is():
     assert b["register"] == []
     assert b["register_bron"]["status"] == "overgeslagen"
     assert b["register_bron"]["bron"]["naam"] == "geen"
+
+
+# --- de rekensom op haar plaats in de beoordelingsvolgorde -----------------------------------
+# De som klopte al; wat ontbrak was de richting. "Ruimte tot de norm" leest als een voorraad die
+# te vergeven valt, terwijl de immissietoets de láátste stap is en bronaanpak en BBT eraan
+# voorafgaan, ongeacht de uitkomst. Deze tests leggen dat vast, want het is tekst die stil kan
+# verdwijnen bij de volgende bewerking van de pagina.
+
+def test_de_rekensom_noemt_zichzelf_de_derde_van_drie_stappen():
+    r = ruimte.bereken(_voornemen(), gebied.REGISTER, gebied.WATERLICHAAM)
+    b = r["beoordeling"]
+    assert (b["stap"], b["van"], b["toets"]) == (3, 3, "immissietoets")
+    assert [s["nr"] for s in b["volgorde"]] == [1, 2, 3]
+
+
+def test_alleen_de_immissietoets_wordt_in_dit_lab_gerekend():
+    """De andere twee stappen blijven staan en worden niet weggelaten -- weglaten zou precies de
+    indruk wekken dat de rekensom de hele beoordeling is."""
+    b = ruimte.bereken(_voornemen(), gebied.REGISTER, gebied.WATERLICHAAM)["beoordeling"]
+    gerekend = [s for s in b["volgorde"] if s["in_dit_lab"]]
+    assert len(gerekend) == 1 and gerekend[0]["naam"] == "Immissietoets"
+    assert all(s["grondslag"] for s in b["volgorde"])
+
+
+def test_passen_binnen_de_ruimte_is_niet_hetzelfde_als_toegestaan():
+    assert "niet hetzelfde als toegestaan" in ruimte._vervolg("past")
+    assert "bronmaatregel" in ruimte._vervolg("past")
+
+
+def test_past_niet_is_geen_weigering_maar_de_aanleiding_voor_bbt_plus():
+    v = ruimte._vervolg("past niet")
+    assert "BBT+" in v and "8.30" in v
+    assert "geen eindoordeel" in v
+
+
+def test_geen_ruimte_verwijst_naar_de_weigeringsplicht_met_haar_uitzondering():
+    v = ruimte._vervolg("geen ruimte")
+    assert "geweigerd" in v and "8.22" in v
+    assert "onevenredig kostbaar" in v, "de uitzondering hoort erbij, anders is het te stellig"
+
+
+def test_een_zzs_draagt_de_minimalisatieplicht_mee_maar_niet_bij_past():
+    assert "minimalisatieplicht" in ruimte._vervolg("geen ruimte", zzs=True)
+    assert "minimalisatieplicht" not in ruimte._vervolg("past", zzs=True)
+
+
+def test_een_onbekend_oordeel_verzint_geen_vervolgplicht():
+    assert ruimte._vervolg("iets anders") == ""
+
+
+def test_elke_parameter_draagt_het_vervolg_bij_haar_eigen_oordeel():
+    r = ruimte.bereken(_voornemen(), gebied.REGISTER, gebied.WATERLICHAAM)
+    for p in r["parameters"]:
+        assert p["vervolg"] == ruimte._vervolg(p["oordeel"], p["zzs"])
+        assert p["vervolg"], f"{p['naam']} ({p['oordeel']}) heeft geen vervolg"
+
+
+def test_de_conclusie_zegt_welke_toets_zij_beantwoordt_en_wat_erna_komt():
+    c = ruimte.bereken(_voornemen(), gebied.REGISTER, gebied.WATERLICHAAM)["conclusie"]
+    assert c["toets"] == "immissietoets"
+    assert c["vervolg"]
