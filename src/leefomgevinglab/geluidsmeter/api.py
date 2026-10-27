@@ -44,6 +44,7 @@ from leefomgevinglab.connectors.ozon import OzonConnector
 from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
 from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
+from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -373,6 +374,18 @@ def waterverhaal_page():
 def watermodel_page():
     """Van vergunning naar vracht — wat een informatiemodel voor lozingen zou opleveren."""
     return _waterpagina("watermodel.html", "model")
+
+
+@app.get("/waterpresentatie", response_class=HTMLResponse)
+def waterpresentatie_page():
+    """Het hele dossier in tien minuten, als zelflopende presentatie met spreektekst."""
+    return _waterpagina("waterpresentatie.html", "presentatie")
+
+
+@app.get("/api/waterpresentatie")
+def api_waterpresentatie():
+    """De dia's met hun duur, beeldspecificatie en spreektekst."""
+    return waterpresentatie_mod.presentatie()
 
 
 @app.get("/api/kmg/overzicht")

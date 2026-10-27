@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Het waterdossier in tien minuten</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#070b12; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --gemeld:#b388ff; --weg:#ff7a6b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:11px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel); border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    .wrap { max-width:1180px; margin:0 auto; padding:16px 20px 60px; }
+
+    /* De dia zelf: één vaste hoogte, zodat de plaat niet springt bij het doorlopen. Dat springen
+       is bij een automatisch lopende presentatie het storendst van alles. */
+    .dia { background:linear-gradient(160deg,var(--panel) 0%,var(--panel2) 100%);
+      border:1px solid var(--border); border-radius:14px; padding:26px 30px;
+      min-height:430px; display:flex; flex-direction:column; gap:14px; position:relative;
+      overflow:hidden; }
+    .dia::after { content:""; position:absolute; inset:auto 0 0 0; height:3px;
+      background:linear-gradient(90deg,var(--kan),var(--mag),var(--gebeurt),var(--gemeld)); opacity:.5; }
+    .deel { font-size:10.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--accent); }
+    .dia h2 { font-size:clamp(22px,3.3vw,31px); font-weight:800; color:#eafff6; line-height:1.18;
+      text-wrap:balance; max-width:30ch; }
+    .kern { list-style:none; display:flex; flex-direction:column; gap:5px; max-width:74ch; }
+    .kern li { font-size:14.5px; color:var(--muted); padding-left:16px; position:relative; }
+    .kern li::before { content:"—"; position:absolute; left:0; color:var(--dim); }
+    .kern li b, .kern li strong { color:var(--text); }
+    .beeld { margin-top:auto; }
+    .diavoet { display:flex; gap:12px; align-items:baseline; flex-wrap:wrap;
+      font-size:11.5px; color:var(--dim); border-top:1px solid var(--border); padding-top:10px; }
+    .diavoet a { color:var(--accent); text-decoration:none; }
+    .diavoet .nr { margin-left:auto; font-family:ui-monospace,monospace; }
+
+    /* --- beeldtypen ------------------------------------------------------------------ */
+    .lagen { display:flex; flex-direction:column; gap:7px; }
+    .laagrij { display:flex; align-items:center; gap:13px; background:var(--panel2);
+      border:1px solid var(--border); border-left:4px solid var(--l); border-radius:9px;
+      padding:9px 14px; }
+    .laagrij .nm { font-size:14px; font-weight:700; color:var(--l); flex:0 0 118px; }
+    .laagrij .sb { font-size:12.5px; color:var(--muted); }
+
+    .balken { display:flex; flex-direction:column; gap:9px; }
+    .balkrij { display:grid; grid-template-columns:minmax(0,1fr) 2.1fr; gap:14px;
+      align-items:center; }
+    .balkrij .lb { font-size:12.5px; color:var(--muted); text-align:right; }
+    .balkspoor { position:relative; height:22px; background:var(--panel2);
+      border:1px solid var(--border); border-radius:5px; overflow:hidden; }
+    .balkspoor i { position:absolute; left:0; top:0; bottom:0; display:block; min-width:2px;
+      background:var(--l); opacity:.8; transition:width .6s ease; }
+    .balkspoor .wv { position:absolute; left:10px; top:0; line-height:22px; font-size:11.5px;
+      font-family:ui-monospace,monospace; color:#eafff6; text-shadow:0 1px 3px #000; }
+    .balkspoor .bij { position:absolute; right:10px; top:0; line-height:22px; font-size:11px;
+      color:var(--dim); }
+
+    .drieluik { display:grid; gap:11px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
+    .dlkol { background:var(--panel2); border:1px solid var(--border); border-top:3px solid var(--l);
+      border-radius:10px; padding:13px 16px; }
+    .dlkol .kp { font-size:10.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--l);
+      font-weight:700; }
+    .dlkol .gr { font-size:clamp(20px,2.6vw,27px); font-weight:800; color:#eafff6; margin-top:5px;
+      line-height:1.12; font-variant-numeric:tabular-nums; }
+    .dlkol .bj { font-size:12px; color:var(--muted); margin-top:4px; }
+
+    .stappen { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); }
+    .stp { display:flex; gap:11px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:10px; padding:11px 14px; opacity:.6; }
+    .stp.aan { opacity:1; border-color:var(--accent2); background:rgba(46,204,143,.07); }
+    .stp .sn { font-family:ui-monospace,monospace; font-size:17px; font-weight:700;
+      color:var(--dim); flex:none; line-height:1.2; }
+    .stp.aan .sn { color:var(--accent); }
+    .stp .snm { font-size:13px; font-weight:650; color:#eafff6; }
+    .stp .ssb { font-size:11.5px; color:var(--muted); margin-top:2px; }
+
+    .chips { display:flex; gap:7px; flex-wrap:wrap; }
+    .chips span { font-size:12.5px; padding:4px 12px; border-radius:12px; }
+    .chips .wel { background:rgba(46,204,143,.15); color:var(--accent);
+      border:1px solid rgba(46,204,143,.35); }
+    .chips .niet { color:var(--dim); border:1px dashed var(--border); text-decoration:line-through; }
+
+    /* De Maas van boven naar beneden; de staaf is het toegerekende aandeel per punt. Verticaal,
+       want dat is de as waarop het model redeneert. */
+    .rivier { display:flex; flex-direction:column; gap:3px; }
+    .rvr { display:grid; grid-template-columns:150px minmax(0,1fr) 58px; gap:11px;
+      align-items:center; }
+    .rvr .rn { font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis;
+      white-space:nowrap; }
+    .rvr .rs { height:15px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:4px; position:relative; overflow:hidden; }
+    .rvr .rs i { position:absolute; left:0; top:0; bottom:0; background:var(--mag); opacity:.85;
+      min-width:2px; transition:width .6s ease; }
+    .rvr .rp { font-size:11.5px; font-family:ui-monospace,monospace; color:#eafff6;
+      font-variant-numeric:tabular-nums; }
+    .rvr.nul .rp { color:var(--dim); }
+    .rivierschaal { font-size:10.5px; color:var(--dim); margin-top:5px;
+      padding-left:161px; }
+
+    .tijdlijn { display:flex; flex-direction:column; gap:8px; }
+    .tlrij { display:flex; gap:14px; align-items:flex-start; background:var(--panel2);
+      border:1px solid var(--border); border-left:3px solid var(--accent2); border-radius:9px;
+      padding:10px 15px; }
+    .tlrij .jr { font-family:ui-monospace,monospace; font-size:14px; font-weight:700;
+      color:var(--accent); flex:0 0 52px; }
+    .tlrij .wt { font-size:13px; color:var(--muted); }
+
+    /* --- speler ----------------------------------------------------------------------- */
+    .speler { margin-top:12px; background:var(--panel); border:1px solid var(--border);
+      border-radius:11px; padding:11px 14px; display:flex; gap:13px; align-items:center;
+      flex-wrap:wrap; }
+    .knop { font-size:13px; padding:6px 15px; border-radius:8px; cursor:pointer; user-select:none;
+      border:1px solid var(--border); background:var(--panel2); color:var(--text); }
+    .knop:hover { border-color:var(--accent2); }
+    .knop.hoofd { background:var(--accent); border-color:var(--accent); color:#042; font-weight:700; }
+    .klok { font-family:ui-monospace,monospace; font-size:14px; color:#eafff6;
+      font-variant-numeric:tabular-nums; }
+    .klok small { color:var(--dim); }
+    .spelerschakel { margin-left:auto; display:flex; gap:12px; align-items:center;
+      font-size:12px; color:var(--muted); }
+    .spelerschakel label { cursor:pointer; display:flex; gap:6px; align-items:center; }
+
+    /* Voortgang: één streep per dia, breedte naar rato van haar duur. Zo is in één oogopslag te
+       zien hoe lang een dia nog duurt én hoeveel er nog komt. */
+    .voortgang { display:flex; gap:3px; margin-top:9px; }
+    .vseg { height:6px; background:var(--panel2); border-radius:3px; overflow:hidden;
+      cursor:pointer; position:relative; }
+    .vseg i { position:absolute; inset:0 auto 0 0; background:var(--accent); width:0; }
+    .vseg:hover { outline:1px solid var(--accent2); }
+
+    .script { margin-top:12px; background:var(--panel2); border:1px solid var(--border);
+      border-left:3px solid var(--gebeurt); border-radius:11px; padding:14px 17px; }
+    .script .lb { font-size:10.5px; text-transform:uppercase; letter-spacing:.11em;
+      color:var(--gebeurt); margin-bottom:6px; display:flex; gap:10px; align-items:baseline; }
+    .script .lb span { color:var(--dim); letter-spacing:0; text-transform:none; font-size:11px; }
+    .script p { font-size:15px; color:var(--text); max-width:78ch; }
+
+    footer { border-top:1px solid var(--border); margin-top:26px; padding-top:16px;
+      font-size:12px; color:var(--dim); max-width:80ch; }
+    footer p + p { margin-top:7px; }
+
+    /* Presenteerstand: alleen de dia, schermvullend. Het script en de navigatie verdwijnen. */
+    body.presenteer header, body.presenteer .waternav, body.presenteer .script,
+    body.presenteer footer, body.presenteer .uitleg { display:none; }
+    body.presenteer .wrap { max-width:none; padding:0; }
+    body.presenteer .dia { border-radius:0; border:none; min-height:calc(100vh - 86px); }
+    body.presenteer .speler { margin:0; border-radius:0; border-left:none; border-right:none; }
+
+    @media (max-width: 820px) {
+      .wrap { padding:12px 14px 40px; }
+      .dia { padding:18px 17px; min-height:0; }
+      .balkrij { grid-template-columns:1fr; gap:3px; }
+      .balkrij .lb { text-align:left; }
+      .rvr { grid-template-columns:110px minmax(0,1fr) 50px; }
+      .rivierschaal { padding-left:0; }
+      .laagrij { flex-direction:column; align-items:flex-start; gap:2px; }
+      .laagrij .nm { flex:none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">presentatie</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a><a href="/kmg">Kan · mag · gebeurt</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="dia" id="dia"><h2>Laden…</h2></div>
+
+    <div class="speler">
+      <div class="knop hoofd" id="start">▶ Start</div>
+      <div class="knop" id="vorige">◀</div>
+      <div class="knop" id="volgende">▶</div>
+      <div class="klok"><span id="verstreken">0:00</span> <small>/ <span id="totaal">10:00</span></small></div>
+      <div class="spelerschakel">
+        <label><input type="checkbox" id="tonenscript" checked /> spreektekst</label>
+        <label><input type="checkbox" id="presenteren" /> presenteerstand</label>
+      </div>
+    </div>
+    <div class="voortgang" id="voortgang"></div>
+
+    <div class="script" id="script"></div>
+
+    <p class="uitleg" style="font-size:12.5px;color:var(--dim);margin-top:14px;max-width:80ch">
+      Spatie start en pauzeert, pijltjes links en rechts springen een dia. De presentatie loopt
+      vanzelf door in precies tien minuten; de spreektekst eronder is bedoeld om in te spreken of
+      voor te lezen. Elke dia noemt haar bron en linkt naar de pagina in dit lab waar het cijfer
+      vandaan komt.
+    </p>
+
+    <footer>
+      <p id="verantwoording"></p>
+      <p>De cijfers komen uit de proof of concept aan de Maas: regels live uit DSO Ozon,
+        vergunningen live uit de Atlas voor een Schone Maas, metingen uit het Waterkwaliteitsportaal
+        van Informatiehuis Water (meetjaar 2025, momentopname — die bron heeft geen machine-ingang),
+        gemelde emissies live uit E-PRTR bij het RIVM. Het juridische kader komt uit het Bkl en uit
+        STOWA 2025-46. De toerekening is een model van dit lab en is uitdrukkelijk een bovengrens,
+        nooit een vaststelling.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t = document.createElement("span"); t.textContent = s == null ? "" : String(s); return t.innerHTML; };
+    const nl = (n, d = 0) => Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+    const mmss = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+
+    let P = null, i = 0, t = 0, loopt = false, tik = null;
+
+    // --- beeldtypen. Elk type krijgt zijn eigen functie; een onbekend type levert niets op in
+    // plaats van een halve plaat, zodat een fout in de data zichtbaar wordt als een lege ruimte
+    // en niet als iets wat op een visualisatie lijkt.
+    const BEELD = {
+      lagen: b => '<div class="lagen">' + b.lagen.map(l =>
+        '<div class="laagrij" style="--l:var(--' + esc(l.kleur) + ')">' +
+          '<div class="nm">' + esc(l.naam) + '</div><div class="sb">' + esc(l.sub) + '</div></div>').join("") + '</div>',
+
+      balken: b => '<div class="balken">' + b.balken.map(r => {
+        const pct = r.max > 0 ? Math.max(0.6, Math.min(100, r.waarde / r.max * 100)) : 0;
+        return '<div class="balkrij"><div class="lb">' + esc(r.label) + '</div>' +
+          '<div class="balkspoor" style="--l:var(--' + esc(r.kleur) + ')">' +
+            '<i style="width:' + pct.toFixed(1) + '%"></i>' +
+            '<span class="wv">' + nl(r.waarde, 1) + '</span>' +
+            (r.bij ? '<span class="bij">' + esc(r.bij) + '</span>' : '') +
+          '</div></div>';
+      }).join("") + '</div>',
+
+      drieluik: b => '<div class="drieluik">' + b.kolommen.map(k =>
+        '<div class="dlkol" style="--l:var(--' + esc(k.kleur) + ')">' +
+          '<div class="kp">' + esc(k.kop) + '</div>' +
+          '<div class="gr">' + esc(k.groot) + '</div>' +
+          '<div class="bj">' + esc(k.bij) + '</div></div>').join("") + '</div>',
+
+      stappen: b => '<div class="stappen">' + b.stappen.map(s =>
+        '<div class="stp' + (s.actief ? ' aan' : '') + '"><div class="sn">' + esc(s.nr) + '</div>' +
+          '<div><div class="snm">' + esc(s.naam) + '</div>' +
+          '<div class="ssb">' + esc(s.sub) + '</div></div></div>').join("") + '</div>',
+
+      chips: b => '<div class="chips">' +
+        b.wel.map(s => '<span class="wel">' + esc(s) + '</span>').join("") +
+        b.niet.map(s => '<span class="niet">' + esc(s) + '</span>').join("") + '</div>',
+
+      rivier: b => {
+        const top = Math.max(...b.punten.map(p => p.pct), 1);
+        return '<div class="rivier">' + b.punten.map(p =>
+          '<div class="rvr' + (p.pct <= 0 ? ' nul' : '') + '">' +
+            '<div class="rn">' + esc(p.naam) + '</div>' +
+            '<div class="rs"><i style="width:' + (p.pct / top * 100).toFixed(1) + '%"></i></div>' +
+            '<div class="rp">' + nl(p.pct, 1) + '%</div></div>').join("") +
+          '</div><div class="rivierschaal">bovenstrooms boven, benedenstrooms onder · schaal tot ' +
+          nl(top, 1) + '%</div>';
+      },
+
+      tijdlijn: b => '<div class="tijdlijn">' + b.items.map(x =>
+        '<div class="tlrij"><div class="jr">' + esc(x.jaar) + '</div>' +
+          '<div class="wt">' + esc(x.wat) + '</div></div>').join("") + '</div>',
+    };
+
+    function tekenDia() {
+      const d = P.dias[i];
+      const beeld = BEELD[d.beeld.soort] ? BEELD[d.beeld.soort](d.beeld) : "";
+      $("dia").innerHTML =
+        '<div class="deel">' + esc(d.deel) + '</div>' +
+        '<h2>' + esc(d.titel) + '</h2>' +
+        '<ul class="kern">' + d.kern.map(k => '<li>' + esc(k) + '</li>').join("") + '</ul>' +
+        '<div class="beeld">' + beeld + '</div>' +
+        '<div class="diavoet"><span>Bron: ' + esc(d.bron) + '</span>' +
+        '<a href="' + esc(d.link) + '">' + esc(d.link) + ' →</a>' +
+        '<span class="nr">' + d.nr + ' / ' + P.aantal + '</span></div>';
+      $("script").innerHTML =
+        '<div class="lb">Spreektekst <span>dia ' + d.nr + ' · ' + d.seconden + ' seconden</span></div>' +
+        '<p>' + esc(d.spreektekst) + '</p>';
+      tekenVoortgang();
+    }
+
+    function tekenVoortgang() {
+      $("voortgang").innerHTML = P.dias.map((d, n) =>
+        '<div class="vseg" data-n="' + n + '" style="flex:' + d.seconden + '" ' +
+        'title="' + esc(d.nr + ". " + d.titel) + '"><i></i></div>').join("");
+      werkVoortgangBij();
+    }
+
+    function werkVoortgangBij() {
+      const segs = $("voortgang").children;
+      for (let n = 0; n < segs.length; n++) {
+        const d = P.dias[n];
+        const vol = t >= d.start_s + d.seconden;
+        const bezig = n === i;
+        segs[n].firstChild.style.width =
+          vol ? "100%" : bezig ? ((t - d.start_s) / d.seconden * 100).toFixed(1) + "%" : "0";
+      }
+      $("verstreken").textContent = mmss(t);
+    }
+
+    function naar(n, hertel = true) {
+      i = Math.max(0, Math.min(P.dias.length - 1, n));
+      if (hertel) t = P.dias[i].start_s;
+      tekenDia();
+    }
+
+    function stap() {
+      t += 1;
+      if (t >= P.duur_s) { t = P.duur_s; pauzeer(); werkVoortgangBij(); return; }
+      const d = P.dias[i];
+      if (t >= d.start_s + d.seconden) naar(i + 1, false);
+      werkVoortgangBij();
+    }
+
+    function speel() {
+      if (t >= P.duur_s) { t = 0; naar(0); }
+      loopt = true; $("start").textContent = "⏸ Pauze";
+      tik = setInterval(stap, 1000);
+    }
+
+    function pauzeer() {
+      loopt = false; $("start").textContent = "▶ Start";
+      if (tik) { clearInterval(tik); tik = null; }
+    }
+
+    $("start").onclick = () => loopt ? pauzeer() : speel();
+    $("vorige").onclick = () => naar(i - 1);
+    $("volgende").onclick = () => naar(i + 1);
+    $("voortgang").onclick = e => {
+      const seg = e.target.closest(".vseg");
+      if (seg) naar(Number(seg.dataset.n));
+    };
+    $("tonenscript").onchange = e => { $("script").hidden = !e.target.checked; };
+    $("presenteren").onchange = e => document.body.classList.toggle("presenteer", e.target.checked);
+
+    document.addEventListener("keydown", e => {
+      if (e.target.tagName === "INPUT") return;
+      if (e.code === "Space") { e.preventDefault(); loopt ? pauzeer() : speel(); }
+      else if (e.code === "ArrowRight") naar(i + 1);
+      else if (e.code === "ArrowLeft") naar(i - 1);
+      else if (e.code === "Escape") { $("presenteren").checked = false; document.body.classList.remove("presenteer"); }
+    });
+
+    fetch("/api/waterpresentatie").then(r => r.json()).then(d => {
+      P = d;
+      $("totaal").textContent = mmss(P.duur_s);
+      $("verantwoording").innerHTML = '<b>' + esc(P.titel) + '</b> — ' + esc(P.ondertitel) +
+        ' · ' + P.aantal + ' dia\'s, ' + mmss(P.duur_s) + ' minuten.';
+      naar(0);
+    }).catch(() => {
+      $("dia").innerHTML = '<h2>De presentatie kon niet worden geladen</h2>' +
+        '<p class="kern">Het eindpunt /api/waterpresentatie antwoordde niet. ' +
+        'De pagina\'s van het dossier zelf werken onafhankelijk hiervan.</p>';
+    });
+  </script>
+</body>
+</html>
