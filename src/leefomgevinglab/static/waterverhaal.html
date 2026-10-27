@@ -58,6 +58,10 @@
     .bewijs.meting { --l:var(--gebeurt); }
     .bewijs.uitkomst { --l:var(--mag); }
     .bewijs.model { --l:var(--let); }
+    /* .mag stond wel in de opmaak maar niet hier; zonder --l valt `border-left` als geheel weg
+       (invalid at computed-value time) en verdween juist het streepje dat de laag aanduidt. */
+    .bewijs.mag { --l:var(--mag); }
+    .bewijs.riool { --l:var(--weg); }
     .bewijs .lbl { font-size:10.5px; text-transform:uppercase; letter-spacing:.1em;
       color:var(--dim); margin-bottom:8px; }
     .bewijs p { font-size:14.5px; color:var(--muted); }
@@ -68,6 +72,15 @@
     .cijfer .v { font-size:26px; font-weight:800; color:#eafff6; line-height:1.1;
       font-variant-numeric:tabular-nums; }
     .cijfer .k { font-size:12px; color:var(--dim); }
+
+    /* Wat een rioolwaterzuiveringsvergunning wél en niet begrenst. De doorgestreepte helft is de
+       boodschap, dus die moet net zo zichtbaar zijn als de andere. */
+    .stoffenstrook { display:flex; gap:7px; flex-wrap:wrap; margin:12px 0 4px; }
+    .stoffenstrook span { font-size:12px; padding:3px 10px; border-radius:11px; }
+    .stoffenstrook .wel { background:rgba(46,204,143,.15); color:var(--accent);
+      border:1px solid rgba(46,204,143,.35); }
+    .stoffenstrook .niet { color:var(--dim); border:1px dashed var(--border);
+      text-decoration:line-through; }
 
     .dieper { font-size:13px; margin-top:14px; }
     .dieper a { color:var(--accent); text-decoration:none; border-bottom:1px solid #1d4a3a;
@@ -229,6 +242,61 @@
     </div>
 
     <div class="stap">
+      <div class="nr">3b</div>
+      <h3>En een hele route staat hier niet in: het riool</h3>
+      <p class="antwoord">Een bedrijf dat niet op de Maas loost maar op het <b>riool</b>, komt in
+        dit register niet voor. Zijn stoffen komen er wel — via de rioolwaterzuivering, waar
+        niemand ze meer aan hem kan toeschrijven.</p>
+      <div class="bewijs riool">
+        <div class="lbl">Wat de zuiveringen in het register vergund krijgen</div>
+        <p>Van de <b>69</b> vergunningen in het Maasregister zijn er <b>7</b> van een
+          rioolwaterzuivering — Waterschapsbedrijf Limburg en Waterschap Brabantse Delta. Samen
+          dragen zij <b>30</b> voorschriften, en die gaan over precies vijf grootheden:</p>
+        <div class="stoffenstrook">
+          <span class="wel">chemisch zuurstofverbruik</span>
+          <span class="wel">biochemisch zuurstofverbruik</span>
+          <span class="wel">stikstof totaal</span>
+          <span class="wel">fosfor totaal</span>
+          <span class="wel">zwevende stof</span>
+          <span class="niet">zink</span>
+          <span class="niet">koper</span>
+          <span class="niet">PFOA</span>
+          <span class="niet">medicijnresten</span>
+          <span class="niet">elke ZZS</span>
+        </div>
+        <p>Geen enkel metaal, geen PFAS, geen zeer zorgwekkende stof. Wat een zuivering niet
+          wegneemt gaat via het effluent de rivier in, en daarvoor staat in haar vergunning geen
+          grenswaarde. Voor zink dat via het riool binnenkomt is er dus nergens in dit register
+          vergunde ruimte te vinden — niet bij de zuivering, en niet bij wie het erin bracht.</p>
+      </div>
+      <p class="toelichting">Dat verklaart niet de hele afstand tussen meting en register, en die
+        claim maken we hier ook niet. Het is wel een route die het register <b>structureel</b> niet
+        kan tonen, en zij is groot: ruim 99 procent van de 8,4 miljoen huishoudens loost op het
+        riool, plus zo'n half miljoen bedrijven.</p>
+      <div class="bewijs riool">
+        <div class="lbl">Wie gaat erover — en wat "mag" daar betekent</div>
+        <p>Niet de waterbeheerder. Bij een lozing op het riool is de <b>gemeente</b> bevoegd gezag
+          (uitgevoerd door de omgevingsdienst), of de provincie bij complexe bedrijven. Het
+          waterschap beheert de zuivering en ontvangt het water, maar heeft er <b>geen bevoegd
+          gezag en geen handhavingsbevoegdheid</b> over; zijn advies is sinds 2024 niet eens meer
+          bindend.</p>
+        <p>En "mag" is daar meestal geen vergunning. Naar schatting <b>7500</b> bedrijven zijn
+          vergunningplichtig voor hun lozing op het riool; de rest valt onder <b>algemene regels</b>
+          in het Bal of het omgevingsplan, soms met een maatwerkvoorschrift. Staat een stof niet in
+          die regels, dan betekent dat níet dat zij geloosd mag worden: de specifieke zorgplicht
+          (art. 2.11 Bal) geldt onverkort. <b>Een leeg veld is geen toestemming</b> — precies
+          andersom dan een register je laat lezen.</p>
+        <p>Hoeveel van deze lozingen er zijn, weet niemand. STOWA noteert de aantallen
+          vergunningplichtige en meldingsplichtige indirecte lozingen als <b>niet beschikbaar</b>,
+          net als de verdeling van het bevoegd gezag over gemeenten en provincies; VNG en Unie van
+          Waterschappen laten dat nu uitzoeken.</p>
+      </div>
+      <p class="toelichting">Bron: STOWA 2025-46, <i>Verdiepend achtergronddocument bij de factsheet
+        indirecte lozingen in de Omgevingswet</i>. De tellingen over het register ernaast zijn live
+        uit de Atlas voor een Schone Maas.</p>
+    </div>
+
+    <div class="stap">
       <div class="nr">04</div>
       <h3>Waar halen we de metingen vandaan?</h3>
       <p class="antwoord">Uit het <b>Waterkwaliteitsportaal</b> — met de hand. Er is geen
@@ -295,7 +363,7 @@
     <div class="stap">
       <div class="nr">→</div>
       <h3>Wat is nodig?</h3>
-      <p class="antwoord">Vier dingen, in volgorde van wat ze opleveren.</p>
+      <p class="antwoord">Vijf dingen, in volgorde van wat ze opleveren.</p>
       <div class="nodig">
         <div>
           <div class="w">De Aquo-domeintabel</div>
@@ -317,18 +385,34 @@
           <div class="t">Nu leiden we het ruimtelijk af uit een cirkel van 50 km. Een stroomgebied
             is geen cirkel: stroomafwaarts missen we juist de bronnen die ertoe doen.</div>
         </div>
+        <div>
+          <div class="w">Een kruistabel eMJV ↔ KvK-vestiging</div>
+          <div class="t">De vergunning draagt wél een KvK-vestigingsnummer — in alle 69 Maas-posten.
+            De milieujaarverslag-melding draagt een eigen inrichtingsnummer. Eén gepubliceerde
+            kruistabel vervangt het koppelen op naam en afstand.</div>
+        </div>
       </div>
-      <p class="toelichting">Geen van vier vraagt een nieuw register. Drie ervan zijn velden die bij
-        verlening ingevuld kunnen worden, en het vierde is een relatie die aan de meetkant al
-        bestaat: het meetobjectenbestand zegt per meetpunt bij welk waterlichaam het hoort.</p>
+      <p class="toelichting">Geen van vijf vraagt een nieuw register. Drie ervan zijn velden die bij
+        verlening ingevuld kunnen worden, het vierde is een relatie die aan de meetkant al bestaat
+        — het meetobjectenbestand zegt per meetpunt bij welk waterlichaam het hoort — en het vijfde
+        is een tabel tussen twee registraties die allebei al bestaan.</p>
+      <p class="toelichting">En er is een datum. De herziene <b>Richtlijn Stedelijk Afvalwater</b>
+        (EU 2024/3019, art. 14) verplicht lidstaten om de kwaliteit én kwantiteit van relevante
+        niet-huishoudelijke lozingen op het riool te monitoren, verbiedt dat de vuilvracht uit een
+        zuivering het ontvangende waterlichaam laat achteruitgaan, en schrijft voor dat die
+        vergunningen minstens elke tien jaar worden geëvalueerd. Nederlandse implementatie:
+        <b>2027</b>. Dat is precies de informatie die hierboven ontbreekt, nu met een jaartal
+        eraan.</p>
     </div>
 
     <footer>
       <p>Bronnen: regels uit DSO Ozon (live) · vergunningen uit de Atlas voor een Schone Maas
         (live, publiek zonder expliciete licentie, daarom bevraagd en nooit gekopieerd) · metingen
         en KRW-doelen uit het Waterkwaliteitsportaal van Informatiehuis Water, meetjaar 2025 ·
-        waterlichamen uit de KRW-service van Rijkswaterstaat. De toerekening is een model van dit
-        lab en is uitdrukkelijk een bovengrens, nooit een vaststelling.</p>
+        waterlichamen uit de KRW-service van Rijkswaterstaat · het juridische kader voor lozingen
+        op het riool uit STOWA 2025-46 (Peter de Putter, in opdracht van Omgevingsdienst NL en
+        STOWA). De toerekening is een model van dit lab en is uitdrukkelijk een bovengrens, nooit
+        een vaststelling.</p>
     </footer>
   </div>
 

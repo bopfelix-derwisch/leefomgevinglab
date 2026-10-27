@@ -83,3 +83,17 @@ def test_het_verhaal_staat_vooraan_in_het_dossier():
     ids = [l["id"] for l in wh.LEDEN]
     assert ids[0] == "overzicht"
     assert ids[1] == "verhaal"
+
+
+def test_de_laag_mag_zegt_zelf_wat_zij_niet_toont(monkeypatch):
+    """Twee uitspraken die een lezer van "mag" nodig heeft, en die niet uit de data volgen.
+
+    Het register gaat alleen over lozingen op de Maas zelf; de route via het riool kan er
+    structureel niet in staan. En buiten de vergunningen om geldt de specifieke zorgplicht, dus
+    een stof die hier niet genoemd wordt is daarmee niet toegestaan. Zonder deze twee zinnen
+    leest de laag als een volledige opsomming van wat mag, en dat is zij niet.
+    """
+    h = _client(monkeypatch).get("/kmg").text.lower()
+    assert "riool" in h
+    assert "een leeg veld is geen toestemming" in h
+    assert "zorgplicht" in h

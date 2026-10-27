@@ -102,6 +102,15 @@
     .geenoordeel { margin-top:10px; font-size:12px; color:var(--let); border-left:2px solid var(--let);
       padding:4px 0 4px 10px; }
 
+    /* Wat een laag níet toont. Staat bewust binnen de laag zelf en niet in de proclaimer onderaan:
+       een lezer die alleen naar "mag" kijkt moet het daar tegenkomen. */
+    .nietinbeeld { margin-top:12px; border-left:2px solid var(--weg); padding:6px 0 6px 11px;
+      font-size:12.5px; color:var(--muted); }
+    .nietinbeeld b { color:var(--text); }
+    .nietinbeeld .kop { color:var(--weg); font-size:11px; text-transform:uppercase;
+      letter-spacing:.09em; margin-bottom:5px; }
+    .nietinbeeld p + p { margin-top:7px; }
+
     .voorbehoud { background:rgba(232,184,74,.08); border:1px solid #5a4520; border-radius:9px;
       padding:10px 13px; font-size:12.5px; color:var(--let); margin-bottom:14px; }
 
@@ -275,6 +284,21 @@
     <div class="laag mag">
       <h3>Mag — wat hier vergund is</h3>
       <div id="mag"></div>
+      <div class="nietinbeeld">
+        <div class="kop">Wat deze laag niet toont</div>
+        <p><b>Lozingen op het riool.</b> Dit register gaat over lozingen op de Maas zelf. Een
+          bedrijf dat op het riool loost staat er niet in; zijn stoffen komen via de
+          rioolwaterzuivering alsnog in de rivier. Van de 69 vergunningen in het Maasregister zijn
+          er zeven van een zuivering, en hun 30 voorschriften begrenzen precies vijf grootheden —
+          CZV, BZV, stikstof, fosfor en zwevende stof. <b>Geen metaal, geen PFAS, geen ZZS.</b>
+          Zink dat via het riool binnenkomt heeft dus nergens in dit register een vergunde ruimte.</p>
+        <p><b>Algemene regels en de zorgplicht.</b> De meeste lozingen hebben geen vergunning maar
+          vallen onder algemene regels in het Bal of het omgevingsplan. Dat die stof hier niet
+          genoemd staat, betekent dus niet dat zij geloosd mag worden: de specifieke zorgplicht
+          (art. 2.11 Bal) geldt onverkort. <b>Een leeg veld is geen toestemming.</b></p>
+        <p><span class="dim">Juridisch kader: STOWA 2025-46, achtergronddocument indirecte
+          lozingen. De tellingen komen live uit de Atlas voor een Schone Maas.</span></p>
+      </div>
     </div>
 
     <div class="laag gebeurt">
