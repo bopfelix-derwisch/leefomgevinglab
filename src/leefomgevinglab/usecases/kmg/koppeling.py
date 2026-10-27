@@ -19,9 +19,16 @@ Drie van de vijf dus, met twee misses die echte bedrijven zijn. Dat is de uitkom
 zichtbaar te blijven in plaats van weggepoetst: elke koppeling draagt hier haar `gelijkenis` en
 `afstand_m` mee, zodat een lezer kan zien waarop zij berust.
 
-**Wat dit zou oplossen.** De Atlas kent het veld `Vestigingsnummer_KvK`. In alle 31 vergunningen
-rond Belfeld is het leeg. Eén ingevuld veld maakt van deze heuristiek een sleutel — precies het
-argument dat het informatiemodel ook voor de stofnaam maakt.
+**Wat dit zou oplossen — en wat niet.** De Atlas kent het veld `Vestigingsnummer_KvK`, en dat is
+wél gevuld: 31 van de 31 vergunningen rond Belfeld en 22 van de 22 rond Eijsden dragen er een
+(live nagekeken 2026-10-27; een eerdere versie van deze tekst beweerde het tegendeel). De
+vergunning heeft dus een identificatie van de rechtspersoon. E-PRTR heeft die niet: daar staat
+`nationalid`, een negencijferig inrichtingsnummer uit het eMJV (`000201503`), dat geen
+KvK-vestigingsnummer is en er ook niet uit af te leiden valt.
+
+Het ontbrekende veld zit dus niet in de vergunning maar in de melding — of, preciezer, tussen de
+twee in: er is geen gepubliceerde kruistabel van eMJV-inrichting naar KvK-vestiging. Dat is één
+tabel, geen stelselwijziging, en zij vervangt deze hele heuristiek door een join.
 """
 import difflib
 
