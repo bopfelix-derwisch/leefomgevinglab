@@ -45,6 +45,7 @@ from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnecto
 from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
 from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
+from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -386,6 +387,19 @@ def waterpresentatie_page():
 def api_waterpresentatie():
     """De dia's met hun duur, beeldspecificatie en spreektekst."""
     return waterpresentatie_mod.presentatie()
+
+
+@app.get("/kennisgraaf", response_class=HTMLResponse)
+def kennisgraaf_page():
+    """De stoffen als graaf: wat relaties toevoegen bovenop het informatiemodel."""
+    return _waterpagina("kennisgraaf.html", "kennisgraaf")
+
+
+@app.get("/api/stoffengraaf")
+def api_stoffengraaf():
+    """E-PRTR-stoffen, hun CAS-nummers en de Aquo-parameters, met de herkomst per koppeling."""
+    kmg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    return stoffengraaf_mod.bouw(kmg.get("aquo_csv_pad"))
 
 
 @app.get("/api/kmg/overzicht")

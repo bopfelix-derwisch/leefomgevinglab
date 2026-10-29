@@ -326,6 +326,9 @@ leefomgevinglab:
     # Parameter, op te halen als CSV van https://www.aquo.nl/images/aquo/a/a3/Parameter.csv
     # 5630 geldige codes; vervallen codes zijn overgeslagen. Verversen: scripts/16 met --aquo.
     parameters_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_parameters.json"
+    # Dezelfde domeintabel, maar als ruwe CSV: /kennisgraaf heeft de kolommen CASnummer,
+    # Groep en Gerelateerd nodig, en die verdwijnen in de verdichting hierboven.
+    aquo_csv_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_Parameter.csv"
     # Chemische KRW-normen per meetpunt, uit KRW-toetsresultaten. Hier staat de zinknorm die in
     # het doelenbestand ontbreekt -- per punt, want gecorrigeerd voor biobeschikbaarheid.
     # Verversen: scripts/17_fetch_krw_normen.py.

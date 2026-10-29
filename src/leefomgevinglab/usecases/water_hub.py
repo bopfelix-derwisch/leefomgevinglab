@@ -70,6 +70,13 @@ LEDEN = [
      # De cijfers staan vast in `waterpresentatie.py` en worden daar tegen de POC getoetst.
      "live": [],
      "synthetisch": ["vastgelegde cijfers, getoetst tegen de momentopname van /api/kmg/overzicht"]},
+    {"id": "kennisgraaf", "pad": "/kennisgraaf", "label": "Kennisgraaf",
+     "titel": "Stoffen als graaf \u2014 wat relaties toevoegen aan een informatiemodel",
+     "samenvatting": "De vertaling van E-PRTR-stofnamen naar Aquo-codes, nu een handtabel van "
+                     "twaalf regels, tegenover het CAS-nummer dat beide bronnen al dragen.",
+     "live": ["Aquo-domeintabel Parameter (CSV op schijf, live ontleed)"],
+     "synthetisch": ["CAS-nummers per E-PRTR-stof, met de hand uit bijlage II van de "
+                     "E-PRTR-verordening overgenomen \u2014 de WFS levert dat veld niet"]},
 ]
 
 LIJNEN = [
