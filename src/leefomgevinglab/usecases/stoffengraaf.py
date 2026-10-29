@@ -296,6 +296,105 @@ def tel_parameters(register: list[dict]) -> dict[str, int]:
     return tel
 
 
+# Waar een rand vandaan komt. Dit is dezelfde gedachte als `zekerheid` per veld in
+# `kmg/lozingsmodel.py`, maar dan op relaties — en het is de kern van wat deze graaf laat zien.
+# Een graaf waarin alle randen er hetzelfde uitzien, verbergt juist wat hier het onderwerp is.
+HERKOMST = {
+    "bron": "staat zo in de bron",
+    "lab": "bewering van dit lab",
+    "afgeleid": "afgeleid uit vrije tekst",
+    "onvolgbaar": "staat in de bron, maar is niet te volgen",
+}
+
+
+def anatomie(aquo_pad: str | None = None) -> dict:
+    """Waar de graaf uit bestaat: knoopsoorten, randsoorten en hun herkomst.
+
+    De plaat met zestien rijen elders op deze pagina toont de **doorstroom** — welke stof langs
+    welke weg bij welke code komt. Dit toont de **anatomie**: welke soorten dingen er zijn en
+    welke soorten verbanden ertussen liggen, met per verband hoeveel het er zijn en waarop het
+    berust.
+
+    Dat laatste is de boodschap. Van de zeven randsoorten komen er vier rechtstreeks uit de
+    bron, één is een bewering van dit lab, één is uit een zin ontleed, en één staat er wel maar
+    is niet te volgen. De relaties die dit dossier het hardst nodig heeft zitten in die laatste
+    drie categorieën.
+    """
+    rijen = _alle_parameters(aquo_pad)
+    if not rijen:
+        return {"beschikbaar": False,
+                "reden": "Aquo-domeintabel ontbreekt; draai scripts/16_bouw_aquo_parameters.py"}
+    aquo = laad_aquo(aquo_pad)
+    geldig = [r for r in rijen if (r.get("Status") or "").strip() == "Geldig"]
+    sommen = _sommen_met_delen(rijen)
+    t = aquo["telling"]
+
+    def _n(veld: str, alleen_geldig: bool = True) -> int:
+        bron = geldig if alleen_geldig else rijen
+        return sum(1 for r in bron if (r.get(veld) or "").strip())
+
+    knopen = [
+        {"id": "prtr", "naam": "E-PRTR-stof", "aantal": len(PRTR_STOFFEN),
+         "wat": "wat een inrichting jaarlijks meldt te lozen"},
+        {"id": "cas", "naam": "CAS-nummer", "aantal": len(aquo["per_cas"]),
+         "wat": "wereldwijde identificatie van één stof"},
+        {"id": "aquo", "naam": "Aquo-parameter", "aantal": t["geldig"],
+         "bij": f"+ {t['vervallen']} vervallen", "wat": "de Nederlandse waterstandaard"},
+        {"id": "groep", "naam": "Groep",
+         "aantal": len({(r.get("Groep") or "").strip() for r in geldig if (r.get("Groep") or "").strip()}),
+         "wat": "chemische stof, grootheid, object, …"},
+        {"id": "som", "naam": "somparameter", "aantal": len(sommen),
+         "wat": "een Aquo-parameter die uit andere bestaat"},
+        {"id": "onbekend", "naam": "niet te volgen", "aantal": None,
+         "wat": "de doelen van Gerelateerd bestaan, maar niet in dit bestand"},
+    ]
+
+    randen = [
+        {"id": "prtr_cas", "van": "prtr", "naar": "cas", "naam": "heeft CAS",
+         "aantal": sum(1 for s in PRTR_STOFFEN if s["cas"]), "herkomst": "lab",
+         "toelichting": "staat in bijlage II van de E-PRTR-verordening, maar de WFS van het RIVM "
+                        "levert het veld niet mee — dus met de hand overgenomen"},
+        {"id": "aquo_cas", "van": "aquo", "naar": "cas", "naam": "heeft CAS",
+         "aantal": t["met_cas"], "herkomst": "bron", "toelichting": "kolom CASnummer"},
+        {"id": "prtr_aquo", "van": "prtr", "naar": "aquo", "naam": "gelijkgesteld aan",
+         "aantal": len(PRTR_NAAR_AQUO), "herkomst": "lab",
+         "toelichting": "de handtabel PRTR_NAAR_AQUO; precies wat het CAS-nummer overbodig maakt"},
+        {"id": "aquo_groep", "van": "aquo", "naar": "groep", "naam": "hoort bij",
+         "aantal": _n("Groep"), "herkomst": "bron", "toelichting": "kolom Groep"},
+        {"id": "aquo_som", "van": "aquo", "naar": "som", "naam": "is een",
+         "aantal": len(sommen), "herkomst": "bron",
+         "toelichting": "herkenbaar aan de omschrijving; een somparameter is gewoon een "
+                        "Aquo-parameter"},
+        {"id": "som_deel", "van": "som", "naar": "aquo", "naam": "bestaat uit",
+         "aantal": sum(len(d) for _c, d in sommen.values()), "herkomst": "afgeleid",
+         "toelichting": "ontleed uit de tekst tussen haakjes in de omschrijving — dit is de "
+                        "relatie die er zou moeten staan en niet staat"},
+        {"id": "aquo_rel", "van": "aquo", "naar": "onbekend", "naam": "gerelateerd aan",
+         "aantal": t["met_relatie"], "herkomst": "onvolgbaar",
+         "toelichting": "kolom Gerelateerd draagt een UUID, terwijl de Id-kolom een volgnummer "
+                        "is; het doel staat niet in dit bestand"},
+        {"id": "aquo_verv", "van": "aquo", "naar": "onbekend", "naam": "vervangen door",
+         "aantal": _n("Vervangen door", alleen_geldig=False), "herkomst": "onvolgbaar",
+         "toelichting": "zelfde probleem; en bij 3 van de 4 ingetrokken codes in het "
+                        "Maasregister is dit veld leeg"},
+    ]
+
+    per_herkomst: dict[str, int] = {}
+    for r in randen:
+        per_herkomst[r["herkomst"]] = per_herkomst.get(r["herkomst"], 0) + 1
+
+    # De samenvattende zin wordt geteld en niet getypt. In de eerste versie stond hier "vier van
+    # de acht" terwijl het er drie waren — precies de fout waar deze hele pagina over gaat.
+    uit_de_bron = per_herkomst.get("bron", 0)
+    rest = len(randen) - uit_de_bron
+    return {"beschikbaar": True, "knopen": knopen, "randen": randen,
+            "herkomst": HERKOMST, "per_herkomst": per_herkomst,
+            "les": (f"{uit_de_bron} van de {len(randen)} randsoorten komen rechtstreeks uit de "
+                    f"bron. De overige {rest} zijn een bewering van dit lab, uit vrije tekst "
+                    f"ontleed, of staan er wel maar zijn niet te volgen — en juist daar zitten "
+                    f"de verbanden die dit dossier nodig heeft.")}
+
+
 def bouw(aquo_pad: str | None = None) -> dict:
     """De graaf: knopen, randen met hun herkomst, en wat eruit volgt."""
     aquo = laad_aquo(aquo_pad)
@@ -342,6 +441,7 @@ def bouw(aquo_pad: str | None = None) -> dict:
         "beschikbaar": True, "bron": BRON_AQUO, "reden": None,
         "knopen": uniek, "randen": randen,
         "koppelingen": koppelingen,
+        "anatomie": anatomie(aquo_pad),
         "aquo_telling": aquo.get("telling") or {},
         "dubbeltelling": dubbeltelling(aquo),
         "telling": {

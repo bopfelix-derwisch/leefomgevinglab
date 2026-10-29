@@ -249,3 +249,79 @@ def test_het_echte_maasregister_levert_bevindingen_op():
     assert t["voorschriften"] > 500
     assert t["op_vervallen_code"] > 0, "als dit nul wordt, is Aquo bijgewerkt — mooi nieuws"
     assert t["namen_onbekend"] > 0
+
+
+# --- de anatomie -----------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def anat():
+    a = sg.anatomie()
+    if not a["beschikbaar"]:
+        pytest.skip(a["reden"])
+    return a
+
+
+def test_elke_randsoort_zegt_waarop_zij_berust(anat):
+    """Dit is de zekerheid-per-veld-gedachte, maar dan op relaties."""
+    for r in anat["randen"]:
+        assert r["herkomst"] in sg.HERKOMST, r
+        assert r["toelichting"], r["id"]
+        assert r["aantal"] >= 0
+
+
+def test_de_graaf_bestaat_niet_alleen_uit_brongegevens(anat):
+    """Als alles 'bron' wordt, is de plaat haar boodschap kwijt."""
+    soorten = set(r["herkomst"] for r in anat["randen"])
+    assert soorten >= {"bron", "lab", "afgeleid", "onvolgbaar"}
+    assert anat["per_herkomst"]["bron"] < len(anat["randen"])
+
+
+def test_onvolgbaar_is_iets_anders_dan_afwezig(anat):
+    """Gerelateerd en Vervangen door staan er wél; alleen het doel is niet te vinden."""
+    onvolgbaar = [r for r in anat["randen"] if r["herkomst"] == "onvolgbaar"]
+    assert {r["id"] for r in onvolgbaar} == {"aquo_rel", "aquo_verv"}
+    assert all(r["aantal"] > 0 for r in onvolgbaar), "nul zou 'bestaat niet' betekenen"
+    assert all(r["naar"] == "onbekend" for r in onvolgbaar)
+
+
+def test_de_part_of_relatie_is_afgeleid_en_geen_brongegeven(anat):
+    """De relatie die dit dossier het hardst nodig heeft, moest uit een zin worden ontleed."""
+    r = next(x for x in anat["randen"] if x["id"] == "som_deel")
+    assert r["herkomst"] == "afgeleid"
+    assert "omschrijving" in r["toelichting"]
+    assert r["aantal"] > 50
+
+
+def test_de_handtabel_staat_als_bewering_van_dit_lab(anat):
+    r = next(x for x in anat["randen"] if x["id"] == "prtr_aquo")
+    assert r["herkomst"] == "lab"
+    assert r["aantal"] == len(PRTR_NAAR_AQUO)
+
+
+def test_de_knoop_zonder_aantal_is_de_onbekende(anat):
+    """Een knoop zonder telling is geen fout maar het punt: wij weten niet hoeveel het er zijn."""
+    leeg = [k for k in anat["knopen"] if k["aantal"] is None]
+    assert [k["id"] for k in leeg] == ["onbekend"]
+
+
+def test_de_pagina_kan_elke_randsoort_tekenen(monkeypatch):
+    """Een relatie zonder pad valt stilzwijgend van de plaat; dat mag niet gebeuren."""
+    from pathlib import Path
+
+    html = (Path(__file__).parent.parent / "src" / "leefomgevinglab" / "static"
+            / "kennisgraaf.html").read_text()
+    for r in sg.anatomie()["randen"]:
+        assert f"{r['id']}:" in html, f"geen pad getekend voor relatie {r['id']}"
+    for k in sg.anatomie()["knopen"]:
+        assert f"{k['id']}:" in html, f"geen doos getekend voor knoop {k['id']}"
+
+
+def test_de_anatomie_reist_mee_in_de_graaf(graaf):
+    assert graaf["anatomie"]["beschikbaar"] is True
+
+
+def test_de_samenvattende_zin_wordt_geteld_en_niet_getypt(anat):
+    """In de eerste versie stond hier 'vier van de acht' terwijl het er drie waren."""
+    bron = anat["per_herkomst"]["bron"]
+    assert anat["les"].startswith(f"{bron} van de {len(anat['randen'])} randsoorten")
+    assert f"overige {len(anat['randen']) - bron}" in anat["les"]

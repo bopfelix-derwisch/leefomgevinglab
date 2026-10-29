@@ -164,6 +164,17 @@
       </div>
     </div>
 
+    <div class="section-title">Wat de graaf is — de anatomie</div>
+    <p class="tekst">Voordat we naar de uitkomst gaan: dit is waar de graaf <em>uit bestaat</em>.
+      Vijf soorten dingen en acht soorten verbanden ertussen. De kleur van een pijl zegt waarop
+      dat verband berust — dezelfde gedachte als de <b>zekerheid per veld</b> in het
+      informatiemodel, maar dan op relaties. Een graaf waarin alle pijlen er hetzelfde uitzien,
+      verbergt juist wat hier het onderwerp is.</p>
+    <div class="graafdoos"><div id="anatomie"></div></div>
+    <div class="glegenda" id="alegenda"></div>
+    <p class="tekst zacht" id="ales" style="margin-top:14px"></p>
+    <div class="tabelwrap"><table id="atabel"></table></div>
+
     <div class="section-title">Het bewijs: één gedeeld nummer tegen één handtabel</div>
     <p class="tekst">De Aquo-domeintabel draagt per parameter een <b>CAS-nummer</b>. De
       E-PRTR-verordening doet dat in bijlage II ook. Twee bronnen die hetzelfde nummer dragen
@@ -226,6 +237,89 @@
       : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
 
     const KLEUR = { cas: "#2ecc8f", hand: "#e8b84b", geen: "#ff7a6b" };
+
+    // Kleur per herkomst van een relatie. Vier waarden, want "staat er wel maar is niet te
+    // volgen" is iets anders dan "staat er niet".
+    const HKLEUR = { bron: "#2ecc8f", lab: "#e8b84b", afgeleid: "#c792ea", onvolgbaar: "#ff7a6b" };
+
+    // Vaste plaatsen per knoopsoort en een vaste route per relatiesoort. Bewust geen
+    // krachtenveld: dit is een schema, en een schema hoort elke keer hetzelfde te liggen.
+    const DOOS = {
+      prtr:     { x: 40,  y: 52,  w: 190, h: 54 },
+      cas:      { x: 530, y: 52,  w: 170, h: 54 },
+      aquo:     { x: 285, y: 196, w: 210, h: 62 },
+      groep:    { x: 650, y: 200, w: 160, h: 54 },
+      som:      { x: 255, y: 348, w: 190, h: 54 },
+      onbekend: { x: 620, y: 344, w: 200, h: 62 },
+    };
+    // Elke relatie krijgt een eigen pad en een eigen plek voor haar label, zodat niets overlapt.
+    const PAD = {
+      prtr_cas:   { d: "M230 79 L530 79", lx: 380, ly: 70, anker: "middle" },
+      aquo_cas:   { d: "M470 196 C500 150 560 130 585 106", lx: 545, ly: 158, anker: "start" },
+      prtr_aquo:  { d: "M120 106 C120 150 140 196 285 215", lx: 118, ly: 162, anker: "start" },
+      aquo_groep: { d: "M495 222 L650 224", lx: 572, ly: 215, anker: "middle" },
+      aquo_som:   { d: "M345 258 L340 348", lx: 332, ly: 306, anker: "end" },
+      som_deel:   { d: "M420 348 C440 310 430 276 440 258", lx: 448, ly: 310, anker: "start" },
+      aquo_rel:   { d: "M470 258 C540 300 560 330 620 358", lx: 512, ly: 322, anker: "start" },
+      aquo_verv:  { d: "M450 258 C490 320 520 360 620 386", lx: 470, ly: 372, anker: "start" },
+    };
+
+    function tekenAnatomie(a) {
+      if (!a || !a.beschikbaar) { $("anatomie").innerHTML = ""; return; }
+      const kn = Object.fromEntries(a.knopen.map(k => [k.id, k]));
+      const W = 900, H = 440;
+      let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Opbouw van de stoffengraaf">`;
+      s += `<defs>`;
+      Object.entries(HKLEUR).forEach(([k, c]) =>
+        s += `<marker id="pijl-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" ` +
+             `markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${c}"/></marker>`);
+      s += `</defs>`;
+
+      // randen eerst
+      a.randen.forEach(r => {
+        const p = PAD[r.id]; if (!p) return;
+        const c = HKLEUR[r.herkomst] || "#5b7385";
+        const stippel = r.herkomst === "bron" ? "" : ` stroke-dasharray="${r.herkomst === "onvolgbaar" ? "3 4" : "6 4"}"`;
+        s += `<path d="${p.d}" fill="none" stroke="${c}" stroke-width="1.8"${stippel} marker-end="url(#pijl-${r.herkomst})"/>`;
+        s += `<text x="${p.lx}" y="${p.ly}" text-anchor="${p.anker}" fill="${c}" font-size="11">` +
+             `${esc(r.naam)} <tspan font-family="ui-monospace,monospace" font-size="10.5">` +
+             `${r.aantal === null ? "" : nl(r.aantal)}</tspan></text>`;
+      });
+
+      // knopen erbovenop
+      a.knopen.forEach(k => {
+        const b = DOOS[k.id]; if (!b) return;
+        const leeg = k.aantal === null;
+        s += `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="9" ` +
+             `fill="${leeg ? "rgba(255,122,107,.07)" : "#0a1220"}" ` +
+             `stroke="${leeg ? "#6b2f28" : "#1a3a5c"}"${leeg ? ' stroke-dasharray="4 4"' : ""}/>`;
+        s += `<text x="${b.x + 13}" y="${b.y + 23}" fill="#eafff6" font-size="13" font-weight="600">${esc(k.naam)}</text>`;
+        if (!leeg) {
+          s += `<text x="${b.x + 13}" y="${b.y + 41}" fill="#2ecc8f" font-size="15" ` +
+               `font-family="ui-monospace,monospace">${nl(k.aantal)}</text>`;
+          if (k.bij) s += `<text x="${b.x + 13 + 11 * String(nl(k.aantal)).length}" y="${b.y + 41}" ` +
+               `fill="#5b7385" font-size="10.5">${esc(k.bij)}</text>`;
+        } else {
+          s += `<text x="${b.x + 13}" y="${b.y + 41}" fill="#8aa0b2" font-size="10.5">` +
+               `het doel staat niet in dit bestand</text>`;
+        }
+      });
+      s += `</svg>`;
+      $("anatomie").innerHTML = s;
+
+      $("alegenda").innerHTML = Object.entries(a.herkomst).map(([k, v]) =>
+        `<span style="color:${HKLEUR[k]}"><i class="${k === "bron" ? "" : "streep"}"></i> ` +
+        `${esc(v)} — ${nl(a.per_herkomst[k] || 0)} relatiesoort${(a.per_herkomst[k] || 0) === 1 ? "" : "en"}</span>`).join("");
+      $("ales").textContent = a.les;
+
+      $("atabel").innerHTML =
+        "<thead><tr><th>relatie</th><th>van → naar</th><th>aantal</th><th>waarop berust het</th></tr></thead><tbody>" +
+        a.randen.map(r => `<tr>` +
+          `<td style="color:${HKLEUR[r.herkomst]}"><b>${esc(r.naam)}</b></td>` +
+          `<td style="font-family:ui-monospace,monospace;font-size:11.5px">${esc(r.van)} → ${esc(r.naar)}</td>` +
+          `<td style="font-variant-numeric:tabular-nums">${nl(r.aantal)}</td>` +
+          `<td>${esc(r.toelichting)}</td></tr>`).join("") + "</tbody>";
+    }
 
     // Drie kolommen in plaats van een krachtenveld. Links de melding, rechts de standaard, in het
     // midden de sleutel. Een rij per E-PRTR-stof, zodat elke regel in de tabel hieronder een
@@ -390,6 +484,7 @@
         $("graaf").innerHTML = `<p class="tekst">${esc(d.reden || "niet beschikbaar")}</p>`;
         return;
       }
+      tekenAnatomie(d.anatomie);
       tekenCijfers(d); tekenGraaf(d); tekenTabel(d); tekenSom(d);
       const a = d.aquo_telling;
       $("relatienoot").textContent =
