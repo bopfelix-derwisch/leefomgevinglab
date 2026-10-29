@@ -402,6 +402,24 @@ def api_stoffengraaf():
     return stoffengraaf_mod.bouw(kmg.get("aquo_csv_pad"))
 
 
+@app.get("/api/stoffengraaf/controle")
+def api_stoffengraaf_controle():
+    """De graaf als kwaliteitscontrole over het echte Maas-register.
+
+    Apart eindpunt en niet in `/api/stoffengraaf`: dit bevraagt de Atlas live, en de plaat op de
+    pagina hoort niet op die bevraging te wachten.
+    """
+    ll = _config.get("leefomgevinglab", {})
+    kmg = ll.get("kmg", {})
+    try:
+        register = kmg_service._atlas_standaard(
+            *stoffengraaf_mod.MAASPUNT, kmg.get("straal_m", 250000))
+    except Exception as exc:                        # noqa: BLE001 — bron mag wegvallen
+        return {"beschikbaar": False,
+                "reden": f"de Atlas was niet bereikbaar ({type(exc).__name__})"}
+    return stoffengraaf_mod.controleer(register, kmg.get("aquo_csv_pad"))
+
+
 @app.get("/api/kmg/overzicht")
 def api_kmg_overzicht():
     """Het voorberekende overzicht over alle Maas-meetpunten.

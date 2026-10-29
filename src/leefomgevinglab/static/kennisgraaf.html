@@ -103,6 +103,11 @@
       background:rgba(46,204,143,.14); color:var(--accent); border:1px solid rgba(46,204,143,.3); }
     .som p { font-size:13.5px; color:var(--muted); }
 
+    .delenlijst { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+    .delenlijst span { font-size:12.5px; padding:4px 12px; border-radius:12px;
+      background:var(--panel2); border:1px solid var(--border); color:var(--muted); }
+    .delenlijst b { color:var(--text); font-variant-numeric:tabular-nums; }
+
     footer { border-top:1px solid var(--border); margin-top:34px; padding-top:18px;
       font-size:12px; color:var(--dim); max-width:76ch; }
     footer p + p { margin-top:8px; }
@@ -175,6 +180,16 @@
 
     <div class="section-title">Per stof</div>
     <div class="tabelwrap"><table id="tabel"></table></div>
+
+    <div class="section-title">De opbrengst: de graaf als controle over het échte register</div>
+    <p class="tekst">Tot hier vergeleken we twee manieren om te koppelen. Dat zegt nog niets over
+      wat er mis is met de vergunningen die er liggen. Hieronder draait de graaf als
+      <b>kwaliteitscontrole</b> over alle 69 vergunningen in het Maasregister, live uit de Atlas.
+      Drie vragen die je met een gewone opzoektabel niet kunt stellen, omdat ze over de
+      <b>status</b> en de <b>samenstelling</b> van een code gaan in plaats van over haar
+      bestaan.</p>
+    <div class="cijfers" id="controlecijfers"></div>
+    <div id="controle"></div>
 
     <div class="section-title">Waar een graaf iets ziet dat een recordmodel niet ziet</div>
     <div id="som"></div>
@@ -309,6 +324,66 @@
         `<code>Gerelateerd</code> is bij deze parameter gevuld. Er staat alleen niet bij wélke.</p>` +
         `</div>`;
     }
+
+    // De controle staat op een eigen eindpunt omdat zij de Atlas live bevraagt. De plaat
+    // hierboven hoort niet op die bevraging te wachten.
+    function tekenControle(d) {
+      if (!d.beschikbaar) {
+        $("controle").innerHTML = `<p class="tekst zacht">${esc(d.reden || "niet beschikbaar")}</p>`;
+        return;
+      }
+      const t = d.telling;
+      const c = (v, k) => `<div class="cijfer"><div class="v">${esc(v)}</div><div class="k">${esc(k)}</div></div>`;
+      $("controlecijfers").innerHTML =
+        c(nl(t.voorschriften), `voorschriften in ${nl(t.vergunningen)} vergunningen`) +
+        c(nl(t.op_vervallen_code), "hangen aan een ingetrokken Aquo-code") +
+        c(nl(t.niet_in_aquo), "dragen een naam die Aquo niet kent") +
+        c(nl(t.dubbeltelling), "vergunningen met een som én haar delen");
+
+      const rij = (kop, kleur, uitleg, inhoud) =>
+        `<div class="kaart" style="border-left:3px solid ${kleur}">` +
+        `<h3 style="color:${kleur}">${kop}</h3><p class="tekst zacht" style="font-size:13.5px">${uitleg}</p>` +
+        inhoud + `</div>`;
+
+      let h = "";
+      h += rij("Ingetrokken codes", "#ffb74d",
+        `De koppeling slaat vervallen codes over, dus deze voorschriften vallen stil weg als ` +
+        `"onbruikbaar" zonder dat iemand ziet waarom. Het verschil doet ertoe: een ingetrokken ` +
+        `code is een onderhoudsactie, een onbekende naam een standaardisatievraag.`,
+        `<div class="tabelwrap"><table><thead><tr><th>parameter</th><th>code</th>` +
+        `<th>voorschriften</th><th>vervangen door</th></tr></thead><tbody>` +
+        d.vervallen.map(x => `<tr><td>${esc(x.naam)}</td>` +
+          `<td><code>${esc(x.code)}</code></td><td>${nl(x.voorschriften)}</td>` +
+          `<td>${x.vervangen_door ? "<code>" + esc(x.vervangen_door) + "</code>"
+                                  : '<span style="color:var(--weg)">niets — doodlopend</span>'}</td>` +
+          `</tr>`).join("") + `</tbody></table></div>`);
+
+      h += rij("Namen die Aquo niet kent", "#ff7a6b",
+        `Hier loopt de standaard achter op wat er vergund wordt. Dit zijn geen schrijffouten maar ` +
+        `stoffen: melamine, AMPA en pyrazool komen uit echte lozingsvoorschriften.`,
+        `<div class="delenlijst">` + d.onbekend.map(x =>
+          `<span>${esc(x.naam)} <b>${nl(x.voorschriften)}×</b></span>`).join("") + `</div>`);
+
+      h += rij("Dubbeltelling: een som én haar delen", "#c792ea",
+        `Deze vraag is alleen te stellen als je de samenstelling van een somparameter kent. ` +
+        `Aquo kent ${nl(t.sommen_met_delen)} sommen waarvan de delen uit de omschrijving te halen ` +
+        `zijn — en dat ontleden van een zin is precies het werk dat een echte part-of-relatie ` +
+        `overbodig zou maken.`,
+        d.dubbeltelling.length
+          ? `<div class="tabelwrap"><table><thead><tr><th>vergunning</th><th>som</th>` +
+            `<th>ook apart begrensd</th></tr></thead><tbody>` +
+            d.dubbeltelling.map(x => `<tr><td>${esc(x.vergunning)}` +
+              `<div style="color:var(--dim);font-size:11.5px">${esc(x.kenmerk || "")}</div></td>` +
+              `<td><code>${esc(x.som)}</code></td>` +
+              `<td>${x.ook_apart.map(o => "<code>" + esc(o) + "</code>").join(" ")}</td></tr>`).join("") +
+            `</tbody></table></div>`
+          : `<p class="tekst zacht">Geen treffers in dit register.</p>`);
+
+      $("controle").innerHTML = h;
+    }
+
+    fetch("/api/stoffengraaf/controle").then(r => r.json()).then(tekenControle)
+      .catch(() => tekenControle({ beschikbaar: false, reden: "de controle kon niet worden uitgevoerd" }));
 
     fetch("/api/stoffengraaf").then(r => r.json()).then(d => {
       if (!d.beschikbaar) {

@@ -207,8 +207,14 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   de vorige aanpak (afleiden uit de WKP-meetwaarden, 492 codes): **57% → 84% bruikbaar** op
   dezelfde 367 voorschriften, en de gekoppelde stoffen per register van **3 → 42**. De winst zit in
   alledaagse begrippen die RWS niet chemisch meet maar die in elke vergunning staan: `Zuurgraad` →
-  `pH`, `Zwevende stof` → `ZS`, `Debiet` → `Q`. Ook `"som 6 metalen (Zn, Cu, Pb, Ni, Cr, As)"`
-  heeft een code (`smetln6`) — dit lab nam eerst aan van niet.
+  `pH`, `Debiet` → `Q`. Ook `"som 6 metalen (Zn, Cu, Pb, Ni, Cr, As)"` heeft een code
+  (`smetln6`) — dit lab nam eerst aan van niet.
+  **Let op: `Zwevende stof` koppelt níét**, al stond dat hier eerder wel. De Aquo-code `ZS` is
+  **vervallen** (beide rijen in de domeintabel), en `laad_parameters()` slaat vervallen codes
+  over — terecht, want een ingetrokken code is geen sleutel. Gevolg: `op_naam["zwevende stof"]`
+  is `None`, terwijl dit mét 83 voorschriften de **meest voorkomende parameter in het hele
+  Maasregister** is. Geconstateerd 2026-10-29 door de kwaliteitscontrole op `/kennisgraaf`;
+  `Vervangen door` is leeg, dus de bron biedt geen opvolger.
   `toerekening.bijdragen()` koppelt daardoor op Aquo-code (`vrachten_aquo`) met de Nederlandse
   omschrijving als terugval. **De chemische normen** komen uit `KRW-toetsresultaten`
   (`scripts/17`): zink ≤ 7,80 µg/l op het **jaargemiddelde** van de **opgeloste** fractie, per punt

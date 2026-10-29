@@ -175,3 +175,77 @@ def test_de_kennisgraaf_is_lid_van_het_waterdossier():
     assert lid["pad"] == "/kennisgraaf"
     assert any("bijlage II" in s for s in lid["synthetisch"]), \
         "dat de CAS-nummers met de hand zijn overgenomen hoort in de verantwoording"
+
+
+# --- de controle over een echt register -----------------------------------------------------
+
+_REG = [
+    {"naam": "Zwevend BV", "kenmerk": "K-1", "voorschriften": [
+        {"parameter": "Zwevende stof"}, {"parameter": "zink"}]},
+    {"naam": "Som BV", "kenmerk": "K-2", "voorschriften": [
+        {"parameter": "som 6 metalen (Zn, Cu, Pb, Ni, Cr, As)"},
+        {"parameter": "arseen"}, {"parameter": "zink"}]},
+    {"naam": "Nieuw BV", "kenmerk": "K-3", "voorschriften": [
+        {"parameter": "melamine"}, {"parameter": "melamine"}]},
+]
+
+
+@pytest.fixture(scope="module")
+def controle():
+    d = sg.controleer(_REG)
+    if not d["beschikbaar"]:
+        pytest.skip(d["reden"])
+    return d
+
+
+def test_een_ingetrokken_code_is_iets_anders_dan_een_onbekende_naam(controle):
+    """Dat onderscheid is de hele waarde van deze controle: onderhoud tegenover standaardisatie."""
+    vervallen = {x["naam"] for x in controle["vervallen"]}
+    onbekend = {x["naam"] for x in controle["onbekend"]}
+    assert "Zwevende stof" in vervallen
+    assert "melamine" in onbekend
+    assert not (vervallen & onbekend)
+
+
+def test_de_telling_gaat_over_voorschriften_en_niet_over_namen(controle):
+    """Vier namen kunnen negentig voorschriften zijn; dat verschil bepaalt of het ertoe doet."""
+    t = controle["telling"]
+    assert t["niet_in_aquo"] == 2 and t["namen_onbekend"] == 1, "melamine staat er twee keer in"
+
+
+def test_een_som_naast_haar_delen_wordt_gevonden(controle):
+    d = controle["dubbeltelling"]
+    assert len(d) == 1
+    assert d[0]["som"] == "smetln6"
+    assert set(d[0]["ook_apart"]) == {"Zn", "As"}
+
+
+def test_een_vergunning_zonder_som_levert_geen_treffer(controle):
+    assert all(x["kenmerk"] != "K-1" for x in controle["dubbeltelling"])
+
+
+def test_de_sommen_komen_uit_de_omschrijving_en_zijn_er_genoeg(controle):
+    """Als dit terugvalt naar nul, is het ontleden van de omschrijving stukgelopen."""
+    assert controle["telling"]["sommen_met_delen"] > 20
+
+
+def test_zonder_domeintabel_meldt_de_controle_dat(tmp_path):
+    d = sg.controleer(_REG, str(tmp_path / "weg.csv"))
+    assert d["beschikbaar"] is False and "scripts/16" in d["reden"]
+
+
+def test_het_echte_maasregister_levert_bevindingen_op():
+    """Een controle die nooit iets vindt, bewijst niets. Deze vindt wél iets."""
+    from leefomgevinglab.usecases.kmg import service
+
+    try:
+        reg = service._atlas_standaard(*sg.MAASPUNT, 250000)
+    except Exception as exc:                       # noqa: BLE001
+        pytest.skip(f"Atlas niet bereikbaar: {type(exc).__name__}")
+    d = sg.controleer(reg)
+    if not d["beschikbaar"]:
+        pytest.skip(d["reden"])
+    t = d["telling"]
+    assert t["voorschriften"] > 500
+    assert t["op_vervallen_code"] > 0, "als dit nul wordt, is Aquo bijgewerkt — mooi nieuws"
+    assert t["namen_onbekend"] > 0

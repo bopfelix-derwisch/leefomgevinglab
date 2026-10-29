@@ -80,6 +80,10 @@ PRTR_STOFFEN = [
 # De stoffen die dit lab in het waterdossier volgt, zodat de graaf ze kan markeren.
 GEVOLGD = {"Zn", "Ntot", "PFOA"}
 
+# Ruim midden-Maas punt voor de controle-bevraging: met de straal uit de kmg-config pakt
+# dit het hele register van de Atlas in één greep.
+MAASPUNT = (170000.0, 390000.0)
+
 
 def laad_aquo(pad: str | None = None) -> dict:
     """De geldige Aquo-parameters, met hun CAS-nummer en relaties.
@@ -176,6 +180,120 @@ def dubbeltelling(aquo: dict, som_code: str = "smetln6") -> dict:
             "relatie_resolvabaar": False,
             "les": ("De samenstelling staat in de omschrijving, niet als relatie. Een machine "
                     "die dubbeltelling wil voorkomen moet hier dus tekst ontleden.")}
+
+
+def _alle_parameters(pad: str | None = None) -> list[dict]:
+    """Álle rijen, ook de vervallen — `laad_aquo` gooit die er juist uit.
+
+    Voor koppelen wil je ze niet; voor een kwaliteitscontrole wil je ze wél, want "deze naam
+    bestaat alleen nog als vervallen code" is een andere bevinding dan "deze naam bestaat niet".
+    """
+    p = Path(pad or AQUO_PAD)
+    if not p.exists():
+        return []
+    with open(p, encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f, delimiter=";"))
+
+
+def _sommen_met_delen(rijen: list[dict]) -> dict[str, tuple[str, list[str]]]:
+    """Somparameters waarvan de delen uit de omschrijving te halen zijn.
+
+    Dit is het punt van deze hele pagina in één functie: de samenstelling van een somparameter
+    staat in een zin tussen haakjes, niet in een relatie. Om er een controle op te kunnen doen
+    moeten wij die zin dus ontleden — iets wat een graaf met echte part-of-relaties overbodig
+    zou maken.
+    """
+    uit: dict[str, tuple[str, list[str]]] = {}
+    for r in rijen:
+        if (r.get("Status") or "").strip() != "Geldig":
+            continue
+        o = (r.get("Omschrijving") or "").strip()
+        if not o.lower().startswith("som") or "(" not in o or ")" not in o:
+            continue
+        delen = [d.strip() for d in o[o.find("(") + 1:o.find(")")].split(",") if d.strip()]
+        if delen:
+            uit[o.lower()] = ((r.get("Codes") or "").strip(), delen)
+    return uit
+
+
+def controleer(register: list[dict], aquo_pad: str | None = None) -> dict:
+    """De graaf als kwaliteitscontrole over een echt vergunningregister.
+
+    Drie vragen die je met een losse opzoektabel niet kunt stellen, omdat zij over de *status*
+    en de *samenstelling* van een code gaan in plaats van over haar bestaan:
+
+    1. **Hangt een voorschrift aan een vervallen code?** De koppeling slaat vervallen codes over,
+       dus zo'n voorschrift valt stil weg als "onbruikbaar" zonder dat iemand ziet waarom. Het
+       verschil tussen "deze naam ken ik niet" en "deze naam is ingetrokken" is bruikbaar: het
+       tweede is een onderhoudsactie, het eerste een standaardisatievraag.
+    2. **Kent Aquo deze naam helemaal niet?** Dat zijn de stoffen waar de standaard achterloopt
+       op wat er vergund wordt.
+    3. **Begrenst één vergunning zowel een som als haar delen?** Dan telt wie optelt dubbel. Deze
+       vraag is alleen te stellen als je de samenstelling van de som kent.
+    """
+    rijen = _alle_parameters(aquo_pad)
+    if not rijen:
+        return {"beschikbaar": False,
+                "reden": "Aquo-domeintabel ontbreekt; draai scripts/16_bouw_aquo_parameters.py"}
+
+    per_naam: dict[str, list[dict]] = {}
+    for r in rijen:
+        per_naam.setdefault((r.get("Omschrijving") or "").strip().lower(), []).append(r)
+    code_van = {n: rs[0].get("Codes", "").strip() for n, rs in per_naam.items()
+                if any((x.get("Status") or "").strip() == "Geldig" for x in rs)}
+    sommen = _sommen_met_delen(rijen)
+
+    tel = tel_parameters(register)
+    vervallen, onbekend = [], []
+    for naam, n in sorted(tel.items(), key=lambda kv: -kv[1]):
+        treffers = per_naam.get(naam.lower())
+        if not treffers:
+            onbekend.append({"naam": naam, "voorschriften": n})
+        elif not any((t.get("Status") or "").strip() == "Geldig" for t in treffers):
+            vervangen = (treffers[0].get("Vervangen door") or "").strip() or None
+            vervallen.append({"naam": naam, "voorschriften": n,
+                              "code": (treffers[0].get("Codes") or "").strip(),
+                              "vervangen_door": vervangen})
+
+    dubbel = []
+    for post in register:
+        namen = {(v.get("parameter") or "").strip().lower()
+                 for v in (post.get("voorschriften") or [])}
+        codes = {code_van[n] for n in namen if n in code_van}
+        for somnaam in namen & set(sommen):
+            somcode, delen = sommen[somnaam]
+            overlap = sorted(set(delen) & codes)
+            if overlap:
+                dubbel.append({"vergunning": post.get("naam"),
+                               "kenmerk": post.get("kenmerk"),
+                               "som": somcode, "ook_apart": overlap})
+
+    voorschriften = sum(tel.values())
+    return {
+        "beschikbaar": True,
+        "telling": {
+            "vergunningen": len(register), "voorschriften": voorschriften,
+            "parameternamen": len(tel),
+            "op_vervallen_code": sum(x["voorschriften"] for x in vervallen),
+            "namen_vervallen": len(vervallen),
+            "niet_in_aquo": sum(x["voorschriften"] for x in onbekend),
+            "namen_onbekend": len(onbekend),
+            "dubbeltelling": len(dubbel),
+            "sommen_met_delen": len(sommen),
+        },
+        "vervallen": vervallen, "onbekend": onbekend, "dubbeltelling": dubbel,
+    }
+
+
+def tel_parameters(register: list[dict]) -> dict[str, int]:
+    """Parameternaam → aantal voorschriften, over een heel register."""
+    tel: dict[str, int] = {}
+    for post in register:
+        for v in post.get("voorschriften") or []:
+            naam = (v.get("parameter") or "").strip()
+            if naam:
+                tel[naam] = tel.get(naam, 0) + 1
+    return tel
 
 
 def bouw(aquo_pad: str | None = None) -> dict:
