@@ -20,22 +20,68 @@ beeld als meetlat. Deze module levert de meetlat.
 
 SECONDEN_PER_JAAR = 31_536_000
 
-# De Maas stroomafwaarts. Namen uit de KRW-vlaklaag van RWS, nagekeken 2026-10-01.
-# Dit is een keuze van dit lab: de bron kent geen expliciete volgorde, alleen losse
-# waterlichamen. Zijtakken en kanalen staan er bewust niet in — die zouden een
-# stroomschema vergen in plaats van een lijst.
+# De Maas stroomafwaarts. Codes en namen uit `KRW-oppervlaktewaterlichamen` van het
+# Waterkwaliteitsportaal (`scripts/18`), district Maas; een test bewaakt dat elke code hier ook
+# echt in dat district voorkomt.
+#
+# **De volgorde zelf komt uit geen enkele bron.** Het register kent 163 waterlichamen in district
+# Maas en geen enkele relatie ertussen — `VoorgangerCode` lijkt erop maar is versiehistorie, geen
+# hydrologie. De ordening hieronder is dus een keuze van dit lab, en `GROND` zegt per
+# waterlichaam waarop zij berust. Dat onderscheid hoort zichtbaar te blijven: de codes zijn
+# brongegeven, hun volgorde is dat niet.
 STROOMVOLGORDE = [
     ("NL91BOM", "Bovenmaas"),
     ("NL91GM", "Grensmaas"),
+    ("NL91JK", "Julianakanaal"),
     ("NL91ZM", "Zandmaas"),
     ("NL91BM", "Bedijkte Maas"),
     ("NL94_5", "Beneden Maas"),
     ("NL94_6", "Bergsche Maas"),
+    ("NL94_10", "Brabantse Biesbosch"),
     ("NL94_1", "Haringvliet-oost"),
     ("NL94_11", "Haringvliet-west"),
 ]
 
+# Waarop de positie van elk waterlichaam berust. "hoofdstroom" is de Maas zelf, van boven naar
+# beneden — daarover bestaat geen discussie. De andere drie zijn redeneringen van dit lab en
+# staan daarom apart benoemd, zodat een lezer ze kan wegen in plaats van geloven.
+GROND = {
+    "NL91BOM": "hoofdstroom", "NL91GM": "hoofdstroom", "NL91ZM": "hoofdstroom",
+    "NL91BM": "hoofdstroom", "NL94_5": "hoofdstroom", "NL94_6": "hoofdstroom",
+    "NL94_1": "hoofdstroom", "NL94_11": "hoofdstroom",
+    "NL91JK": ("parallelkanaal langs de Grensmaas dat bij Maasbracht op de Maas uitkomt, dus "
+               "bovenstrooms van de Zandmaas; plaatsing door dit lab"),
+    "NL94_10": ("ligt tussen Bergsche Maas en Hollands Diep; plaatsing door dit lab"),
+}
+
+# Waterlichamen in district Maas die hier bewust níét in de volgorde staan, met de reden. Dit is
+# het verschil tussen "telt niet mee" en "we weten niet waar het zit": zonder deze lijst zou een
+# lozing op de Limburgse kanalen stilzwijgend wegvallen alsof zij niet bestond.
+ZONDER_POSITIE = {
+    "NL90_1": ("Midden-Limburgse en Noord-Brabantse kanalen: gevoed vanuit de Maas op meerdere "
+               "punten en lozend op meerdere punten terug; zonder stroomschema niet te plaatsen"),
+    "NL89_VOLKERAK": ("Volkerak: afgesloten door de Volkeraksluizen, de uitwisseling met de Maas "
+                      "is gestuurd en niet eenduidig gericht"),
+    # Deze twee stonden hier eerst wél in de volgorde, en dat leverde meteen een onzinnige
+    # uitkomst op: 90 procent van de gemeten stikstof bij Goeree toegerekend aan drie
+    # vergunningen. Het model deelt een vracht door de jaarafvoer van een rivier, en die
+    # grootheid bestaat voor kustwater niet — de verdunning wordt daar door getij en zeevolume
+    # bepaald, niet door een debiet. Zonder debiet viel de berekening terug op de
+    # standaardafvoer van de Maas en kwam er een percentage uit dat alleen die aanname mat.
+    "NL95_2A": ("Noordelijke Deltakust: kustwater. Het toerekeningsmodel deelt een vracht door "
+                "een jaarafvoer; voor kustwater bestaat die grootheid niet"),
+    "NL95_MAAS_TEW": ("Maas territoriaal water: zelfde reden als de Noordelijke Deltakust — geen "
+                      "jaarafvoer om een vracht over te verdelen"),
+}
+
 _INDEX = {code: i for i, (code, _naam) in enumerate(STROOMVOLGORDE)}
+
+
+def positie_grond(code: str | None) -> str | None:
+    """Waarop de plaatsing van dit waterlichaam berust, of waarom er geen plaatsing is."""
+    if not code:
+        return None
+    return GROND.get(code) or ZONDER_POSITIE.get(code)
 
 # De meetset levert per stof zijn eigen eenheid. Intern rekenen wij in milligram per liter;
 # dit zijn de factoren waarmee een uitkomst in mg/l naar de eenheid van de meting gaat.
@@ -64,13 +110,42 @@ def sleutel_post(post: dict, index: int) -> str:
 def is_bovenstrooms(waterlichaam: str, meetpunt_waterlichaam: str) -> bool:
     """Ligt `waterlichaam` bovenstrooms van het meetpunt, of is het hetzelfde?
 
-    Een onbekend waterlichaam telt niet mee: dan weten we de richting niet, en meetellen zou
-    een bijdrage suggereren die we niet kunnen onderbouwen.
+    Een waterlichaam zonder positie telt niet mee: dan weten we de richting niet, en meetellen
+    zou een bijdrage suggereren die we niet kunnen onderbouwen. Dat geldt zowel voor een
+    waterlichaam buiten dit stroomgebied als voor de twee die er wél in liggen maar niet te
+    plaatsen zijn (`ZONDER_POSITIE`) — het verschil tussen die twee staat in `reden_niet_bovenstrooms`,
+    niet hier.
     """
     a, b = _INDEX.get(waterlichaam), _INDEX.get(meetpunt_waterlichaam)
     if a is None or b is None:
         return False
     return a <= b
+
+
+def reden_niet_bovenstrooms(waterlichaam: str | None, meetpunt_waterlichaam: str | None,
+                            district: bool | None = None) -> str | None:
+    """Waarom telt deze lozing niet mee? Geeft None als zij juist wél meetelt.
+
+    Drie verschillende uitspraken die op de pagina niet op één hoop mogen komen: zij ligt
+    benedenstrooms, zij ligt in dit stroomgebied maar is niet te plaatsen, of zij ligt helemaal
+    buiten dit stroomgebied. `district` is de uitkomst van `stroomgebied.in_district()` — ook
+    met zijn derde waarde `None` voor "niet te bepalen".
+    """
+    if not waterlichaam:
+        return "geen waterlichaam gevonden bij deze vergunning"
+    if is_bovenstrooms(waterlichaam, meetpunt_waterlichaam or ""):
+        return None
+    if waterlichaam in ZONDER_POSITIE:
+        return ZONDER_POSITIE[waterlichaam]
+    if waterlichaam in _INDEX:
+        return "ligt benedenstrooms van dit meetpunt"
+    if district is False:
+        return "ligt buiten het stroomgebied van dit meetpunt"
+    if district is None:
+        return ("positie in het stroomgebied niet te bepalen; het waterlichaamregister ontbreekt "
+                "of kent deze code niet")
+    return ("ligt in dit stroomgebied maar niet op de hoofdstroom; zonder stroomschema niet te "
+            "plaatsen")
 
 
 def bijdragen(gemeten: float, parameter: str, register: list[dict],

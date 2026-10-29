@@ -16,7 +16,7 @@ from leefomgevinglab.usecases.gebruiksruimte import atlas_register, regels
 from . import doelen as doelen_mod
 from . import koppeling as kp_mod
 from . import lozingsmodel
-from . import duiding, metingen, proclaimer, toerekening
+from . import duiding, metingen, proclaimer, stroomgebied, toerekening
 
 # Straal voor de KRW-opzoeking per vergunning: klein, want het gaat om het waterlichaam ván die
 # ene coördinaat, niet om een omgeving. Los te zien van `straal_m` in `beeld()`, dat de Atlas
@@ -162,6 +162,48 @@ def _waterlichaam_per_vergunning(posten_ruw: list[dict], live: bool, haal=None,
     return per_sleutel, redenen
 
 
+# Uitsluitingen die vanzelf spreken zodra je het lengteprofiel ziet, en die dus niet thuishoren
+# in de lijst met uitsluitingen-met-reden. Zonder dit onderscheid zou die lijst bij het meest
+# bovenstroomse meetpunt bijna het hele register bevatten, met zestig keer dezelfde zin — ruis
+# waarin de paar uitsluitingen die er wél toe doen onvindbaar worden.
+_VANZELFSPREKEND = "ligt benedenstrooms van dit meetpunt"
+
+
+def _filter_op_stroomgebied(per_sleutel: dict[str, str], redenen: dict[str, str],
+                            wl_meetpunt: str | None,
+                            register_wl: dict) -> tuple[dict, dict, dict]:
+    """Vergunningen die niet kunnen bijdragen eruit, mét reden — en geteld.
+
+    Dit verving de zoekstraal als inhoudelijk filter. De straal in `beeld()` bepaalt sindsdien
+    alleen nog wát er bij de Atlas wordt opgehaald; of een lozing kán bijdragen is een vraag over
+    het stroomgebied, en die wordt hier gesteld.
+
+    Levert (houden, redenen, telling). De redenen zijn verschillend van elkaar en worden
+    uitdrukkelijk niet op één hoop gegooid: benedenstrooms, wél in dit stroomgebied maar niet te
+    plaatsen, of buiten dit stroomgebied. Alleen de eerste blijft uit `redenen` — die is bij een
+    bovenstrooms meetpunt het normale geval en staat al in het lengteprofiel. De telling houdt
+    alle vier de categorieën bij, zodat de pagina kan zeggen hoeveel er zijn zonder ze op te
+    sommen.
+    """
+    district_meetpunt = stroomgebied.district_van(register_wl, wl_meetpunt)
+    houden, uit = {}, dict(redenen)
+    telling = {"meegerekend": 0, "benedenstrooms": 0, "zonder_positie": 0,
+               "buiten_stroomgebied": 0, "zonder_waterlichaam": len(redenen)}
+    for sleutel, owl in per_sleutel.items():
+        hoort_erbij = (stroomgebied.in_district(register_wl, owl, district_meetpunt)
+                       if district_meetpunt else None)
+        reden = toerekening.reden_niet_bovenstrooms(owl, wl_meetpunt, hoort_erbij)
+        if reden is None:
+            houden[sleutel] = owl
+            telling["meegerekend"] += 1
+        elif reden == _VANZELFSPREKEND:
+            telling["benedenstrooms"] += 1
+        else:
+            uit[sleutel] = reden
+            telling["buiten_stroomgebied" if hoort_erbij is False else "zonder_positie"] += 1
+    return houden, uit, telling
+
+
 def _buiten_toerekening(register: list[dict], redenen: dict[str, str]) -> list[dict]:
     """De posten zonder bekend waterlichaam, met hun reden — nooit stilzwijgend verdwenen."""
     uit = []
@@ -265,12 +307,20 @@ def _meldingen_standaard(x: float, y: float, straal_m: int):
     return c.meldingen_bij_punt(x, y, straal_m=straal_m, alleen_water=False)
 
 
-def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
+def beeld(code: str, pad: str, live: bool = True, straal_m: int = 250000,
           _haal_regels=None, _haal_atlas=None, _haal_waterlichaam=None,
           toestaan_zonder_meetpunt: bool = False, doelen_pad: str | None = None,
           parameters_pad: str | None = None, normen_pad: str | None = None,
-          _haal_meldingen=None, meldingen: bool = True) -> dict:
-    """Kan, mag en gebeurt op één meetpunt."""
+          _haal_meldingen=None, meldingen: bool = True,
+          waterlichamen_pad: str | None = None) -> dict:
+    """Kan, mag en gebeurt op één meetpunt.
+
+    `straal_m` bepaalt alleen nog wát er bij de Atlas wordt opgehaald, niet wat meetelt. Of een
+    lozing kan bijdragen is een vraag over het stroomgebied, en die wordt beantwoord met het
+    waterlichaamregister (`waterlichamen_pad`) — zie `stroomgebied.py`. Vandaar dat de straal nu
+    ruim genoeg staat om het hele Maasdistrict in één greep te pakken, waar hij eerder op 50 km
+    stond en bovenstroomse lozingen liet liggen.
+    """
     set_ = metingen.laad(pad)
     if set_.get("beschikbaar"):
         punt = metingen.punt(set_, code)        # KeyError bij onbekende code
@@ -282,6 +332,7 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
 
     x, y = (punt.get("rd") or [None, None])
     wl = punt.get("waterlichaam")
+    register_wl = stroomgebied.laad(waterlichamen_pad)
 
     # Kan — de regels op het meetpunt
     if live and x is not None:
@@ -315,6 +366,10 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                         g, post.get("debiet_m3_per_uur"))
             wl_per_vergunning, redenen = _waterlichaam_per_vergunning(
                 posten, live=True, _haal_waterlichaam=_haal_waterlichaam)
+            # Het stroomgebied in plaats van de cirkel: wat niet kán bijdragen valt hier af, met
+            # een reden die zegt wélke van de drie het is.
+            wl_per_vergunning, redenen, telling_sg = _filter_op_stroomgebied(
+                wl_per_vergunning, redenen, wl, register_wl)
             redenen_vergunning = redenen
             # Gemeld — wat de inrichting zelf rapporteert te lozen (E-PRTR). Als enige bron in
             # deze keten machinaal bevraagbaar. De koppeling is een heuristiek en draagt dat mee.
@@ -334,9 +389,11 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
                    "buiten_toerekening": []}
             wl_per_vergunning = {}
             redenen_vergunning = {}
+            telling_sg = {}
     else:
         mag = {"status": "overgeslagen", "register": [], "telling": {},
                "bron": {}, "echt": False, "buiten_toerekening": []}
+        telling_sg = {}
         wl_per_vergunning = {}
         redenen_vergunning = {}
 
@@ -398,6 +455,22 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 50000,
         "stroomprofiel": stroomprofiel(mag.get("register") or [], wl_per_vergunning,
                                        redenen_vergunning, wl),
         "gebeurt": gebeurt,
+        # Waarop de afbakening berust. Stond er niet toen de zoekstraal die afbakening wás; nu
+        # het district dat doet, hoort de pagina te kunnen zeggen welk district, hoe groot het is
+        # en hoeveel daarvan dit lab kan plaatsen.
+        "stroomgebied": {
+            "register": bool(register_wl.get("beschikbaar")),
+            "reden": register_wl.get("reden"),
+            "district": stroomgebied.district_van(register_wl, wl),
+            "waterlichamen_in_district": len(stroomgebied.codes_in_district(
+                register_wl, stroomgebied.district_van(register_wl, wl) or "")),
+            "geplaatst": len(toerekening.STROOMVOLGORDE),
+            "zonder_positie": [{"code": c, "reden": r}
+                               for c, r in sorted(toerekening.ZONDER_POSITIE.items())],
+            "straal_m": straal_m,
+            "opgehaald_op": register_wl.get("opgehaald_op"),
+            "telling": telling_sg,
+        },
         "bijdragen": vraag,
         "proclaimer": proclaimer.bouw(set_, mag, regels.BRON,
                                       doelen_beschikbaar=bool(doelenset.get("beschikbaar")

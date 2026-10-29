@@ -404,9 +404,18 @@
       <div class="story">
         <div class="wens">Als <strong>analist</strong> wil ik alle vergunningen op de bovenstroomse
           waterlichamen, niet alles binnen een cirkel van 50 km.</div>
-        <div class="status"><i class="stip model"></i><span>Vraagt een verklaarde relatie tussen
-          lozingspunt en waterlichaam. Nu leidt de POC die ruimtelijk af, en stroomafwaarts mist hij
-          daardoor juist de bronnen die ertoe doen.</span></div>
+        <div class="status"><i class="stip nu"></i><span>Dit kan nu. Het waterlichaamregister van
+          het Waterkwaliteitsportaal geeft per waterlichaam zijn stroomgebieddistrict, en de POC
+          vraagt per vergunning of zij in hetzelfde district ligt in plaats van hoe ver zij weg is.
+          Keizersveer ging daarmee van 0 naar 13,3 procent verklaarde stikstof.</span></div>
+      </div>
+      <div class="story">
+        <div class="wens">Als <strong>analist</strong> wil ik weten welk waterlichaam bovenstrooms
+          van welk ligt, zonder dat zelf te bedenken.</div>
+        <div class="status"><i class="stip model"></i><span>Vraagt een relatie die in geen bron
+          staat. Het register kent 163 Maas-waterlichamen en geen enkele ordening ertussen;
+          <code>VoorgangerCode</code> lijkt erop maar is versiehistorie. Dit lab plaatst er tien en
+          laat er vier uitdrukkelijk ongeplaatst.</span></div>
       </div>
     </div>
 
@@ -455,10 +464,13 @@
 
     <div class="section-title">Wat de POC niet kan, en waarom dat eerlijk is</div>
     <ul>
-      <li><strong>De zoekstraal is een cirkel, geen stroomgebied.</strong> Voor een punt
-        benedenstrooms liggen de echte bovenstroomse lozingen verder weg dan 50 km. Brakel ligt
-        91 km van Belfeld, dus de grote stikstoflozers op de Zandmaas vallen er buiten. Elke nul
-        stroomafwaarts is daarom een ondergrens, geen bevinding.</li>
+      <li><strong>De volgorde tussen waterlichamen is een keuze van dit lab.</strong> De
+        zoekstraal is geen cirkel meer — of een vergunning in beeld komt, hangt sinds 29 oktober
+        2026 af van het stroomgebieddistrict uit het waterlichaamregister, niet van haar afstand.
+        Maar datzelfde register kent geen ordening tússen die 163 waterlichamen. Welke
+        bovenstrooms van welke ligt, hebben wij zelf vastgelegd, met per waterlichaam de grondslag
+        erbij, en vier laten wij ongeplaatst — lozingen daarop tellen niet mee en dat staat
+        erbij.</li>
       <li><strong>Bovenstrooms is grofmazig.</strong> Het model werkt op hele waterlichamen, dus een
         lozing op hetzelfde waterlichaam telt mee ook als zij daarbinnen stroomafwaarts ligt.
         Preciezer zou een stromingsmodel vergen.</li>
@@ -588,8 +600,10 @@
 
       const punten = o.punten;
       document.getElementById("datum").textContent =
-        `Cijfers uit de POC, voorberekend op ${o.opgehaald_op} met een zoekstraal van ` +
-        `${nl((o.straal_m || 0) / 1000, 0)} km over ${nl(punten.length, 0)} Maas-meetpunten.`;
+        `Cijfers uit de POC, voorberekend op ${o.opgehaald_op} over ` +
+        `${nl(punten.length, 0)} Maas-meetpunten. Welke vergunningen meetellen bepaalt het ` +
+        `stroomgebieddistrict, niet een zoekstraal; de ${nl((o.straal_m || 0) / 1000, 0)} km ` +
+        `hieronder dient alleen om het register op te halen.`;
 
       // Het meetpunt met het hoogste vergunde aandeel draagt het betoog het duidelijkst.
       const beste = punten.reduce((a, b) => {

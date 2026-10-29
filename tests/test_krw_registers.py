@@ -105,18 +105,37 @@ def locaties():
     return json.loads(p.read_text())
 
 
-def test_het_maasdistrict_is_veel_groter_dan_de_stroomvolgorde_van_dit_lab(waterlichamen):
-    """De aanleiding voor deze download: `toerekening.STROOMVOLGORDE` kent er acht."""
+def test_elk_rijkswaterlichaam_in_de_maas_is_geplaatst_of_uitdrukkelijk_niet(waterlichamen):
+    """Geen rijkswaterlichaam in district Maas mag stilzwijgend ontbreken.
+
+    De stroomvolgorde kende er acht; district Maas heeft er veertien van Rijkswaterstaat. De zes
+    die erbij kwamen zijn ofwel geplaatst (mét grondslag in `GROND`) ofwel uitdrukkelijk níét te
+    plaatsen (`ZONDER_POSITIE`). Wat deze test afdwingt is dat er geen derde categorie is: een
+    waterlichaam dat nergens genoemd wordt en daardoor onzichtbaar wegvalt.
+    """
     from leefomgevinglab.usecases.kmg import toerekening
 
-    bekend = {code for code, _naam in toerekening.STROOMVOLGORDE}
+    geplaatst = {code for code, _naam in toerekening.STROOMVOLGORDE}
     maas = waterlichamen["per_district"]["Maas"]
     assert len(maas) > 100, "een stroomgebied is geen handjevol waterlichamen"
-    ontbreekt = [c for c in maas
-                 if waterlichamen["waterlichamen"][c]["beheerder"] == "Rijkswaterstaat"
-                 and c not in bekend]
-    assert ontbreekt, "als dit leeg is, is de stroomvolgorde bijgewerkt — werk deze test dan bij"
-    assert "NL91JK" in ontbreekt, "het Julianakanaal is rijkswater in de Maas en ontbreekt"
+    rws = [c for c in maas
+           if waterlichamen["waterlichamen"][c]["beheerder"] == "Rijkswaterstaat"]
+    vergeten = [c for c in rws
+                if c not in geplaatst and c not in toerekening.ZONDER_POSITIE]
+    assert not vergeten, f"niet geplaatst en niet benoemd: {vergeten}"
+    assert toerekening.ZONDER_POSITIE, "de twee onplaatsbare horen benoemd te blijven"
+
+
+def test_elke_plaatsing_zegt_waarop_zij_berust(waterlichamen):
+    """De codes komen uit de bron, de volgorde niet — dus draagt elke code een grondslag."""
+    from leefomgevinglab.usecases.kmg import toerekening
+
+    for code, naam in toerekening.STROOMVOLGORDE:
+        grond = toerekening.positie_grond(code)
+        assert grond, f"{code} ({naam}) zegt niet waarop zijn plaatsing berust"
+    # Wat niet op de hoofdstroom ligt, moet dat ook zeggen in plaats van als gegeven te gelden.
+    afgeleid = [c for c, g in toerekening.GROND.items() if g != "hoofdstroom"]
+    assert all("dit lab" in toerekening.GROND[c] for c in afgeleid)
 
 
 def test_elke_in_de_stroomvolgorde_genoemde_code_bestaat_echt(waterlichamen):

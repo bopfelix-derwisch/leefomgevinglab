@@ -305,11 +305,15 @@ leefomgevinglab:
     # Delta API van RWS geeft 401 en de WKP-module die dit zou oplossen komt begin 2027.
     # Verversen: scripts/13_fetch_wkp_metingen.py op een nieuwe download.
     metingen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json"
-    # Hoe ver bovenstrooms wij naar vergunningen zoeken. Dit is een inhoudelijke keuze van dit
-    # lab, geen gegeven uit een bron: wat erbinnen valt kan worden toegerekend, wat erbuiten valt
-    # niet. Ruimer dan de 5 km van /gebruiksruimte, omdat een bovenstroomse lozing tientallen
-    # kilometers verderop kan liggen. De proclaimer benoemt deze keuze.
-    straal_m: 50000
+    # Hoe ver wij de Atlas afzoeken. Dit is géén inhoudelijke keuze meer: de straal bepaalt
+    # alleen nog wát er opgehaald wordt, en het stroomgebieddistrict bepaalt wat meetelt (zie
+    # kmg/stroomgebied.py). Daarom ruim genoeg om het hele Maasdistrict in één greep te pakken
+    # -- Eijsden tot het Haringvliet is ruim 200 km -- in plaats van de oude 50 km, die
+    # bovenstroomse lozingen liet liggen omdat een stroomgebied geen cirkel is.
+    straal_m: 250000
+    # Het waterlichaamregister van het Waterkwaliteitsportaal: per waterlichaam zijn
+    # stroomgebieddistrict. Verversen: scripts/18_fetch_krw_registers.py.
+    waterlichamen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/krw_waterlichamen.json"
     # Het overzicht over alle Maas-meetpunten is voorberekend: een punt kost koud ~166 s, dus negen
     # live achter elkaar kan geen pagina-aanroep zijn. Verversen: scripts/14_bouw_kmg_overzicht.py.
     # Net als de meetset is dit dus een momentopname, en de pagina toont de ophaaldatum.

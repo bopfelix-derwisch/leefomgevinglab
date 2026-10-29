@@ -102,6 +102,22 @@
     .geenoordeel { margin-top:10px; font-size:12px; color:var(--let); border-left:2px solid var(--let);
       padding:4px 0 4px 10px; }
 
+    /* De afbakening onder het lengteprofiel: waarop berust het dat deze vergunningen meetellen
+       en die andere niet. Hoort bij de plaat en niet in de proclaimer, want het verklaart wat je
+       er net boven ziet staan. */
+    .afbakening { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; margin-bottom:14px; font-size:12.5px; color:var(--muted); }
+    .afbakening .kop { font-size:10.5px; text-transform:uppercase; letter-spacing:.1em;
+      color:var(--dim); margin-bottom:7px; }
+    .afbakening p + p, .afbakening .atel + p { margin-top:8px; }
+    .afbakening b { color:var(--text); }
+    .afbakening .atel { display:flex; gap:18px; flex-wrap:wrap; margin-top:9px;
+      font-size:12px; color:var(--dim); }
+    .afbakening .atel b { font-variant-numeric:tabular-nums; }
+    .afbakening .azonder { margin:7px 0 0 18px; font-size:12px; }
+    .afbakening .azonder li { margin-bottom:4px; }
+    .afbakening code { font-family:ui-monospace,monospace; font-size:11.5px; color:var(--mag); }
+
     /* Wat een laag níet toont. Staat bewust binnen de laag zelf en niet in de proclaimer onderaan:
        een lezer die alleen naar "mag" kijkt moet het daar tegenkomen. */
     .nietinbeeld { margin-top:12px; border-left:2px solid var(--weg); padding:6px 0 6px 11px;
@@ -313,6 +329,7 @@
 
     <div class="section-title">De Maas van boven naar beneden — waar liggen die vergunningen?</div>
     <div id="profiel"></div>
+    <div id="afbakening"></div>
 
     <div class="section-title">Welke vergunningen kunnen bijdragen — bovengrens, geen vaststelling</div>
     <div id="bijdragen"></div>
@@ -555,6 +572,49 @@
         `(leeg). En een ontbrekende melding is <b>geen nul</b>: E-PRTR dekt alleen inrichtingen ` +
         `boven de Europese rapportagedrempel.</p>`;
       el.innerHTML = h;
+    }
+
+    // Waarop de afbakening berust. Dit stond er niet toen de zoekstraal die afbakening wás --
+    // toen was er ook weinig te verantwoorden. Nu het stroomgebied het doet, hoort de pagina te
+    // zeggen hoe groot dat gebied is, hoeveel ervan wij kunnen plaatsen, en wat er bewust buiten
+    // blijft. De telling is belangrijker dan zij lijkt: zonder "benedenstrooms: 61" leest een
+    // lege bijdragenlijst als "er loost hier niemand".
+    function tekenAfbakening(d) {
+      const s = d.stroomgebied;
+      if (!s) { $("afbakening").innerHTML = ""; return; }
+      const t = s.telling || {};
+      const cel = (k, v) => v ? `<span><b>${nl(v, 0)}</b> ${esc(k)}</span>` : "";
+      let h = '<div class="afbakening">';
+      h += '<div class="kop">Hoe dit is afgebakend</div>';
+      if (s.register) {
+        h += `<p>Niet met een cirkel. Het hele register wordt opgehaald (straal ` +
+          `${nl((s.straal_m || 0) / 1000, 0)} km, alleen om te halen) en per vergunning wordt ` +
+          `gevraagd of haar waterlichaam in <b>stroomgebieddistrict ${esc(s.district || "—")}</b> ` +
+          `ligt — ${nl(s.waterlichamen_in_district, 0)} waterlichamen, uit het ` +
+          `waterlichaamregister van het Waterkwaliteitsportaal` +
+          (s.opgehaald_op ? ` (opgehaald ${esc(s.opgehaald_op)})` : "") + `.</p>`;
+      } else {
+        h += `<p class="dim">Het waterlichaamregister ontbreekt, dus het district is niet te ` +
+          `bepalen: ${esc(s.reden || "onbekende reden")}. Zonder dat register telt geen enkele ` +
+          `vergunning mee — een onbekend district is geen reden om er een de toerekening in te ` +
+          `praten.</p>`;
+      }
+      const cellen = [cel("meegerekend", t.meegerekend), cel("benedenstrooms", t.benedenstrooms),
+                      cel("niet te plaatsen", t.zonder_positie),
+                      cel("buiten het stroomgebied", t.buiten_stroomgebied),
+                      cel("zonder waterlichaam", t.zonder_waterlichaam)].filter(Boolean);
+      if (cellen.length) h += `<div class="atel">${cellen.join("")}</div>`;
+      h += `<p>Wat hiermee <b>niet</b> is opgelost: de bron kent geen volgorde tussen die ` +
+        `waterlichamen. Welke bovenstrooms van welke ligt, heeft dit lab zelf vastgelegd voor ` +
+        `${nl(s.geplaatst, 0)} ervan.</p>`;
+      if ((s.zonder_positie || []).length) {
+        h += `<p>En ${s.zonder_positie.length} waterlichamen in dit district blijven ` +
+          `uitdrukkelijk ongeplaatst — lozingen daarop tellen dus niet mee, en dat staat erbij ` +
+          `in plaats van stilzwijgend te gebeuren:</p><ul class="azonder">` +
+          s.zonder_positie.map(z =>
+            `<li><code>${esc(z.code)}</code> — ${esc(z.reden)}</li>`).join("") + `</ul>`;
+      }
+      $("afbakening").innerHTML = h + "</div>";
     }
 
     function tekenProfiel(d) {
@@ -865,14 +925,15 @@
         `die waarde zelf. Let op het contrast: de klasse verschuift nauwelijks over de hele Maas ` +
         `terwijl het vergunde aandeel van bijna niets tot ruim een zesde loopt — de vergunde ` +
         `lozingen bepalen dit oordeel dus niet.</p>`;
-      h += `<p class="geenoordeel">Lees de nullen stroomafwaarts niet als "hier loost niemand". ` +
-        `Wij zoeken vergunningen binnen <b>${nl(km, 0)} km van het meetpunt</b>, en voor een punt ` +
-        `benedenstrooms liggen de echte bovenstroomse bronnen verder weg dan dat: Brakel ligt 91 km ` +
-        `van Belfeld, dus de grote stikstoflozers op de Zandmaas vallen voor Brakel buiten beeld. ` +
-        `Hoe verder stroomafwaarts, hoe meer van het werkelijke stroomgebied wij missen. Een cirkel ` +
-        `is een slechte benadering van een stroomgebied; de juiste vraag is "alle vergunningen op de ` +
-        `bovenstroomse waterlichamen", niet "alles binnen zoveel kilometer". Dat is nog niet gebouwd, ` +
-        `dus elk getal in deze strook is een ondergrens — en stroomafwaarts een steeds lossere.</p>`;
+      h += `<p class="geenoordeel">De afbakening is niet langer een cirkel. Eerder zochten wij ` +
+        `vergunningen binnen 50 km van het meetpunt, en dat liet benedenstrooms juist de ` +
+        `bovenstroomse lozers liggen — Brakel ligt 91 km van Belfeld. Nu halen wij het hele ` +
+        `register op (straal ${nl(km, 0)} km, alleen om te ophalen) en vragen wij per vergunning ` +
+        `of haar waterlichaam in hetzelfde <b>stroomgebieddistrict</b> ligt. Wat overblijft is de ` +
+        `vraag welke waterlichamen bovenstrooms van welke liggen: die volgorde staat in geen bron ` +
+        `en is een keuze van dit lab, en twee waterlichamen in district Maas laten wij ` +
+        `uitdrukkelijk ongeplaatst. Elk getal hier blijft een bovengrens van wat vergunningen ` +
+        `kunnen bijdragen.</p>`;
       h += `</div>`;
       el.innerHTML = h;
     }
@@ -893,6 +954,7 @@
       tekenGebeurt(d);
       tekenGemeld(d);
       tekenProfiel(d);
+      tekenAfbakening(d);
       tekenBijdragen(d);
       tekenConclusie(d);
       tekenProclaimer(d);

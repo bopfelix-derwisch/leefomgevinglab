@@ -170,3 +170,37 @@ def test_de_toerekening_wordt_ook_hier_als_bovengrens_gepresenteerd():
     assert "veroorzaakt door" not in tekst
     assert "bovengrens" in tekst
     assert "nooit een vaststelling" in tekst
+
+
+# --- de afbakening, sinds het stroomgebied de cirkel verving ------------------------------
+
+def test_het_waterlichaamregister_klopt_met_de_presentatie():
+    """163 Maas-waterlichamen is een brongegeven en hoort niet te verouderen in een dia."""
+    from leefomgevinglab.usecases.kmg import stroomgebied
+
+    r = stroomgebied.laad()
+    if not r["beschikbaar"]:
+        pytest.skip(r["reden"])
+    assert wp.CIJFERS["waterlichamen_maas"] == len(stroomgebied.codes_in_district(r, "Maas"))
+
+
+def test_wat_dit_lab_plaatst_en_wat_het_laat_liggen_klopt_met_de_code():
+    from leefomgevinglab.usecases.kmg import toerekening
+
+    assert wp.CIJFERS["waterlichamen_geplaatst"] == len(toerekening.STROOMVOLGORDE)
+    assert wp.CIJFERS["waterlichamen_zonder_positie"] == len(toerekening.ZONDER_POSITIE)
+
+
+def test_de_dia_over_hoe_verder_zegt_dat_de_cirkel_vervangen_is():
+    """Een presentatie die een opgelost probleem als openstaand presenteert, is onwaar."""
+    dia = next(d for d in wp.DIAS if d["beeld"]["soort"] == "tijdlijn")
+    gedaan = [i for i in dia["beeld"]["items"] if i["jaar"] == "gedaan"]
+    assert gedaan and "stroomgebieddistrict" in gedaan[0]["wat"]
+    assert "cirkel van 50 km" not in " ".join(dia["kern"]), "dat staat niet meer op de lijst"
+
+
+def test_de_stroomvolgorde_staat_wel_als_openstaand_punt():
+    """Wat de download níét oploste hoort zichtbaar te blijven."""
+    tekst = " ".join(" ".join(d["kern"]) + " " + d["spreektekst"] for d in wp.DIAS).lower()
+    assert "stroomvolgorde" in tekst
+    assert "geen relatie ertussen" in tekst or "geen enkele relatie ertussen" in tekst

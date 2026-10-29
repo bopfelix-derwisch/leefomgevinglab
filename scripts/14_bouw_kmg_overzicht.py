@@ -73,15 +73,16 @@ def _stof_regel(bijdrage: dict) -> dict:
     }
 
 
-def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None,
-         parameters_pad: str | None = None, normen_pad: str | None = None) -> dict:
+def bouw(metingen_pad: str, straal_m: int = 250000, doelen_pad: str | None = None,
+         parameters_pad: str | None = None, normen_pad: str | None = None,
+         waterlichamen_pad: str | None = None) -> dict:
     punten = service.meetpunten(metingen_pad)
     uit = []
     for i, p in enumerate(punten, 1):
         t0 = time.time()
         b = service.beeld(p["code"], metingen_pad, live=True, straal_m=straal_m,
                           doelen_pad=doelen_pad, parameters_pad=parameters_pad,
-                          normen_pad=normen_pad)
+                          normen_pad=normen_pad, waterlichamen_pad=waterlichamen_pad)
         reg = b["mag"].get("register") or []
         in_band = sum(len(band.get("vergunningen") or [])
                       for band in b["stroomprofiel"]["banden"])
@@ -106,6 +107,9 @@ def bouw(metingen_pad: str, straal_m: int = 50000, doelen_pad: str | None = None
             },
             "in_band": in_band,
             "zonder_waterlichaam": len(b["stroomprofiel"].get("zonder_waterlichaam") or []),
+            # Waarop de afbakening berust, nu het stroomgebied dat doet in plaats van de
+            # zoekstraal: hoeveel vergunningen er meegerekend zijn en waarom de rest niet.
+            "stroomgebied": b.get("stroomgebied") or {},
             "mag_status": b["mag"].get("status"),
             # De regelslaag erbij: hoeveel regelingen het DSO op dit punt teruggeeft en hoeveel
             # daarvan de waterkwaliteit raken. Op /waterverhaal stonden die twee hardgecodeerd, en
@@ -129,13 +133,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--metingen", required=True, help="pad naar de verdichte meetset")
     ap.add_argument("--uit", required=True, help="pad voor het overzicht-JSON")
-    ap.add_argument("--straal", type=int, default=50000, help="zoekstraal in meters")
+    ap.add_argument("--straal", type=int, default=250000,
+                    help="ophaalstraal in meters; het district bepaalt wat meetelt")
+    ap.add_argument("--waterlichamen", default=None,
+                    help="pad naar krw_waterlichamen.json (scripts/18)")
     ap.add_argument("--doelen", default=None, help="pad naar de verdichte KRW-doelen")
     ap.add_argument("--parameters", default=None, help="pad naar de Aquo-parameterreferentie")
     ap.add_argument("--normen", default=None, help="pad naar de chemische KRW-normen")
     a = ap.parse_args()
 
     d = bouw(a.metingen, straal_m=a.straal, doelen_pad=a.doelen,
+             waterlichamen_pad=a.waterlichamen,
              parameters_pad=a.parameters, normen_pad=a.normen)
     uit = Path(a.uit)
     uit.parent.mkdir(parents=True, exist_ok=True)

@@ -19,20 +19,26 @@ DUUR_S = 600
 # momentopname: de pagina moet ook werken als dat bestand er niet is, en een presentatie hoort niet
 # halverwege een zin stil te vallen. De test houdt ze tegen de momentopname aan.
 CIJFERS = {
-    "voorschriften_totaal": 2550,
-    "voorschriften_bruikbaar": 2163,
+    "voorschriften_totaal": 7038,
+    "voorschriften_bruikbaar": 5967,
     "voorschriften_bruikbaar_pct": 84.8,
     "voorschriften_volledig": 0,
-    "voorschriften_zonder_geldigheid": 2550,
+    "voorschriften_zonder_geldigheid": 7038,
     "meetpunten": 9,
-    "aandeel_max_pct": 15.8,
-    "aandeel_nul": 16,
+    "aandeel_max_pct": 28.5,
+    "aandeel_nul": 6,
     "aandeel_gevallen": 22,
     "register_maas": 69,
     "rwzi_in_register": 7,
     "rwzi_voorschriften": 30,
     "rwzi_grootheden": 5,
     "kvk_gevuld": 69,
+    # De afbakening sinds 29 oktober 2026: het stroomgebieddistrict in plaats van een cirkel van
+    # 50 km. Van de 163 Maas-waterlichamen plaatst dit lab er tien in een volgorde; vier blijven
+    # uitdrukkelijk ongeplaatst.
+    "waterlichamen_maas": 163,
+    "waterlichamen_geplaatst": 10,
+    "waterlichamen_zonder_positie": 4,
 }
 
 
@@ -235,29 +241,30 @@ DIAS = [
         "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 50),
 
     _dia(
-        10, "Het resultaat", "Het register verklaart hoogstens een zesde",
+        10, "Het resultaat", "Het register verklaart hoogstens een kwart",
         ["Per stof en meetpunt: welk deel van de gemeten waarde is vergund?",
-         "Hoogste uitkomst: 15,8 procent (stikstof bij Heel)",
-         "In 16 van de 22 gevallen: precies nul",
-         "Bij Keizersveer staan 19 vergunningen in het register — geen ervan bovenstrooms"],
+         "Hoogste uitkomst: 28,5 procent (zink bij Brakel)",
+         "De enige nullen die overblijven zijn PFOA — die stof staat in géén vergunning",
+         "Keizersveer stond op 0 procent zolang wij in een cirkel van 50 km zochten"],
         {"soort": "rivier", "punten": [
             {"naam": "Eijsden ponton", "pct": 2.1, "wl": "Bovenmaas"},
             {"naam": "Stevensweert", "pct": 0.0, "wl": "Grensmaas"},
-            {"naam": "Belfeld boven", "pct": 7.0, "wl": "Zandmaas"},
-            {"naam": "Heel (innamewerk)", "pct": 15.8, "wl": "Zandmaas"},
-            {"naam": "Brakel", "pct": 0.0, "wl": "Beneden Maas"},
-            {"naam": "Keizersveer", "pct": 0.0, "wl": "Bergsche Maas"},
-            {"naam": "Bovensluis", "pct": 0.0, "wl": "Haringvliet-oost"},
-            {"naam": "Haringvlietsluis", "pct": 0.0, "wl": "Haringvliet-west"},
+            {"naam": "Belfeld boven", "pct": 14.4, "wl": "Zandmaas"},
+            {"naam": "Heel (innamewerk)", "pct": 15.9, "wl": "Zandmaas"},
+            {"naam": "Brakel", "pct": 28.5, "wl": "Beneden Maas"},
+            {"naam": "Keizersveer", "pct": 13.3, "wl": "Bergsche Maas"},
+            {"naam": "Bovensluis", "pct": 15.4, "wl": "Haringvliet-oost"},
+            {"naam": "Haringvlietsluis", "pct": 24.6, "wl": "Haringvliet-west"},
         ]},
         "Nu de uitkomst. We rekenen per stof en per meetpunt uit welk deel van de gemeten waarde "
         "toe te rekenen is aan vergunningen bovenstrooms. Uitdrukkelijk een bovengrens, nooit een "
-        "vaststelling — wij zeggen niet wie iets veroorzaakt. En dan: de hoogste uitkomst over "
-        "de hele Maas is vijftien komma acht procent, voor stikstof bij het innamewerk Heel. In "
-        "zestien van de tweeëntwintig stof-puntcombinaties is het antwoord precies nul. Bij "
-        "Keizersveer staan negentien vergunningen in het register en verklaren ze samen niets, omdat "
-        "geen ervan bovenstrooms ligt. Rijkswaterstaat bevestigt dat onafhankelijk: op geen van de "
-        "Limburgse Maas-waterlichamen is een puntbron als significante belasting geregistreerd.",
+        "vaststelling — wij zeggen niet wie iets veroorzaakt. De hoogste uitkomst is achtentwintig "
+        "komma vijf procent, voor zink bij Brakel. De enige nullen die overblijven zijn PFOA, en "
+        "die stof staat in geen enkele vergunning. Eén getal is leerzamer dan de rest: Keizersveer "
+        "stond tot deze week op nul. Niet omdat daar niets bovenstrooms ligt, maar omdat wij "
+        "zochten in een cirkel van vijftig kilometer, en de Maas is tweehonderd kilometer lang. "
+        "Sinds we het stroomgebieddistrict gebruiken telt Keizersveer vierenveertig vergunningen "
+        "mee in plaats van geen.",
         "Toerekeningsmodel van dit lab — bovengrens, geen vaststelling", "/kmg", 40),
 
     _dia(
@@ -348,32 +355,35 @@ DIAS = [
         "Aquo-domeintabel Parameter · lozingsmodel.py", "/watermodel", 45),
 
     _dia(
-        15, "Hoe verder", "Vijf dingen — en een datum",
+        15, "Hoe verder", "Wat nog mist — en een datum",
         ["De Aquo-drieslag als sleutel in het voorschrift: parameter, hoedanigheid, eenheid",
          "Een geldigheidsperiode per voorschrift",
-         "Het waterlichaam als verklaarde relatie in plaats van een cirkel van 50 km",
          "Een kruistabel eMJV ↔ KvK-vestiging",
-         "Geen van vijf vraagt een nieuw register"],
+         "En een stroomvolgorde: het register kent 163 Maas-waterlichamen en géén relatie ertussen",
+         "Geen van vier vraagt een nieuw register"],
         {"soort": "tijdlijn", "items": [
-            {"jaar": "nu", "wat": "vier velden en één kruistabel — geen nieuw register nodig"},
+            {"jaar": "gedaan", "wat": "de cirkel van 50 km vervangen door het stroomgebieddistrict, uit het waterlichaamregister van het WKP"},
+            {"jaar": "nu", "wat": "drie velden, één kruistabel en een stroomvolgorde — geen nieuw register nodig"},
             {"jaar": "2027", "wat": "herziene Richtlijn Stedelijk Afvalwater in NL-wetgeving: monitoring van niet-huishoudelijke lozingen verplicht"},
             {"jaar": "2027", "wat": "machine-ingang van het Waterkwaliteitsportaal"},
         ]},
-        "Hoe verder? Vijf dingen, in volgorde van wat ze opleveren. De Aquo-drieslag als sleutel "
-        "aan de vergunningkant — parameter, hoedanigheid, eenheid. Een geldigheidsperiode per "
-        "voorschrift. Het waterlichaam als verklaarde relatie in plaats van onze cirkel van vijftig "
-        "kilometer. En een kruistabel tussen het milieujaarverslag en de KvK-vestiging. Geen van "
-        "vijf vraagt een nieuw register. En er is een datum bij: de herziene Richtlijn Stedelijk "
-        "Afvalwater verplicht lidstaten om relevante niet-huishoudelijke lozingen te monitoren, en "
-        "verbiedt dat de vracht uit een zuivering het ontvangende water laat achteruitgaan. "
+        "Hoe verder? Eén ding is net af: de cirkel van vijftig kilometer is vervangen door het "
+        "stroomgebieddistrict, uit het waterlichaamregister. Wat nog mist zijn er vier. De "
+        "Aquo-drieslag als sleutel aan de vergunningkant. Een geldigheidsperiode per voorschrift. "
+        "Een kruistabel tussen het milieujaarverslag en de KvK-vestiging. En een stroomvolgorde: "
+        "het register kent honderddrieënzestig Maas-waterlichamen en geen enkele relatie ertussen, "
+        "dus welke bovenstrooms van welke ligt hebben wij zelf moeten bedenken. Geen van vier "
+        "vraagt een nieuw register. En er is een datum bij: de herziene Richtlijn Stedelijk "
+        "Afvalwater verplicht lidstaten om relevante niet-huishoudelijke lozingen te monitoren. "
         "Nederlandse implementatie: tweeduizendzevenentwintig.",
-        "Richtlijn (EU) 2024/3019 art. 14 · STOWA 2025-46", "/waterverhaal", 35),
+        "Richtlijn (EU) 2024/3019 art. 14 · STOWA 2025-46 · WKP-waterlichaamregister",
+        "/waterverhaal", 40),
 
     _dia(
         16, "Slot", "Waar dit op neerkomt",
         ["Vier lagen opgehaald uit vier bronnen, drie ervan live",
-         "Het register verklaart hoogstens een zesde van wat gemeten wordt",
-         "Niet door gebrek aan data, maar door drie lege velden en één ontbrekende tabel",
+         "Het register verklaart hoogstens een kwart van wat gemeten wordt",
+         "Niet door gebrek aan data, maar door lege velden en ontbrekende relaties",
          "Alles op deze dia's staat als werkende pagina online"],
         {"soort": "lagen", "lagen": [
             {"naam": "/waterverhaal", "sub": "het dossier in vijf vragen — de korte doorloop", "kleur": "accent"},
@@ -381,14 +391,14 @@ DIAS = [
             {"naam": "/watermodel", "sub": "het informatiemodel en tien user stories", "kleur": "gebeurt"},
             {"naam": "/gebruiksruimte", "sub": "wat kan hier nog — in de juiste volgorde", "kleur": "kan"},
         ]},
-        "Waar komt dit op neer? We hebben vier lagen opgehaald uit vier bronnen, drie ervan live, "
-        "en ze over elkaar gelegd op negen meetpunten in de Maas. Het vergunningenregister verklaart "
-        "hoogstens een zesde van wat er gemeten wordt, en op de meeste punten niets. Dat ligt niet "
-        "aan een gebrek aan data — het ligt aan drie velden die bestaan maar leeg blijven, "
-        "één kruistabel die niemand publiceert, en een hele lozingsroute die in geen "
-        "enkel register staat. Alles wat u hier gezien heeft staat als werkende pagina online, met "
-        "live bevraagde bronnen en een proclaimer die uit de data zelf wordt opgebouwd. Dank u wel.",
-        "LeefomgevingLab · leefomgevinglab.felixisfelix.com", "/water", 40),
+        "Waar komt dit op neer? Vier lagen uit vier bronnen, drie ervan live, over elkaar gelegd "
+        "op negen meetpunten in de Maas. Het vergunningenregister verklaart hoogstens een kwart "
+        "van wat er gemeten wordt. Dat ligt niet aan een gebrek aan data — het ligt aan velden die "
+        "bestaan maar leeg blijven, een kruistabel die niemand publiceert, een stroomvolgorde die "
+        "in geen register staat, en een hele lozingsroute die er evenmin in staat. Alles wat u "
+        "hier gezien heeft staat als werkende pagina online, met een proclaimer die uit de data "
+        "zelf wordt opgebouwd. Dank u wel.",
+        "LeefomgevingLab · leefomgevinglab.felixisfelix.com", "/water", 35),
 ]
 
 
