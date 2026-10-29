@@ -139,9 +139,36 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   scheidt grootheden die hetzelfde heten** — zink staat op élk Maas-punt in twee reeksen, totaal
   (`NVT`) en opgelost na filtratie (`nf`), bij Eijsden 52 metingen met mediaan 7,15 µg/l tegen 52
   met 2,80. Zonder die sleutel poolt de verdichting ze tot 4,54: een concentratie die niemand
-  gemeten heeft. De KRW-norm voor zink geldt juist voor de opgeloste fractie. **Geen machine-ingang:** de
-  Digitale Delta API van RWS geeft 401 op elk data-eindpunt en de WKP-module die dit oplost komt
-  begin 2027, dus de meetset is een handmatige momentopname.
+  gemeten heeft. De KRW-norm voor zink geldt juist voor de opgeloste fractie. **Geen machine-ingang
+  voor de méétwaarden:** de Digitale Delta API van RWS geeft 401 op elk data-eindpunt en de
+  WKP-module die dit oplost komt begin 2027, dus de meetset blijft een handmatige momentopname.
+- **De WKP-downloadmodule heeft wél een open JSON-API** (gevonden 2026-10-29, `scripts/18`). De
+  Angular-app waar je je doorheen klikt praat met `https://wkp.rws.nl/api/v1/data-downloads` —
+  geen sleutel, geen login. De basis staat in de runtime-configuratie van de app zelf,
+  `https://wkp.rws.nl/assets/config/config.json`, veld `backendUrl`; vraag je die op `/`, dan
+  krijg je de SPA-fallback (200 met index.html) in plaats van 404, dus een pad "bestaat" daar
+  altijd. Drie eindpunten: `GET /options/themes-and-subjects` (de catalogus, **29 onderwerpen** in
+  vier thema's), `GET /options/filter-values?subject_id=N` (jaren, districten, beheerders per
+  onderwerp) en `POST /download` (zip met csv of gpkg). **Het POST-verzoek is een lijst en het
+  veld heet `subjectId`** — stuur je het `subject`-object dat de frontend intern doorgeeft, dan
+  antwoordt de API `[0].SubjectId: Must not be null`. Niet officieel gepubliceerd, dus `scripts/18`
+  zoekt de onderwerp-id's op naam op in plaats van ze hard te coderen; een verschoven catalogus
+  valt dan luid om in plaats van stil het verkeerde bestand binnen te halen.
+- **Twee registers die het locatieprobleem verkleinen** (`scripts/18_fetch_krw_registers.py` →
+  `krw_monitoringlocaties.json` + `krw_waterlichamen.json`). `KRW-monitoringlocaties-geometrie`
+  (id 9) is strikt beter dan het meetobjectenbestand per beheerder dat `scripts/13` gebruikt: dat
+  dekt alleen Rijkswaterstaat (322 punten, 131 mét waterlichaam), dit dekt heel Nederland (**1571
+  punten, alle 1571 mét `waterlichaamCode`**) en komt als GeoPackage al in EPSG:28992 binnen. Het
+  overbrugt ook de namespacebreuk die `scripts/17` met de hand oplost: Eijsden heet in de
+  meetwaarden `NL80_EIJSDPTN` en hier `NL91_EIJSDPTN`, mét `NL91BOM` erbij.
+  `KRW-oppervlaktewaterlichamen` (id 17) geeft 745 waterlichamen met district en beheerder;
+  **district Maas telt er 163**, waarvan 14 van Rijkswaterstaat, terwijl
+  `toerekening.STROOMVOLGORDE` er **8** kent — het Julianakanaal (`NL91JK`) en de Midden-Limburgse
+  en Noord-Brabantse kanalen (`NL90_1`) zijn rijkswater in de Maas en vallen vandaag buiten de hele
+  toerekening. Hiermee kan de zoekcirkel van 50 km vervangen worden door een lidmaatschapsvraag
+  ("ligt dit waterlichaam in district Maas?"). **Wat er in géén van de 29 onderwerpen staat** is de
+  bovenstrooms-relatie tussen waterlichamen; `VoorgangerCode` lijkt erop maar is versiehistorie,
+  geen hydrologie. De stroomvolgorde blijft dus een labkeuze.
   **Let op de eenheden** — dit is de duurste valkuil van deze use-case: stikstof staat in mg/l maar
   **PFOA en zink in µg/l**. `toerekening.bijdragen()` rekent intern in mg/l en schaalt de uitkomst
   naar de eenheid van de meting (`EENHEIDSFACTOR`); een onbekende eenheid faalt luid in plaats van
