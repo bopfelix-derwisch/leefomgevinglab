@@ -80,13 +80,12 @@ DIAS = [
         ]},
         "Eerst het juridische fundament, want daar zit meteen de eerste verrassing. De normen voor "
         "waterkwaliteit zijn landelijk. De Kaderrichtlijn Water onderscheidt honderdtweeëntwintig "
-        "chemische stoffen: vijfenveertig prioritaire stoffen die Europa aanwijst, en "
-        "zevenenzeventig specifieke verontreinigende stoffen die Nederland zelf heeft aangewezen. "
-        "Die staan in bijlage drie en drie-a van het Besluit kwaliteit leefomgeving. En ze hangen "
-        "aan een waterlichaam, via het waterprogramma — niet aan een punt op de kaart. Dat "
-        "betekent iets praktisch: je kunt de norm principieel niet vinden door op een coördinaat "
-        "te bevragen. Hoe goed je het ook doet.",
-        "Bkl bijlage III en IIIa; STOWA 2025-46 voetnoot 16", "/waterverhaal", 35),
+        "chemische stoffen: vijfenveertig prioritaire en zevenenzeventig die Nederland zelf heeft "
+        "aangewezen. Die staan in bijlage drie en drie-a van het Besluit kwaliteit leefomgeving. "
+        "En ze hangen aan een waterlichaam, via het waterprogramma — niet aan een punt op de "
+        "kaart. Dat betekent iets praktisch: je kunt de norm principieel niet vinden door op een "
+        "coördinaat te bevragen. Hoe goed je het ook doet.",
+        "Bkl bijlage III en IIIa; STOWA 2025-46 voetnoot 16", "/waterverhaal", 30),
 
     _dia(
         3, "Juridisch", "Wie gaat waarover — en de route die niemand ziet",
@@ -99,14 +98,13 @@ DIAS = [
             {"nr": "2", "naam": "Indirecte lozing", "sub": "bedrijf → riool · gemeente beslist", "actief": False},
             {"nr": "3", "naam": "Zuivering", "sub": "RWZI → oppervlaktewater · waterbeheerder weer", "actief": False},
         ]},
-        "Tweede stuk fundament: wie gaat waarover. Loost een bedrijf rechtstreeks op de rivier, dan "
-        "is de waterbeheerder bevoegd gezag — Rijkswaterstaat of het waterschap. Maar loost "
-        "datzelfde bedrijf op het riool, dan is de gemeente bevoegd gezag, uitgevoerd door de "
-        "omgevingsdienst. Het waterschap beheert dan wel de zuivering en ontvangt het water, maar "
-        "heeft er geen bevoegd gezag over, geen handhavingsbevoegdheid, en zijn advies is sinds "
-        "tweeduizendvierentwintig niet eens meer bindend. Onthoud die tweede route — we komen "
-        "er halverwege op terug, en dan blijkt zij een gat in het hele beeld.",
-        "STOWA 2025-46, tabel 2; art. 4.34 en 4.35 Omgevingsbesluit", "/kmg", 35),
+        "Tweede stuk fundament: wie gaat waarover. Loost een bedrijf rechtstreeks op de rivier, "
+        "dan is de waterbeheerder bevoegd gezag. Maar loost datzelfde bedrijf op het riool, dan is "
+        "de gemeente dat, uitgevoerd door de omgevingsdienst. Het waterschap beheert dan wel de "
+        "zuivering en ontvangt het water, maar heeft er geen bevoegd gezag over, geen "
+        "handhavingsbevoegdheid, en zijn advies is sinds tweeduizendvierentwintig niet eens meer "
+        "bindend. Onthoud die tweede route — halverwege blijkt zij een gat in het hele beeld.",
+        "STOWA 2025-46, tabel 2; art. 4.34 en 4.35 Omgevingsbesluit", "/kmg", 30),
 
     _dia(
         4, "De aanpak", "Drie lagen over elkaar, plus een vierde",
@@ -146,7 +144,7 @@ DIAS = [
         "omgevingsplan valt af: over een lozing op rijkswater gaat niet de gemeente maar de "
         "minister. En de norm zelf komt er principieel niet uit, om de reden die we net zagen. De "
         "machine antwoordt keurig; alleen niet op deze vraag.",
-        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 35),
+        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 30),
 
     _dia(
         6, "Mag", "De vergunningen: een voorschrift is tekst, geen grootheid",
@@ -184,16 +182,14 @@ DIAS = [
             {"kop": "Zink opgelost", "groot": "2,80", "bij": "µg/l · zelfde punt, zelfde jaar", "kleur": "gebeurt"},
             {"kop": "Gepoold", "groot": "4,54", "bij": "een waarde die niemand heeft gemeten", "kleur": "weg"},
         ]},
-        "Laag drie: de metingen — de best verzorgde bron van de vier. Het "
-        "Waterkwaliteitsportaal levert ruim driehonderdvierentachtigduizend rijen, die wij "
-        "verdichten tot bijna vijfduizend metingen op tweeënnegentig meetpunten. En elke meting "
-        "volgt de Aquo-standaard: parametercode, hoedanigheid, eenheid. Dat klinkt als een detail "
-        "tot je het mist. Zink staat op elk Maas-punt in twee reeksen: totaal en opgelost. Bij "
-        "Eijsden zeven komma vijftien tegen twee komma tachtig. Trek je die samen, dan krijg je een "
-        "concentratie die niemand ooit heeft gemeten — terwijl de norm alleen over de "
-        "opgeloste fractie gaat. Het pijnlijke: deze bron heeft geen machine-ingang. De API geeft "
-        "een vier-nul-een; de module die dat oplost komt begin tweeduizendzevenentwintig.",
-        "Waterkwaliteitsportaal, Informatiehuis Water, meetjaar 2025", "/kmg", 40),
+        "Laag drie: de metingen — de best verzorgde bron van de vier. Elke meting volgt de "
+        "Aquo-standaard: parametercode, hoedanigheid, eenheid. Dat klinkt als een detail tot je "
+        "het mist. Zink staat op elk Maas-punt in twee reeksen, totaal en opgelost: bij Eijsden "
+        "zeven komma vijftien tegen twee komma tachtig. Trek je die samen, dan krijg je een "
+        "concentratie die niemand ooit heeft gemeten — terwijl de norm alleen over de opgeloste "
+        "fractie gaat. Het pijnlijke: deze bron heeft geen machine-ingang. De API geeft een "
+        "vier-nul-een; de module die dat oplost komt begin tweeduizendzevenentwintig.",
+        "Waterkwaliteitsportaal, Informatiehuis Water, meetjaar 2025", "/kmg", 35),
 
     _dia(
         8, "Gemeld", "De vierde laag: wat een bedrijf zelf rapporteert",
@@ -207,16 +203,14 @@ DIAS = [
             {"label": "stikstof vergund", "waarde": 525600, "max": 525600, "kleur": "mag", "bij": "kg per jaar"},
             {"label": "stikstof gemeld", "waarde": 52600, "max": 525600, "kleur": "gemeld", "bij": "10 procent benut"},
         ]},
-        "De vierde laag is onze toevoeging: wat een bedrijf zelf meldt. Inrichtingen boven de "
-        "Europese rapportagedrempel rapporteren jaarlijks hun emissies; het RIVM publiceert dat als "
-        "E-PRTR — en wel machinaal bevraagbaar, als enige bron in deze hele keten. Daarmee kun "
-        "je wat mag naast wat gemeld wordt leggen. Bij Sappi Maastricht: zevenduizend acht kilo zink "
-        "per jaar vergund, honderdvijf kilo gemeld. Anderhalve procent. Voor stikstof tien procent. "
-        "Dat verschil is vergunde ruimte die niet gebruikt wordt, en het staat nergens "
-        "geregistreerd, terwijl het bepaalt hoeveel een waterlichaam nog legaal kan verslechteren. "
-        "Eén waarschuwing: een ontbrekende melding is geen nul. E-PRTR kent alleen de grote "
+        "De vierde laag is onze toevoeging: wat een bedrijf zelf meldt. Het RIVM publiceert dat "
+        "als E-PRTR — machinaal bevraagbaar, als enige bron in deze hele keten. Daarmee kun je wat "
+        "mag naast wat gemeld wordt leggen. Bij Sappi Maastricht: zevenduizend acht kilo zink per "
+        "jaar vergund, honderdvijf kilo gemeld. Anderhalve procent. Voor stikstof tien procent. Dat "
+        "verschil is vergunde ruimte die niet gebruikt wordt, en het staat nergens geregistreerd. "
+        "Eén waarschuwing: een ontbrekende melding is geen nul — E-PRTR kent alleen de grote "
         "lozers.",
-        "E-PRTR, RIVM (live) · Atlas voor een Schone Maas", "/kmg", 40),
+        "E-PRTR, RIVM (live) · Atlas voor een Schone Maas", "/kmg", 30),
 
     _dia(
         9, "Het voorbeeld", "Zink van begin tot eind",
@@ -229,16 +223,14 @@ DIAS = [
             {"kop": "Gebeurt", "groot": "2,80", "bij": "µg/l opgelost · de fractie waar de norm op slaat", "kleur": "gebeurt"},
             {"kop": "Norm", "groot": "7,80", "bij": "µg/l · jaargemiddelde, opgelost", "kleur": "weg"},
         ]},
-        "Laten we één stof door alle vier de lagen volgen: zink. Het leerzaamste geval, "
-        "want hier is elke laag gevuld. De vergunning geeft een concentratie, maar zegt niet of die "
-        "over de totale of de opgeloste fractie gaat — dat veld bestaat niet in het "
-        "voorschrift. De meting geeft beide netjes apart. De norm is zeven komma tachtig microgram "
-        "per liter, jaargemiddeld, op de opgeloste fractie. Dus: we hebben een vergunde waarde, een "
-        "gemeten waarde en een norm, en we kunnen ze niet met zekerheid naast elkaar leggen. Niet "
-        "omdat de data ontbreekt, maar omdat één veld niet wordt ingevuld. Daar ging ook "
-        "de eenheid bijna mis: ons model rekende in milligram, de meting staat in microgram. Een "
-        "factor duizend, gevonden door het live te draaien, niet door een test.",
-        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 50),
+        "Laten we één stof door alle vier de lagen volgen: zink, het leerzaamste geval, want hier "
+        "is elke laag gevuld. De vergunning geeft een concentratie, maar zegt niet of die over de "
+        "totale of de opgeloste fractie gaat — dat veld bestaat niet in het voorschrift. De meting "
+        "geeft beide netjes apart. De norm is zeven komma tachtig microgram per liter, "
+        "jaargemiddeld, op de opgeloste fractie. We hebben dus een vergunde waarde, een gemeten "
+        "waarde en een norm, en we kunnen ze niet met zekerheid naast elkaar leggen. Niet omdat de "
+        "data ontbreekt, maar omdat één veld niet wordt ingevuld.",
+        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 35),
 
     _dia(
         10, "Het resultaat", "Het register verklaart hoogstens een kwart",
@@ -285,7 +277,7 @@ DIAS = [
         "zorgwekkende stof. Wat de zuivering niet wegneemt gaat via het effluent de rivier in, en "
         "daarvoor staat nergens een grenswaarde. Voor zink dat via het riool binnenkomt is in dit "
         "hele register geen vergunde ruimte te vinden.",
-        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 40),
+        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 35),
 
     _dia(
         12, "De diagnose", "Drie keer hetzelfde ontbrekende veld",
@@ -307,10 +299,60 @@ DIAS = [
         "gevuld, negenenzestig van negenenzestig. Alleen draagt de melding een eigen "
         "inrichtingsnummer, en er is geen vertaling tussen die twee. Dat is één "
         "kruistabel, geen stelselwijziging.",
-        "koppeling.py · lozingsmodel.py", "/watermodel", 40),
+        "koppeling.py · lozingsmodel.py", "/watermodel", 35),
 
     _dia(
-        13, "De valkuil", "Ruimte tot de norm is geen voorraad",
+        13, "De kennisgraaf", "Eén gedeeld nummer tegen één handtabel",
+        ["Een informatiemodel beschrijft vélden; een graaf beschrijft relaties",
+         "Aquo draagt bij 4104 van 5623 parameters een CAS-nummer — de E-PRTR-verordening ook",
+         "Van 16 gemelde stoffen koppelen er 9 vanzelf, waarvan 2 die onze handtabel mist",
+         "Nul keer spreken CAS en handtabel elkaar tegen"],
+        {"soort": "balken", "balken": [
+            {"label": "koppelen via CAS én handtabel, identiek", "waarde": 7, "max": 16,
+             "kleur": "accent", "bij": "de handtabel was correct, maar overbodig"},
+            {"label": "alleen via CAS", "waarde": 2, "max": 16, "kleur": "gemeld",
+             "bij": "trichloormethaan en chlooralkanen"},
+            {"label": "alleen met de hand — geen CAS bestaat", "waarde": 4, "max": 16,
+             "kleur": "mag", "bij": "somparameters"},
+            {"label": "geen brug", "waarde": 3, "max": 16, "kleur": "weg",
+             "bij": "TOC, AOX, cyaniden"},
+        ]},
+        "Nu de kennisgraaf, want die lost een ander soort probleem op. Een informatiemodel "
+        "beschrijft vélden; een graaf beschrijft relaties tussen dingen die hun eigen identiteit "
+        "houden. Concreet: Aquo draagt bij ruim vierduizend parameters een CAS-nummer, en de "
+        "E-PRTR-verordening doet dat ook. Twee bronnen met hetzelfde nummer hoeven niet met de "
+        "hand aan elkaar geknoopt te worden. Van de zestien gemelde stoffen koppelen er negen "
+        "vanzelf, waaronder twee die onze handtabel mist. En nul keer spreken de twee wegen "
+        "elkaar tegen: onze tabel was nergens fout, alleen incompleet. De somparameters hebben "
+        "per definitie geen CAS — dat zijn grootheden uit een meetmethode, niet uit een molecuul.",
+        "Aquo-domeintabel · E-PRTR bijlage II", "/kennisgraaf", 40),
+
+    _dia(
+        14, "De kennisgraaf", "En dan vindt die graaf iets",
+        ["Dezelfde graaf als controle over alle 69 Maas-vergunningen, 781 voorschriften",
+         "90 voorschriften hangen aan een ingetrokken Aquo-code",
+         "Waarvan 83 „Zwevende stof” — de meest voorkomende parameter in het register",
+         "14 dragen een naam die Aquo niet kent; 2 vergunningen tellen een som én haar delen"],
+        {"soort": "balken", "balken": [
+            {"label": "voorschriften in het Maasregister", "waarde": 781, "max": 781,
+             "kleur": "mag", "bij": "69 vergunningen"},
+            {"label": "op een ingetrokken code", "waarde": 90, "max": 781, "kleur": "weg",
+             "bij": "4 namen, waarvan Zwevende stof 83×"},
+            {"label": "naam die Aquo niet kent", "waarde": 14, "max": 781, "kleur": "weg",
+             "bij": "melamine, AMPA, pyrazool"},
+        ]},
+        "En dan kun je die graaf als controle over het echte register draaien. Over alle "
+        "negenenzestig Maas-vergunningen: negentig voorschriften hangen aan een Aquo-code die is "
+        "ingetrokken. Drieëntachtig daarvan zijn zwevende stof — de meest voorkomende parameter "
+        "in het hele register, en de code is vervallen zonder opvolger. Die koppelt dus niet, "
+        "terwijl onze eigen documentatie beweerde van wel. Veertien voorschriften dragen een naam "
+        "die Aquo helemaal niet kent: melamine, AMPA, pyrazool — daar loopt de standaard achter "
+        "op wat er vergund wordt. En twee vergunningen begrenzen een somparameter én een paar van "
+        "haar delen apart, dus wie optelt telt dubbel.",
+        "/kennisgraaf, live over het Maasregister", "/kennisgraaf", 35),
+
+    _dia(
+        15, "De valkuil", "Ruimte tot de norm is geen voorraad",
         ["De rekensom „ruimte = norm − achtergrond” is de immissietoets",
          "en die is de dérde en laatste stap, niet de eerste",
          "Bronaanpak en beste beschikbare technieken gaan eraan vooraf — ongeacht de ruimte",
@@ -330,7 +372,7 @@ DIAS = [
         "STOWA 2025-46 §6 · art. 8.22 en 8.30 Bkl", "/gebruiksruimte", 35),
 
     _dia(
-        14, "De oplossing", "Wat een informatiemodel hier oplost",
+        16, "De oplossing", "Wat een informatiemodel hier oplost",
         ["De Aquo-domeintabel als parameterreferentie: 5630 geldige codes",
          "Bruikbare voorschriften: van 57 naar 84 procent",
          "Gekoppelde stoffen per register: van 3 naar 42",
@@ -343,19 +385,17 @@ DIAS = [
             {"label": "gekoppelde stoffen — vóór", "waarde": 3, "max": 42, "kleur": "weg", "bij": ""},
             {"label": "gekoppelde stoffen — ná", "waarde": 42, "max": 42, "kleur": "accent", "bij": ""},
         ]},
-        "Wat lost een informatiemodel hiervan op? We hebben het uitgevoerd op de vergunningen die "
-        "er liggen. De grootste enkele winst kwam van de echte Aquo-domeintabel — die staat "
-        "gewoon als CSV op aquo punt nl. Daarmee gaat het aandeel bruikbare voorschriften van "
-        "zevenenvijftig naar vierentachtig procent, en het aantal gekoppelde stoffen van drie naar "
-        "tweeënveertig. De winst zit niet in exotische chemie maar in alledaagse begrippen die "
-        "in elke vergunning staan: zuurgraad, zwevende stof, debiet. Het tweede deel van het model "
-        "is belangrijker: elk veld draagt een zekerheid — uit de bron, afgeleid, aangenomen of "
-        "ontbrekend. Zo maakt het model zichtbaar wat er mist, in plaats van een onvolledige "
-        "vergunning er netjes uit te laten zien.",
-        "Aquo-domeintabel Parameter · lozingsmodel.py", "/watermodel", 45),
+        "Wat lost een informatiemodel hiervan op? De grootste enkele winst kwam van de echte "
+        "Aquo-domeintabel, die gewoon als CSV op aquo punt nl staat. Daarmee gaat het aandeel "
+        "bruikbare voorschriften van zevenenvijftig naar vierentachtig procent, en het aantal "
+        "gekoppelde stoffen van drie naar tweeënveertig. Het tweede deel is belangrijker: elk veld "
+        "draagt een zekerheid — uit de bron, afgeleid, aangenomen of ontbrekend. Zo maakt het "
+        "model zichtbaar wat er mist, in plaats van een onvolledige vergunning er netjes uit te "
+        "laten zien.",
+        "Aquo-domeintabel Parameter · lozingsmodel.py", "/watermodel", 30),
 
     _dia(
-        15, "Hoe verder", "Wat nog mist — en een datum",
+        17, "Hoe verder", "Wat nog mist — en een datum",
         ["De Aquo-drieslag als sleutel in het voorschrift: parameter, hoedanigheid, eenheid",
          "Een geldigheidsperiode per voorschrift",
          "Een kruistabel eMJV ↔ KvK-vestiging",
@@ -377,10 +417,10 @@ DIAS = [
         "Afvalwater verplicht lidstaten om relevante niet-huishoudelijke lozingen te monitoren. "
         "Nederlandse implementatie: tweeduizendzevenentwintig.",
         "Richtlijn (EU) 2024/3019 art. 14 · STOWA 2025-46 · WKP-waterlichaamregister",
-        "/waterverhaal", 40),
+        "/waterverhaal", 35),
 
     _dia(
-        16, "Slot", "Waar dit op neerkomt",
+        18, "Slot", "Waar dit op neerkomt",
         ["Vier lagen opgehaald uit vier bronnen, drie ervan live",
          "Het register verklaart hoogstens een kwart van wat gemeten wordt",
          "Niet door gebrek aan data, maar door lege velden en ontbrekende relaties",

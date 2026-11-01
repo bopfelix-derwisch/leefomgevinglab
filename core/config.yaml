@@ -329,6 +329,12 @@ leefomgevinglab:
     # Dezelfde domeintabel, maar als ruwe CSV: /kennisgraaf heeft de kolommen CASnummer,
     # Groep en Gerelateerd nodig, en die verdwijnen in de verdichting hierboven.
     aquo_csv_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_Parameter.csv"
+
+  waterpresentatie:
+    # De PowerPoint wordt gegenereerd uit usecases/waterpresentatie.py en niet met de
+    # hand onderhouden; een los pptx loopt binnen een week uit de pas met de POC.
+    # Verversen: scripts/19_bouw_waterpresentatie_pptx.py
+    pptx_pad: "/mnt/nvme/geluidsmeter/data/external/waterdossier.pptx"
     # Chemische KRW-normen per meetpunt, uit KRW-toetsresultaten. Hier staat de zinknorm die in
     # het doelenbestand ontbreekt -- per punt, want gecorrigeerd voor biobeschikbaarheid.
     # Verversen: scripts/17_fetch_krw_normen.py.

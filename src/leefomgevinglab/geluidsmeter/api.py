@@ -389,6 +389,27 @@ def api_waterpresentatie():
     return waterpresentatie_mod.presentatie()
 
 
+@app.get("/waterpresentatie.pptx")
+def waterpresentatie_pptx():
+    """De presentatie als PowerPoint, met de spreektekst in de notitieruimte.
+
+    Het bestand wordt niet bij elke aanvraag gebouwd: dat kost seconden en de inhoud verandert
+    alleen als `waterpresentatie.py` verandert. Verversen: scripts/19_bouw_waterpresentatie_pptx.py.
+    """
+    from fastapi.responses import FileResponse
+
+    ll = _config.get("leefomgevinglab", {})
+    pad = Path(ll.get("waterpresentatie", {}).get(
+        "pptx_pad", "/mnt/nvme/geluidsmeter/data/external/waterdossier.pptx"))
+    if not pad.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="het pptx is nog niet gebouwd; draai scripts/19_bouw_waterpresentatie_pptx.py")
+    return FileResponse(
+        str(pad), filename="waterdossier-in-tien-minuten.pptx",
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+
+
 @app.get("/kennisgraaf", response_class=HTMLResponse)
 def kennisgraaf_page():
     """De stoffen als graaf: wat relaties toevoegen bovenop het informatiemodel."""
