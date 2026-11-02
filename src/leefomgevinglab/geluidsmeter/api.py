@@ -46,6 +46,7 @@ from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
 from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
+from leefomgevinglab.usecases import eindbeeld as eindbeeld_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -437,6 +438,18 @@ def waterpresentatie_pptx(v: int | None = None):
         # gebeurd. `no-cache` laat de rand wél opslaan maar dwingt af dat hij elke keer
         # terugvraagt of de versie nog klopt.
         headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/eindbeeld", response_class=HTMLResponse)
+def eindbeeld_page():
+    """Hoe een informatieproduct eruitziet als de gaten dicht zijn — volledig synthetisch."""
+    return _waterpagina("eindbeeld.html", "eindbeeld")
+
+
+@app.get("/api/eindbeeld")
+def api_eindbeeld():
+    """Het synthetische eindbeeld, met zijn aannames en zijn afstand tot vandaag."""
+    return eindbeeld_mod.product()
 
 
 @app.get("/kennisgraaf", response_class=HTMLResponse)

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Eindbeeld</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --gemeld:#b388ff; --weg:#ff7a6b;
+      --let:#ffb74d; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel); border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    /* Onmisbaar op deze pagina: alles eronder is verzonnen. Een gestreepte band bovenaan die
+       meescrolt, zodat de waarschuwing nooit buiten beeld raakt terwijl je de cijfers leest. */
+    .verzonnen { position:sticky; top:0; z-index:9; padding:9px 20px; font-size:12.5px;
+      color:#2a1410; font-weight:600;
+      background:repeating-linear-gradient(135deg,#e8b84b,#e8b84b 14px,#d9a93c 14px,#d9a93c 28px); }
+    .verzonnen b { text-transform:uppercase; letter-spacing:.06em; }
+
+    .wrap { max-width:1060px; margin:0 auto; padding:0 20px 70px; }
+    .hero { padding:26px 0 14px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:27px; font-weight:800; color:#eafff6; margin-bottom:8px;
+      text-wrap:balance; }
+    .hero p { color:var(--muted); font-size:14px; max-width:74ch; }
+    .hero p + p { margin-top:8px; }
+    .meta { display:flex; gap:20px; flex-wrap:wrap; margin-top:14px; font-size:12.5px;
+      color:var(--dim); }
+    .meta b { color:var(--text); font-weight:600; }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:32px 0 10px; }
+    .tekst { font-size:14.5px; color:var(--text); max-width:74ch; }
+    .tekst.zacht { color:var(--muted); }
+    p + p { margin-top:10px; }
+    strong { color:#eafff6; }
+    code { font-family:ui-monospace,monospace; font-size:.88em; background:var(--panel2);
+      padding:1px 5px; border-radius:3px; border:1px solid var(--border); }
+
+    .kaart { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:16px 18px; margin-top:12px; }
+    .kaart h3 { font-size:14px; color:#eafff6; margin-bottom:8px; }
+
+    /* Het antwoord: één vraag, één getal, en wat eronder ligt. */
+    .antwoord { background:linear-gradient(150deg,var(--panel) 0%,var(--panel2) 100%);
+      border:1px solid #5a4520; border-left:4px solid var(--mag); border-radius:12px;
+      padding:20px 24px; margin-top:14px; }
+    .antwoord .vraag { font-size:12px; color:var(--dim); text-transform:uppercase;
+      letter-spacing:.1em; }
+    .antwoord .groot { font-size:clamp(23px,3.4vw,31px); font-weight:800; color:#eafff6;
+      margin:8px 0 10px; line-height:1.2; text-wrap:balance; }
+    .antwoord p { font-size:14px; color:var(--muted); max-width:72ch; }
+
+    /* Stofbalans: één staaf, vier herkomsten. Stapelen is hier juist, want het is een verdeling
+       van één gemeten vracht en niet een vergelijking van losse grootheden. */
+    .balk { display:flex; height:46px; border-radius:8px; overflow:hidden; margin:14px 0 10px;
+      border:1px solid var(--border); }
+    .balk div { display:flex; align-items:center; justify-content:center; font-size:12px;
+      font-weight:700; color:#07121c; min-width:2px; }
+    .blegenda { display:flex; flex-direction:column; gap:7px; }
+    .brij { display:grid; grid-template-columns:14px 1fr auto; gap:11px; align-items:start;
+      font-size:13px; }
+    .brij i { width:12px; height:12px; border-radius:3px; margin-top:5px; }
+    .brij .nm { color:#eafff6; }
+    .brij .wt { color:var(--muted); font-size:12px; }
+    .brij .gt { color:var(--weg); font-size:11.5px; margin-top:2px; }
+    .brij .kg { font-family:ui-monospace,monospace; color:var(--muted); white-space:nowrap;
+      text-align:right; font-variant-numeric:tabular-nums; }
+
+    .vandaagvlag { display:inline-block; font-size:10px; padding:1px 7px; border-radius:9px;
+      margin-left:7px; font-weight:600; vertical-align:middle; }
+    .vandaagvlag.ja { background:rgba(46,204,143,.17); color:var(--accent); }
+    .vandaagvlag.deels { background:rgba(232,184,74,.17); color:var(--mag); }
+    .vandaagvlag.nee { background:rgba(255,122,107,.16); color:var(--weg); }
+
+    .tabelwrap { overflow-x:auto; border:1px solid var(--border); border-radius:10px;
+      margin-top:12px; }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:640px; }
+    th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--border);
+      vertical-align:top; }
+    th { background:var(--panel2); color:#b0c4ce; font-size:10px; text-transform:uppercase;
+      letter-spacing:.06em; }
+    tbody tr:last-child td { border-bottom:none; }
+    td.n { text-align:right; font-variant-numeric:tabular-nums;
+      font-family:ui-monospace,monospace; }
+
+    .staafje { height:9px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:3px; overflow:hidden; min-width:70px; margin-top:4px; }
+    .staafje i { display:block; height:100%; background:var(--gemeld); }
+
+    .signalen { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+      margin-top:12px; }
+    .sig { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--let);
+      border-radius:10px; padding:13px 16px; }
+    .sig h4 { font-size:13.5px; color:#eafff6; margin-bottom:5px; }
+    .sig p { font-size:12.5px; color:var(--muted); }
+    .sig .gt { font-size:11.5px; color:var(--weg); margin-top:7px; }
+
+    .aannames { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+      margin-top:12px; }
+    .aan { background:var(--panel2); border:1px solid var(--border); border-radius:9px;
+      padding:12px 15px; }
+    .aan .w { font-size:13px; color:#eafff6; }
+    .aan .v { font-size:13px; color:var(--mag); font-family:ui-monospace,monospace; margin:3px 0; }
+    .aan .r { font-size:12px; color:var(--muted); }
+
+    footer { border-top:1px solid var(--border); margin-top:36px; padding-top:18px;
+      font-size:12px; color:var(--dim); max-width:78ch; }
+    footer p + p { margin-top:8px; }
+
+    @media (max-width: 820px) { .wrap { padding:0 14px 50px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">eindbeeld</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a><a href="/kmg">Kan · mag · gebeurt</a></nav>
+  </header>
+  __WATERNAV__
+  <div class="verzonnen" id="verzonnen"></div>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Vrachtenbalans zink — Zandmaas, traject Roermond–Venlo</h2>
+      <p>Alle andere pagina's in dit dossier gaan over wat er ontbreekt. Deze draait het om: hoe
+        ziet het informatieproduct eruit als die gaten dicht zijn? De vorm is echt, de cijfers zijn
+        verzonnen, en bij elk blok staat of het vandaag al gemaakt kan worden.</p>
+      <div class="meta" id="meta"></div>
+    </div>
+
+    <div class="section-title">Het antwoord</div>
+    <div id="antwoord"></div>
+
+    <div class="section-title">Waar komt de gemeten vracht vandaan?</div>
+    <p class="tekst zacht">Eén gemeten vracht, verdeeld over vier herkomsten. De vlag achter elke
+      regel zegt of die herkomst vandaag al te onderbouwen is.</p>
+    <div id="balans"></div>
+
+    <div class="section-title">De vier directe lozers — vergund naast gemeld</div>
+    <p class="tekst zacht">Dit paar is wat vandaag niet te leggen is: de vergunning en het
+      milieujaarverslag gaan over hetzelfde bedrijf, maar delen geen identificatie.</p>
+    <div class="tabelwrap"><table id="lozers"></table></div>
+
+    <div class="section-title">Achter de zuivering — het blok dat vandaag niet bestaat</div>
+    <div id="zuivering"></div>
+
+    <div class="section-title">Signalen</div>
+    <p class="tekst zacht">Wat een beheerder uit dit product haalt zonder zelf te rekenen.</p>
+    <div class="signalen" id="signalen"></div>
+
+    <div class="section-title">Kan dit vandaag al? Per veld</div>
+    <p class="tekst zacht">De kern van deze pagina. Een eindbeeld zonder deze kolom is een wens;
+      mét deze kolom is het een opdrachtenlijst.</p>
+    <div class="tabelwrap"><table id="velden"></table></div>
+
+    <div class="section-title">De aannames waarop dit rust</div>
+    <p class="tekst zacht">Elk getal hierboven is op deze lijst terug te voeren. Verander één
+      aanname en het hele product verandert mee — dat is precies wat een doorrekening hoort te
+      doen.</p>
+    <div class="aannames" id="aannames"></div>
+
+    <footer>
+      <p id="slot"></p>
+      <p>De werkelijke cijfers van dit lab staan op <a href="/kmg">kan · mag · gebeurt</a>, de
+        bronnen en hun beperkingen op <a href="/waterverhaal">in het kort</a>, en wat er tussen
+        vandaag en dit eindbeeld in zit op <a href="/watermodel">het informatiemodel</a> en
+        <a href="/kennisgraaf">de kennisgraaf</a>.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t = document.createElement("span"); t.textContent = s == null ? "" : String(s); return t.innerHTML; };
+    const nl = (n, d = 0) => (n === null || n === undefined) ? "—"
+      : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+    const KL = { mag:"#e8b84b", gemeld:"#b388ff", gebeurt:"#4fc3f7", dim:"#5b7385",
+                 accent:"#2ecc8f", weg:"#ff7a6b" };
+    const VLAG = { ja:"kan vandaag", deels:"deels", nee:"kan vandaag niet" };
+    const vlag = v => `<span class="vandaagvlag ${esc(v)}">${esc(VLAG[v] || v)}</span>`;
+
+    function tekenKop(d) {
+      $("verzonnen").innerHTML = `<b>Verzonnen voorbeeld.</b> ${esc(d.waarschuwing)}`;
+      const t = d.traject;
+      $("meta").innerHTML =
+        `<span><b>Waterlichaam</b> ${esc(t.naam)} (${esc(t.waterlichaam)})</span>` +
+        `<span><b>Traject</b> ${esc(t.traject)}, ${nl(t.lengte_km)} km</span>` +
+        `<span><b>Stof</b> ${esc(d.stof.naam)}, ${esc(d.stof.hoedanigheid_naam)} · CAS ${esc(d.stof.cas)}</span>` +
+        `<span><b>Periode</b> ${esc(t.periode)}</span>` +
+        `<span><b>Bevoegd gezag</b> ${esc(t.bevoegd_gezag)}</span>`;
+    }
+
+    function tekenAntwoord(d) {
+      const r = d.ruimte, b = d.balans;
+      $("antwoord").innerHTML = `<div class="antwoord">` +
+        `<div class="vraag">Ligt de meting boven het doel, en hoeveel ruimte is er nog?</div>` +
+        `<div class="groot">${nl(b.gemeten_ug_l, 1)} µg/l gemeten tegen een norm van ` +
+        `${nl(b.norm_ug_l, 1)} — er is nog ${nl(r.vrij_kg)} kg per jaar ruimte, maar ` +
+        `${nl(r.onbenut_kg)} kg vergunde ruimte ligt stil.</div>` +
+        `<p>${esc(r.les)}</p>` +
+        `<p style="margin-top:9px">De vier houders benutten samen <b>${nl(r.benut_pct, 1)} procent</b> ` +
+        `van hun vergunning. Het verschil tussen wat mag en wat gebeurt is dus geen detail maar ` +
+        `de grootste post in deze balans — en vandaag is hij niet te berekenen.</p>` +
+        `</div>`;
+    }
+
+    function tekenBalans(d) {
+      const b = d.balans;
+      const balk = b.herkomsten.map(h =>
+        `<div style="flex:${h.kg};background:${KL[h.kleur] || KL.dim}" ` +
+        `title="${esc(h.naam)}: ${nl(h.kg)} kg">${h.pct >= 8 ? nl(h.pct, 0) + "%" : ""}</div>`).join("");
+      const rijen = b.herkomsten.map(h =>
+        `<div class="brij"><i style="background:${KL[h.kleur] || KL.dim}"></i>` +
+        `<div><div class="nm">${esc(h.naam)}${vlag(h.vandaag)}</div>` +
+        `<div class="wt">${esc(h.wat)}</div>` +
+        (h.vandaag !== "ja" && h.gat_tekst ? `<div class="gt">↳ nodig: ${esc(h.gat_tekst)}</div>` : "") +
+        `</div><div class="kg">${nl(h.kg)} kg<br><span style="color:var(--dim)">${nl(h.pct, 1)}%</span></div></div>`).join("");
+      $("balans").innerHTML = `<div class="kaart">` +
+        `<h3>${nl(b.gemeten_kg)} kg zink per jaar, gemeten op ${nl(b.gemeten_ug_l, 1)} µg/l</h3>` +
+        `<div class="balk">${balk}</div><div class="blegenda">${rijen}</div>` +
+        `<p class="tekst zacht" style="margin-top:14px;font-size:12.5px">De vier herkomsten tellen ` +
+        `op tot ${nl(b.verdeeld_kg)} kg; dat is ${nl(Math.abs(b.sluitverschil_pct), 1)} procent van ` +
+        `de gemeten vracht af. Dat sluitverschil hoort erbij te staan: een balans die precies op ` +
+        `nul uitkomt is gladgestreken, geen gemeten.</p></div>`;
+    }
+
+    function tekenLozers(d) {
+      $("lozers").innerHTML =
+        "<thead><tr><th>km</th><th>lozer</th><th class='n'>vergund</th><th class='n'>gemeld</th>" +
+        "<th>benut</th><th>verloopt</th></tr></thead><tbody>" +
+        d.lozers.map(l => `<tr>` +
+          `<td class="n">${nl(l.km, 1)}</td>` +
+          `<td>${esc(l.naam)}<div style="color:var(--dim);font-size:11.5px">${esc(l.plaats)} · ` +
+          `KvK ${esc(l.kvk)} · eMJV ${esc(l.emjv)}</div></td>` +
+          `<td class="n">${nl(l.vergund_kg)}</td>` +
+          `<td class="n">${nl(l.gemeld_kg)}</td>` +
+          `<td style="min-width:120px">${nl(l.benut_pct, 1)}%` +
+          `<div class="staafje"><i style="width:${Math.min(100, l.benut_pct)}%"></i></div></td>` +
+          `<td>${esc(l.verloopt)}</td></tr>`).join("") +
+        `<tr style="font-weight:700"><td></td><td>samen</td>` +
+        `<td class="n">${nl(d.ruimte.vergund_kg)}</td><td class="n">${nl(d.ruimte.gemeld_kg)}</td>` +
+        `<td>${nl(d.ruimte.benut_pct, 1)}%</td><td></td></tr></tbody>`;
+    }
+
+    function tekenZuivering(d) {
+      const z = d.zuivering;
+      $("zuivering").innerHTML = `<div class="kaart">` +
+        `<h3>${esc(z.naam)}, ${esc(z.plaats)} — ${nl(z.effluent_kg)} kg zink in het effluent` +
+        `${vlag("nee")}</h3>` +
+        `<p class="tekst zacht" style="font-size:13px">De vergunning van deze zuivering begrenst ` +
+        `CZV, BZV, stikstof, fosfor en zwevende stof. <b>Geen zink.</b> Wat hier binnenkomt gaat ` +
+        `er dus uit zonder dat er een grenswaarde aan te pas komt. In het eindbeeld zie je wie ` +
+        `erachter zit:</p>` +
+        `<div class="tabelwrap" style="margin-top:12px"><table>` +
+        `<thead><tr><th>indirecte lozer</th><th>regime</th><th class='n'>kg/jaar</th>` +
+        `<th class='n'>aandeel</th></tr></thead><tbody>` +
+        z.indirecte_lozers.map(x => `<tr><td>${esc(x.naam)}</td><td>${esc(x.regime)}</td>` +
+          `<td class="n">${nl(x.kg)}</td><td class="n">${nl(x.pct, 1)}%</td></tr>`).join("") +
+        `</tbody></table></div>` +
+        `<p class="tekst zacht" style="margin-top:12px;font-size:12.5px">Let op het regime: de ` +
+        `grootste lozer heeft een vergunning, de derde valt onder <b>algemene regels</b> en heeft ` +
+        `er dus geen. Vandaag is geen van de vijf regels in enig register te vinden.</p></div>`;
+    }
+
+    function tekenSignalen(d) {
+      $("signalen").innerHTML = d.signalen.map(s =>
+        `<div class="sig"><h4>${esc(s.kop)}</h4><p>${esc(s.wat)}</p>` +
+        (s.gat_tekst ? `<div class="gt">↳ nodig: ${esc(s.gat_tekst)}</div>` : "") +
+        `</div>`).join("");
+    }
+
+    function tekenVelden(d) {
+      $("velden").innerHTML =
+        "<thead><tr><th>veld in het product</th><th>vandaag</th><th>hoe, of waarom niet</th></tr></thead><tbody>" +
+        d.velden.map(v => `<tr><td>${esc(v.veld)}</td><td>${vlag(v.vandaag)}</td>` +
+          `<td>${esc(v.hoe)}` +
+          (v.gat && d.gaten[v.gat] ? `<div class="gt" style="color:var(--weg);font-size:11.5px;margin-top:3px">↳ nodig: ${esc(d.gaten[v.gat])}</div>` : "") +
+          `</td></tr>`).join("") + "</tbody>";
+      const t = d.veld_telling;
+      $("slot").innerHTML = `Van de ${nl(t.ja + t.deels + t.nee)} velden in dit product kunnen er ` +
+        `<b>${nl(t.ja)}</b> vandaag volledig gemaakt worden, <b>${nl(t.deels)}</b> gedeeltelijk, ` +
+        `en <b>${nl(t.nee)}</b> niet. Dat laatste getal is de opdracht — en geen van de vier ` +
+        `vraagt een nieuw stelsel, alleen een veld, een relatie of een register dat er nog niet is.`;
+    }
+
+    function tekenAannames(d) {
+      $("aannames").innerHTML = d.aannames.map(a =>
+        `<div class="aan"><div class="w">${esc(a.wat)}</div>` +
+        `<div class="v">${esc(a.waarde)}</div><div class="r">${esc(a.waarom)}</div></div>`).join("");
+    }
+
+    fetch("/api/eindbeeld").then(r => r.json()).then(d => {
+      tekenKop(d); tekenAntwoord(d); tekenBalans(d); tekenLozers(d);
+      tekenZuivering(d); tekenSignalen(d); tekenVelden(d); tekenAannames(d);
+    }).catch(() => {
+      $("antwoord").innerHTML = '<p class="tekst">Het eindpunt /api/eindbeeld antwoordde niet.</p>';
+    });
+  </script>
+</body>
+</html>

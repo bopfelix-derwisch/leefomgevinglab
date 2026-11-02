@@ -77,6 +77,15 @@ LEDEN = [
      "live": ["Aquo-domeintabel Parameter (CSV op schijf, live ontleed)"],
      "synthetisch": ["CAS-nummers per E-PRTR-stof, met de hand uit bijlage II van de "
                      "E-PRTR-verordening overgenomen \u2014 de WFS levert dat veld niet"]},
+    {"id": "eindbeeld", "pad": "/eindbeeld", "label": "Eindbeeld",
+     "titel": "Vrachtenbalans zink \u2014 Zandmaas, traject Roermond\u2013Venlo",
+     "samenvatting": "Hoe het informatieproduct eruitziet als de gaten dicht zijn. Volledig "
+                     "verzonnen cijfers; echt zijn de v\u00f3rm en de lijst met wat er nog mist.",
+     # Niets live, en dat is hier geen tekortkoming maar het onderwerp: dit is het enige lid van
+     # het dossier dat uitdrukkelijk niets van de werkelijkheid laat zien.
+     "live": [],
+     "synthetisch": ["alles \u2014 bedrijfsnamen, vrachten en meetwaarde zijn gekozen; alleen de "
+                     "KRW-norm voor zink is echt"]},
 ]
 
 LIJNEN = [
