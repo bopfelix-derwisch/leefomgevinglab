@@ -379,7 +379,7 @@ def watermodel_page():
 
 @app.get("/waterpresentatie", response_class=HTMLResponse)
 def waterpresentatie_page():
-    """Het hele dossier in tien minuten, als zelflopende presentatie met spreektekst."""
+    """Het hele dossier in een kwartier, als zelflopende presentatie met spreektekst."""
     return _waterpagina("waterpresentatie.html", "presentatie")
 
 

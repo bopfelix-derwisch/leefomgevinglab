@@ -122,3 +122,16 @@ def test_een_ontbrekend_bestand_zegt_hoe_je_het_bouwt(monkeypatch, tmp_path):
 def test_de_pagina_biedt_de_download_aan(monkeypatch):
     h = _client(monkeypatch).get("/waterpresentatie").text
     assert "/waterpresentatie.pptx" in h
+
+
+def test_geen_dia_draagt_meer_kernpunten_dan_het_blok_aankan():
+    """Twee keer ging dit mis -- bij vier bullets, en daarna opnieuw bij vijf."""
+    for d in wp.DIAS:
+        assert len(d["kern"]) <= pb.MAX_KERN, \
+            f"dia {d['nr']} heeft {len(d['kern'])} kernpunten, het blok draagt er {pb.MAX_KERN}"
+
+
+def test_het_beeld_past_tussen_de_kernpunten_en_de_voettekst():
+    assert pb.BEELD_TOP >= pb.KERN_TOP + pb.KERN_HOOG
+    assert pb.BEELD_TOP + pb.BEELD_HOOG <= pb.VOET_TOP
+    assert pb.BEELD_HOOG > 1_500_000, "een beeldvlak van niets is geen beeld"

@@ -35,7 +35,7 @@ def _client(monkeypatch):
 
 def test_de_presentatie_duurt_precies_tien_minuten():
     """Geen schatting maar een afspraak: de dia's lopen vanzelf door."""
-    assert wp.duur_s() == wp.DUUR_S == 600
+    assert wp.duur_s() == wp.DUUR_S == 900
 
 
 def test_elke_dia_krijgt_een_begintijd_die_op_de_vorige_aansluit():
@@ -43,7 +43,7 @@ def test_elke_dia_krijgt_een_begintijd_die_op_de_vorige_aansluit():
     for d in wp.dias():
         assert d["start_s"] == t, f"dia {d['nr']} begint niet waar de vorige ophoudt"
         t += d["seconden"]
-    assert t == 600
+    assert t == 900
 
 
 def test_geen_dia_vraagt_een_onhaalbaar_spreektempo():
@@ -146,7 +146,7 @@ def test_de_pagina_geeft_200_met_de_subnav(monkeypatch):
 
 def test_het_eindpunt_levert_alle_dias_met_hun_duur(monkeypatch):
     d = _client(monkeypatch).get("/api/waterpresentatie").json()
-    assert d["duur_s"] == 600
+    assert d["duur_s"] == 900
     assert d["aantal"] == len(d["dias"]) == len(wp.DIAS)
     assert d["dias"][0]["start_s"] == 0
     assert all("spreektekst" in x and "beeld" in x for x in d["dias"])
@@ -204,3 +204,59 @@ def test_de_stroomvolgorde_staat_wel_als_openstaand_punt():
     tekst = " ".join(" ".join(d["kern"]) + " " + d["spreektekst"] for d in wp.DIAS).lower()
     assert "stroomvolgorde" in tekst
     assert "geen relatie ertussen" in tekst or "geen enkele relatie ertussen" in tekst
+
+
+# --- het hoofdstuk over de POC zelf --------------------------------------------------------
+
+def _alle_tekst(dias) -> str:
+    """Alles wat een kijker op de dia ziet, inclusief de labels in het beeld.
+
+    De eerste versie van deze helper keek alleen naar `kern` en `spreektekst`, en miste daardoor
+    wat er in de plaat staat -- terwijl dat net zo goed op het scherm komt.
+    """
+    uit = []
+    for d in dias:
+        uit += d["kern"] + [d["spreektekst"], d["titel"]]
+        for sleutel in ("stappen", "kolommen", "lagen", "balken", "items", "punten"):
+            for x in d["beeld"].get(sleutel) or []:
+                uit += [str(v) for v in x.values()]
+        uit += (d["beeld"].get("wel") or []) + (d["beeld"].get("niet") or [])
+    return " ".join(uit).lower()
+
+
+def test_de_presentatie_bevat_een_eerlijk_hoofdstuk_over_zichzelf():
+    """Een demo die alleen de uitkomsten toont en niet de kwaliteit ervan, misleidt."""
+    poc = [d for d in wp.DIAS if d["deel"] == "Over deze POC"]
+    assert len(poc) >= 4, "wat dit is, wat het waard is, wat er kan, en wat ervoor nodig is"
+
+
+def test_het_hoofdstuk_noemt_de_eigen_fouten_bij_naam():
+    """Zonder concrete fouten is zelfkritiek een houding in plaats van informatie."""
+    tekst = _alle_tekst(d for d in wp.DIAS if d["deel"] == "Over deze POC")
+    for fout in ("factor 1000", "kustwater", "zwevende stof"):
+        assert fout in tekst, f"de fout '{fout}' wordt niet genoemd"
+    assert "geen enkele door een test" in tekst
+
+
+def test_het_hoofdstuk_benoemt_wat_er_nu_al_kan_en_wat_niet():
+    tekst = _alle_tekst(d for d in wp.DIAS if d["deel"] == "Over deze POC")
+    assert "acht bronnen" in tekst
+    assert "401" in tekst or "geen machine-ingang" in tekst
+    assert "bestaat niet" in tekst or "bestaat domweg niet" in tekst
+
+
+def test_het_hoofdstuk_zegt_wat_er_minimaal_nodig_is():
+    dia = next(d for d in wp.DIAS if "minimaal nodig" in d["titel"])
+    stappen = [s["naam"] for s in dia["beeld"]["stappen"]]
+    assert "Domeinexpert in de lus" in stappen, "dat is de bindende beperking"
+    assert len(stappen) >= 4
+
+
+def test_het_aantal_bronnen_klopt_met_het_dossier():
+    """Acht live bronnen is een telling, geen slagzin."""
+    from leefomgevinglab.usecases import water_hub as wh
+
+    live = set()
+    for lid in wh.LEDEN:
+        live |= set(lid["live"])
+    assert len(live) >= 8

@@ -62,10 +62,10 @@ LEDEN = [
      "live": ["cijfers uit /api/kmg/overzicht"],
      "synthetisch": ["voorstel voor een informatiemodel lozingsactiviteiten (van dit lab)"]},
     {"id": "presentatie", "pad": "/waterpresentatie", "label": "Presentatie",
-     "titel": "Het waterdossier in tien minuten",
-     "samenvatting": "Zestien dia's die vanzelf doorlopen, van de juridische uitgangspunten tot "
-                     "wat er nodig is — met spreektekst, en elke dia linkt naar de pagina "
-                     "waar haar cijfer vandaan komt.",
+     "titel": "Het waterdossier in een kwartier",
+     "samenvatting": "Dia's die vanzelf doorlopen, van de juridische uitgangspunten via de "
+                     "kennisgraaf tot een eerlijk hoofdstuk over de kwaliteit van deze POC "
+                     "zelf — met spreektekst, en als PowerPoint te downloaden.",
      # Niets live: een presentatie die halverwege op een trage bron wacht is geen presentatie.
      # De cijfers staan vast in `waterpresentatie.py` en worden daar tegen de POC getoetst.
      "live": [],

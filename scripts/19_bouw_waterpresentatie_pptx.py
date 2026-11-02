@@ -44,11 +44,18 @@ KLEUR = {
 BREED, HOOG = Emu(12192000), Emu(6858000)          # 16:9
 MARGE = Emu(685800)                                 # 0,75 inch
 # De tekstblokken hebben een vaste hoogte, zodat een titel die over twee regels loopt of een
-# vierde kernpunt niet in het beeld zakt. Dat gebeurde in de eerste versie op vier dia's.
+# extra kernpunt niet in het beeld zakt. Dat ging twee keer mis: eerst bij vier kernpunten, en
+# daarna opnieuw bij vijf. Het blok wordt daarom berekend uit het maximum dat een dia mag
+# dragen, en een test dwingt af dat geen dia daaroverheen gaat.
+MAX_KERN = 5
+KERN_REGEL = Emu(292000)                            # 12,5 pt bij regelafstand 1,3
+VOET_TOP = Emu(6050000)
+
 TITEL_TOP, TITEL_HOOG = Emu(880000), Emu(1320000)
-KERN_TOP, KERN_HOOG = Emu(2300000), Emu(1180000)
-BEELD_TOP = Emu(3560000)
-BEELD_HOOG = Emu(2280000)
+KERN_TOP = Emu(2300000)
+KERN_HOOG = Emu(MAX_KERN * KERN_REGEL)
+BEELD_TOP = Emu(int(KERN_TOP + KERN_HOOG + 60000))
+BEELD_HOOG = Emu(int(VOET_TOP - BEELD_TOP - 60000))
 
 
 def _emu(frac_breedte: float) -> Emu:

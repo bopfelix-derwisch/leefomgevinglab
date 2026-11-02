@@ -1,4 +1,4 @@
-"""Het waterdossier in tien minuten: de presentatie als data, niet als dia's.
+"""Het waterdossier in een kwartier: de presentatie als data, niet als dia's.
 
 Waarom dit een module is en geen stapel HTML. Een presentatie veroudert sneller dan de POC
 eronder: iemand past een getal aan op `/kmg` en de dia blijft het oude getal vertellen, met een
@@ -6,14 +6,17 @@ publiek erbij. Door de inhoud hier vast te leggen kan `tests/test_waterpresentat
 kerncijfers tégen de voorberekende momentopname houden — dezelfde die de pagina's gebruiken.
 Loopt er iets uit de pas, dan valt de test om in plaats van de spreker.
 
-De timing is onderdeel van de inhoud. `DUUR_S` is precies 600 seconden en een test bewaakt dat,
-want "tien minuten" is hier geen schatting maar een afspraak: de dia's lopen vanzelf door.
+De timing is onderdeel van de inhoud. `DUUR_S` staat vast en een test bewaakt dat de dia's
+er samen precies op uitkomen: de duur in de titel is geen schatting maar een afspraak, want
+de dia's lopen vanzelf door. Hij stond eerst op 600 seconden; met het hoofdstuk over de POC
+zelf erbij zou dat 180 woorden per minuut vergen, en dat is geen presenteren meer maar
+haasten. Liever de duur aanpassen dan de inhoud uitkleden of de spreker opjagen.
 
 Elke dia draagt haar eigen bron en een `link` naar de labpagina die haar bewijst. Een bewering
 zonder vindplaats hoort niet in een demo thuis — na afloop wil iemand kunnen doorklikken.
 """
 
-DUUR_S = 600
+DUUR_S = 900
 
 # De kerncijfers, op één plek. Ze staan hier als letterlijke waarden en niet als berekening uit de
 # momentopname: de pagina moet ook werken als dat bestand er niet is, en een presentatie hoort niet
@@ -85,7 +88,7 @@ DIAS = [
         "En ze hangen aan een waterlichaam, via het waterprogramma — niet aan een punt op de "
         "kaart. Dat betekent iets praktisch: je kunt de norm principieel niet vinden door op een "
         "coördinaat te bevragen. Hoe goed je het ook doet.",
-        "Bkl bijlage III en IIIa; STOWA 2025-46 voetnoot 16", "/waterverhaal", 30),
+        "Bkl bijlage III en IIIa; STOWA 2025-46 voetnoot 16", "/waterverhaal", 35),
 
     _dia(
         3, "Juridisch", "Wie gaat waarover — en de route die niemand ziet",
@@ -124,7 +127,7 @@ DIAS = [
         "vierde laag bij gezet: gemeld — wat een bedrijf zelf jaarlijks rapporteert te hebben "
         "geloosd. Vier lagen, vier bronnen, vier beheerders. We halen ze nu één voor "
         "één op, echt, aan de Maas.",
-        "DSO-folder kan · mag · gebeurt", "/kmg", 30),
+        "DSO-folder kan · mag · gebeurt", "/kmg", 35),
 
     _dia(
         5, "Kan", "De regels: het DSO antwoordt, maar niet over water",
@@ -144,7 +147,7 @@ DIAS = [
         "omgevingsplan valt af: over een lozing op rijkswater gaat niet de gemeente maar de "
         "minister. En de norm zelf komt er principieel niet uit, om de reden die we net zagen. De "
         "machine antwoordt keurig; alleen niet op deze vraag.",
-        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 30),
+        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 35),
 
     _dia(
         6, "Mag", "De vergunningen: een voorschrift is tekst, geen grootheid",
@@ -169,7 +172,7 @@ DIAS = [
         "tweeduizend vijfhonderdvijftig. Geen enkel voorschrift draagt een geldigheidsperiode, dus "
         "een vervallen voorschrift is niet van een geldend te onderscheiden.",
         "Atlas voor een Schone Maas (live) · informatiemodel lozingsvoorschriften",
-        "/watermodel", 30),
+        "/watermodel", 35),
 
     _dia(
         7, "Gebeurt", "De metingen: goed op orde, maar met de hand opgehaald",
@@ -189,7 +192,7 @@ DIAS = [
         "concentratie die niemand ooit heeft gemeten — terwijl de norm alleen over de opgeloste "
         "fractie gaat. Het pijnlijke: deze bron heeft geen machine-ingang. De API geeft een "
         "vier-nul-een; de module die dat oplost komt begin tweeduizendzevenentwintig.",
-        "Waterkwaliteitsportaal, Informatiehuis Water, meetjaar 2025", "/kmg", 35),
+        "Waterkwaliteitsportaal, Informatiehuis Water, meetjaar 2025", "/kmg", 40),
 
     _dia(
         8, "Gemeld", "De vierde laag: wat een bedrijf zelf rapporteert",
@@ -210,7 +213,7 @@ DIAS = [
         "verschil is vergunde ruimte die niet gebruikt wordt, en het staat nergens geregistreerd. "
         "Eén waarschuwing: een ontbrekende melding is geen nul — E-PRTR kent alleen de grote "
         "lozers.",
-        "E-PRTR, RIVM (live) · Atlas voor een Schone Maas", "/kmg", 30),
+        "E-PRTR, RIVM (live) · Atlas voor een Schone Maas", "/kmg", 35),
 
     _dia(
         9, "Het voorbeeld", "Zink van begin tot eind",
@@ -230,7 +233,7 @@ DIAS = [
         "jaargemiddeld, op de opgeloste fractie. We hebben dus een vergunde waarde, een gemeten "
         "waarde en een norm, en we kunnen ze niet met zekerheid naast elkaar leggen. Niet omdat de "
         "data ontbreekt, maar omdat één veld niet wordt ingevuld.",
-        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 35),
+        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 40),
 
     _dia(
         10, "Het resultaat", "Het register verklaart hoogstens een kwart",
@@ -257,7 +260,7 @@ DIAS = [
         "zochten in een cirkel van vijftig kilometer, en de Maas is tweehonderd kilometer lang. "
         "Sinds we het stroomgebieddistrict gebruiken telt Keizersveer vierenveertig vergunningen "
         "mee in plaats van geen.",
-        "Toerekeningsmodel van dit lab — bovengrens, geen vaststelling", "/kmg", 40),
+        "Toerekeningsmodel van dit lab — bovengrens, geen vaststelling", "/kmg", 45),
 
     _dia(
         11, "De blinde vlek", "Een hele route staat in geen enkel register",
@@ -277,7 +280,7 @@ DIAS = [
         "zorgwekkende stof. Wat de zuivering niet wegneemt gaat via het effluent de rivier in, en "
         "daarvoor staat nergens een grenswaarde. Voor zink dat via het riool binnenkomt is in dit "
         "hele register geen vergunde ruimte te vinden.",
-        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 35),
+        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 45),
 
     _dia(
         12, "De diagnose", "Drie keer hetzelfde ontbrekende veld",
@@ -299,7 +302,7 @@ DIAS = [
         "gevuld, negenenzestig van negenenzestig. Alleen draagt de melding een eigen "
         "inrichtingsnummer, en er is geen vertaling tussen die twee. Dat is één "
         "kruistabel, geen stelselwijziging.",
-        "koppeling.py · lozingsmodel.py", "/watermodel", 35),
+        "koppeling.py · lozingsmodel.py", "/watermodel", 40),
 
     _dia(
         13, "De kennisgraaf", "Eén gedeeld nummer tegen één handtabel",
@@ -325,7 +328,7 @@ DIAS = [
         "vanzelf, waaronder twee die onze handtabel mist. En nul keer spreken de twee wegen "
         "elkaar tegen: onze tabel was nergens fout, alleen incompleet. De somparameters hebben "
         "per definitie geen CAS — dat zijn grootheden uit een meetmethode, niet uit een molecuul.",
-        "Aquo-domeintabel · E-PRTR bijlage II", "/kennisgraaf", 40),
+        "Aquo-domeintabel · E-PRTR bijlage II", "/kennisgraaf", 45),
 
     _dia(
         14, "De kennisgraaf", "En dan vindt die graaf iets",
@@ -349,7 +352,7 @@ DIAS = [
         "die Aquo helemaal niet kent: melamine, AMPA, pyrazool — daar loopt de standaard achter "
         "op wat er vergund wordt. En twee vergunningen begrenzen een somparameter én een paar van "
         "haar delen apart, dus wie optelt telt dubbel.",
-        "/kennisgraaf, live over het Maasregister", "/kennisgraaf", 35),
+        "/kennisgraaf, live over het Maasregister", "/kennisgraaf", 40),
 
     _dia(
         15, "De valkuil", "Ruimte tot de norm is geen voorraad",
@@ -369,7 +372,7 @@ DIAS = [
         "beschikbare technieken. Die twee gelden ongeacht hoeveel ruimte er is. Een ruime rivier is "
         "geen argument om een bronmaatregel achterwege te laten. En andersom: past niet is geen "
         "eindoordeel maar de aanleiding voor strengere voorwaarden. Weigeren komt pas daarna.",
-        "STOWA 2025-46 §6 · art. 8.22 en 8.30 Bkl", "/gebruiksruimte", 35),
+        "STOWA 2025-46 §6 · art. 8.22 en 8.30 Bkl", "/gebruiksruimte", 40),
 
     _dia(
         16, "De oplossing", "Wat een informatiemodel hier oplost",
@@ -392,10 +395,129 @@ DIAS = [
         "draagt een zekerheid — uit de bron, afgeleid, aangenomen of ontbrekend. Zo maakt het "
         "model zichtbaar wat er mist, in plaats van een onvolledige vergunning er netjes uit te "
         "laten zien.",
-        "Aquo-domeintabel Parameter · lozingsmodel.py", "/watermodel", 30),
+        "Aquo-domeintabel Parameter · lozingsmodel.py", "/watermodel", 35),
 
     _dia(
-        17, "Hoe verder", "Wat nog mist — en een datum",
+        17, "Over deze POC", "Wat dit eigenlijk is: een zolderkamerproject",
+        ["Eén persoon met waterkennis, een taalmodel als bouwer, een Jetson onder de trap",
+         "336 commits sinds mei, 11.822 regels code, 8.811 regels test — één auteur",
+         "Geen team, geen review, geen opdrachtgever, geen budget",
+         "Het ziet er af uit. Dat is precies het risico."],
+        {"soort": "drieluik", "kolommen": [
+            {"kop": "Wat het wél is", "groot": "een bewijs", "bij": "dat deze vragen met open "
+             "bronnen te stellen zijn", "kleur": "kan"},
+            {"kop": "Wat het níét is", "groot": "een product", "bij": "geen beheer, geen SLA, "
+             "geen tweede paar ogen", "kleur": "mag"},
+            {"kop": "Wat het kost", "groot": "tijd", "bij": "de infrastructuur is bijna gratis; "
+             "de domeinkennis niet", "kleur": "gebeurt"},
+        ]},
+        "Nu iets ongemakkelijks, en ik wil het liever zelf zeggen dan dat u het denkt. Dit is een "
+        "zolderkamerproject. Eén persoon met waterkennis, een taalmodel dat de code schrijft, en "
+        "een computertje onder de trap. Driehonderdzesendertig commits sinds mei, bijna twaalfduizend "
+        "regels code en negenduizend regels test — allemaal van één auteur. Geen team, geen "
+        "collegiale toets, geen opdrachtgever. Wat u gezien heeft ziet er af uit, en dat is "
+        "precies het risico: een verzorgde pagina suggereert dat iemand het gevalideerd heeft. "
+        "Dat is hier niet gebeurd. Laat me daarom laten zien wat de kwaliteit werkelijk is.",
+        "git log van dit project", "/water", 40),
+
+    _dia(
+        18, "Over deze POC", "Wat is de kwaliteit? Kijk naar de fouten",
+        ["804 tests stonden groen terwijl de uitkomst fout was",
+         "Zink een factor 1000 te laag: het model rekende in mg/l, de meting staat in µg/l",
+         "Het bovenstroomsfilter stond er, maar deed niets — elke vergunning telde mee",
+         "90 procent toegerekend bij Goeree: een rivierformule losgelaten op kustwater",
+         "Elke fout gevonden tegen de échte bron. Geen enkele door een test."],
+        {"soort": "stappen", "stappen": [
+            {"nr": "✗", "naam": "Tests op verzonnen data", "sub": "alle fixtures stonden in mg/l, "
+             "dus de eenheidsfout was onzichtbaar", "actief": False},
+            {"nr": "✗", "naam": "Eigen documentatie", "sub": "beweerde weken dat „Zwevende stof” "
+             "koppelt; die Aquo-code is vervallen", "actief": False},
+            {"nr": "✓", "naam": "Live tegen de bron", "sub": "elke consequente fout is zó aan het "
+             "licht gekomen", "actief": True},
+        ]},
+        "Wat is de kwaliteit? Daar kan ik beter de fouten voor laten spreken dan het aantal tests. "
+        "Zink stond een factor duizend te laag omdat het model in milligram rekende en de meting in "
+        "microgram staat — alle tests gebruikten milligram-voorbeelden, dus ze stonden groen. Het "
+        "filter dat benedenstroomse vergunningen eruit moest halen stond er wel, maar deed niets. "
+        "En vorige week kwam er negentig procent toegerekende stikstof uit bij Goeree: een "
+        "rivierformule losgelaten op kustwater, waar geen jaarafvoer bestaat. Allemaal gevonden "
+        "door het tegen de echte bron te houden. Geen enkele door een test. De eerlijke conclusie "
+        "is dus niet dat het nu klopt, maar dat er vermoedelijk nog meer in zit.",
+        "de fouten uit deze POC, alle vier live gevonden", "/kmg", 45),
+
+    _dia(
+        19, "Over deze POC", "Wat kan er nú al, met open data?",
+        ["Acht bronnen live bevraagbaar, zonder contract, project of aanbesteding",
+         "DSO Ozon · Atlas voor een Schone Maas · RWS KRW · PDOK · RIVM E-PRTR · Aquo · WKP",
+         "Alleen het DSO vraagt een sleutel; de rest is open",
+         "Wat niet kan: de Digitale Delta API geeft 401, en een landelijk lozingenregister bestaat niet"],
+        {"soort": "balken", "balken": [
+            {"label": "bronnen live bevraagbaar", "waarde": 8, "max": 10, "kleur": "accent",
+             "bij": "vandaag, zonder toestemming vooraf"},
+            {"label": "handmatige momentopname", "waarde": 1, "max": 10, "kleur": "mag",
+             "bij": "de metingen — geen machine-ingang tot 2027"},
+            {"label": "landelijk register van lozingen", "waarde": 0, "max": 10, "kleur": "weg",
+             "bij": "bestaat niet; de Maas heeft een regionaal initiatief"},
+        ]},
+        "Dan de vraag die er praktisch toe doet: wat kan er nú al? Meer dan je zou denken. Acht "
+        "bronnen zijn vandaag live te bevragen, zonder contract en zonder project: het Digitaal "
+        "Stelsel, de Atlas voor een Schone Maas, de waterlichamen van Rijkswaterstaat, PDOK, de "
+        "emissiemeldingen bij het RIVM, de Aquo-domeintabellen, en de downloadmodule van het "
+        "Waterkwaliteitsportaal. Alleen het DSO vraagt een sleutel; de rest is gewoon open. Wat "
+        "niet kan is net zo leerzaam: de meetwaarden hebben geen machine-ingang tot "
+        "tweeduizendzevenentwintig, en een landelijk register van wie wat waar loost bestaat "
+        "domweg niet. De drempel is dus niet de techniek.",
+        "connectors in dit lab, alle acht live geverifieerd", "/water", 40),
+
+    _dia(
+        20, "Over deze POC", "De risico's — vier, en de eerste is de ergste",
+        ["Vloeiend en fout: een model schrijft een overtuigende zin om een verzonnen getal",
+         "Bronnen falen stil: PDOK negeert het filter en geeft de héle dataset terug, met status 200",
+         "Geen licentie: de Atlas-lagen staan open maar dragen geen gebruiksvoorwaarden",
+         "Eén paar ogen — en het ziet eruit alsof het gevalideerd is"],
+        {"soort": "chips",
+         "wel": ["fouten die luid falen", "bronnen met een contract", "herkomst per veld"],
+         "niet": ["plausibel klinkende onzin", "status 200 op verkeerde data",
+                  "een pagina die af lijkt"]},
+        "De risico's, en de eerste is de ergste. Een taalmodel schrijft een overtuigende zin om "
+        "een verzonnen getal heen; het klinkt nergens onzeker. In deze POC stond op enig moment "
+        "een berekende zin met een factor honderddrieënveertig erin die nergens op sloeg. Twee: "
+        "bronnen falen stil. PDOK negeert een ruimtelijk filter en geeft de hele landelijke "
+        "dataset terug, met een nette status tweehonderd — dat is het ergste soort fout, want "
+        "niets gaat stuk. Drie: de Atlas-lagen staan open maar dragen geen enkele "
+        "gebruiksvoorwaarde, dus wat je ermee mag is onduidelijk. En vier: één paar ogen, terwijl "
+        "het resultaat eruitziet alsof iemand het heeft gevalideerd.",
+        "waarnemingen uit deze POC", "/kennisgraaf", 45),
+
+    _dia(
+        21, "Over deze POC", "Wat is minimaal nodig om dit serieus te doen?",
+        ["Niet de hardware. Dit draait op een Jetson, maar een laptop volstaat.",
+         "Wel: een domeinexpert die een fout getal rúikt — dat is de bindende beperking",
+         "Tests die tegen de échte bron draaien, niet tegen verzonnen voorbeelden",
+         "Elk getal op een pagina afgeleid uit data, nooit ingetypt",
+         "Herkomst per veld: uit de bron, afgeleid, aangenomen of ontbrekend"],
+        {"soort": "stappen", "stappen": [
+            {"nr": "1", "naam": "Domeinexpert in de lus", "sub": "elke fout hier was een "
+             "domeinfout, geen programmeerfout", "actief": True},
+            {"nr": "2", "naam": "Tests tegen de bron", "sub": "een fixture bevestigt alleen je "
+             "eigen aanname", "actief": False},
+            {"nr": "3", "naam": "Geen getal met de hand", "sub": "wat je typt veroudert; wat je "
+             "afleidt valt om", "actief": False},
+            {"nr": "4", "naam": "Herkomst per veld", "sub": "zodat zichtbaar blijft wat je niet "
+             "weet", "actief": False},
+        ]},
+        "Wat is er dan minimaal nodig om dit serieus te doen? Niet de hardware: dit draait "
+        "toevallig op een Jetson, maar een laptop volstaat en de infrastructuur kost bijna niets. "
+        "Vier andere dingen wél. Eén, en veruit het belangrijkste: een domeinexpert in de lus. "
+        "Elke fout die ik net liet zien was een waterfout, geen programmeerfout — eenheden, "
+        "fracties, stroomgebieden, kustwater. Iemand zonder waterkennis had ze alle vier "
+        "gepubliceerd. Twee: tests die tegen de echte bron draaien, want een verzonnen voorbeeld "
+        "bevestigt alleen je eigen aanname. Drie: geen enkel getal met de hand op een pagina. En "
+        "vier: herkomst per veld, zodat zichtbaar blijft wat je níét weet.",
+        "de werkwijze die uit deze POC is gegroeid", "/watermodel", 45),
+
+    _dia(
+        22, "Hoe verder", "Wat nog mist — en een datum",
         ["De Aquo-drieslag als sleutel in het voorschrift: parameter, hoedanigheid, eenheid",
          "Een geldigheidsperiode per voorschrift",
          "Een kruistabel eMJV ↔ KvK-vestiging",
@@ -417,10 +539,10 @@ DIAS = [
         "Afvalwater verplicht lidstaten om relevante niet-huishoudelijke lozingen te monitoren. "
         "Nederlandse implementatie: tweeduizendzevenentwintig.",
         "Richtlijn (EU) 2024/3019 art. 14 · STOWA 2025-46 · WKP-waterlichaamregister",
-        "/waterverhaal", 35),
+        "/waterverhaal", 40),
 
     _dia(
-        18, "Slot", "Waar dit op neerkomt",
+        23, "Slot", "Waar dit op neerkomt",
         ["Vier lagen opgehaald uit vier bronnen, drie ervan live",
          "Het register verklaart hoogstens een kwart van wat gemeten wordt",
          "Niet door gebrek aan data, maar door lege velden en ontbrekende relaties",
@@ -438,7 +560,7 @@ DIAS = [
         "in geen register staat, en een hele lozingsroute die er evenmin in staat. Alles wat u "
         "hier gezien heeft staat als werkende pagina online, met een proclaimer die uit de data "
         "zelf wordt opgebouwd. Dank u wel.",
-        "LeefomgevingLab · leefomgevinglab.felixisfelix.com", "/water", 35),
+        "LeefomgevingLab · leefomgevinglab.felixisfelix.com", "/water", 40),
 ]
 
 
@@ -456,7 +578,7 @@ def duur_s() -> int:
 
 
 def presentatie() -> dict:
-    return {"titel": "Het waterdossier in tien minuten",
+    return {"titel": "Het waterdossier in een kwartier",
             "ondertitel": "Van juridische uitgangspunten tot wat er nodig is — "
                           "met de cijfers uit de proof of concept aan de Maas",
             "duur_s": duur_s(), "aantal": len(DIAS), "cijfers": CIJFERS, "dias": dias()}
