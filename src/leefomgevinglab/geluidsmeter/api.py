@@ -385,16 +385,37 @@ def waterpresentatie_page():
 
 @app.get("/api/waterpresentatie")
 def api_waterpresentatie():
-    """De dia's met hun duur, beeldspecificatie en spreektekst."""
-    return waterpresentatie_mod.presentatie()
+    """De dia's met hun duur, beeldspecificatie en spreektekst.
+
+    Inclusief de vindplaats van het pptx, mét de wijzigingstijd in de URL. Die tijd is geen
+    opsmuk: zij maakt van elke nieuwe versie een nieuwe cache-sleutel, zodat een tussenliggende
+    cache niet de vorige presentatie kan blijven uitserveren.
+    """
+    ll = _config.get("leefomgevinglab", {})
+    pad = Path(ll.get("waterpresentatie", {}).get(
+        "pptx_pad", "/mnt/nvme/geluidsmeter/data/external/waterdossier.pptx"))
+    pptx = None
+    if pad.exists():
+        st = pad.stat()
+        pptx = {"url": f"/waterpresentatie.pptx?v={int(st.st_mtime)}",
+                "bytes": st.st_size,
+                "gebouwd_op": datetime.fromtimestamp(st.st_mtime, timezone.utc)
+                                      .strftime("%Y-%m-%d %H:%M")}
+    return {**waterpresentatie_mod.presentatie(), "pptx": pptx}
 
 
 @app.get("/waterpresentatie.pptx")
-def waterpresentatie_pptx():
+def waterpresentatie_pptx(v: int | None = None):
     """De presentatie als PowerPoint, met de spreektekst in de notitieruimte.
 
     Het bestand wordt niet bij elke aanvraag gebouwd: dat kost seconden en de inhoud verandert
     alleen als `waterpresentatie.py` verandert. Verversen: scripts/19_bouw_waterpresentatie_pptx.py.
+
+    **Zonder `v` volgt een doorverwijzing naar de versie van vandaag.** Dat is geen sierlijkheid.
+    Cloudflare cachet een pptx vier uur op zijn extensie en negeert daarbij een `no-cache` van de
+    oorsprong; het gevolg was dat iemand een presentatie van de vorige dag downloadde terwijl de
+    site de nieuwe toonde. Een versie in de URL geeft elke nieuwe bouw een eigen cache-sleutel,
+    en de kale URL wijst daar altijd naartoe.
     """
     from fastapi.responses import FileResponse
 
@@ -405,9 +426,17 @@ def waterpresentatie_pptx():
         raise HTTPException(
             status_code=404,
             detail="het pptx is nog niet gebouwd; draai scripts/19_bouw_waterpresentatie_pptx.py")
+    mtime = int(pad.stat().st_mtime)
+    if v != mtime:
+        return RedirectResponse(f"/waterpresentatie.pptx?v={mtime}", status_code=302)
     return FileResponse(
-        str(pad), filename="waterdossier-in-tien-minuten.pptx",
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+        str(pad), filename="waterdossier.pptx",
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        # Zonder dit cachet Cloudflare het bestand vier uur op zijn extensie, en dan downloadt
+        # iemand een presentatie van gisteren terwijl de site de nieuwe toont. Dat is precies
+        # gebeurd. `no-cache` laat de rand wél opslaan maar dwingt af dat hij elke keer
+        # terugvraagt of de versie nog klopt.
+        headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 @app.get("/kennisgraaf", response_class=HTMLResponse)

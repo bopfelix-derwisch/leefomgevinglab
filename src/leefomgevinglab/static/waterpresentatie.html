@@ -199,7 +199,7 @@
       <div class="spelerschakel">
         <label><input type="checkbox" id="tonenscript" checked /> spreektekst</label>
         <label><input type="checkbox" id="presenteren" /> presenteerstand</label>
-        <a class="knop" href="/waterpresentatie.pptx" style="text-decoration:none">⤓ PowerPoint</a>
+        <a class="knop" id="pptx" href="/waterpresentatie.pptx" style="text-decoration:none">⤓ PowerPoint</a>
       </div>
     </div>
     <div class="voortgang" id="voortgang"></div>
@@ -363,6 +363,14 @@
     fetch("/api/waterpresentatie").then(r => r.json()).then(d => {
       P = d;
       $("totaal").textContent = mmss(P.duur_s);
+      // De link krijgt de wijzigingstijd mee: een nieuwe versie wordt daarmee een nieuwe
+      // URL, en geen enkele cache ertussen kan de vorige presentatie blijven uitserveren.
+      if (P.pptx) {
+        $("pptx").href = P.pptx.url;
+        $("pptx").title = `${Math.round(P.pptx.bytes / 1024)} kB · gebouwd ${P.pptx.gebouwd_op}`;
+      } else {
+        $("pptx").hidden = true;
+      }
       $("verantwoording").innerHTML = '<b>' + esc(P.titel) + '</b> — ' + esc(P.ondertitel) +
         ' · ' + P.aantal + ' dia\'s, ' + mmss(P.duur_s) + ' minuten.';
       naar(0);

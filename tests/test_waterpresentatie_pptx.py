@@ -135,3 +135,51 @@ def test_het_beeld_past_tussen_de_kernpunten_en_de_voettekst():
     assert pb.BEELD_TOP >= pb.KERN_TOP + pb.KERN_HOOG
     assert pb.BEELD_TOP + pb.BEELD_HOOG <= pb.VOET_TOP
     assert pb.BEELD_HOOG > 1_500_000, "een beeldvlak van niets is geen beeld"
+
+
+def test_het_pptx_wordt_niet_blind_gecachet(monkeypatch, tmp_path):
+    """Cloudflare cachete dit bestand vier uur op zijn extensie, en serveerde daardoor een
+    presentatie van de dag ervoor terwijl de site de nieuwe toonde. Dat is echt gebeurd."""
+    uit = tmp_path / "deck.pptx"
+    pb.bouw(uit)
+    r = _client(monkeypatch, uit).get("/waterpresentatie.pptx")
+    assert "no-cache" in r.headers.get("cache-control", "")
+
+
+def test_de_download_url_draagt_de_versie(monkeypatch, tmp_path):
+    """Een nieuwe versie moet een nieuwe cache-sleutel krijgen, niet alleen nieuwe bytes."""
+    uit = tmp_path / "deck.pptx"
+    pb.bouw(uit)
+    d = _client(monkeypatch, uit).get("/api/waterpresentatie").json()
+    assert d["pptx"]["url"].startswith("/waterpresentatie.pptx?v=")
+    assert d["pptx"]["bytes"] == uit.stat().st_size
+    assert d["pptx"]["gebouwd_op"]
+
+
+def test_zonder_bestand_blijft_de_rest_van_het_antwoord_heel(monkeypatch, tmp_path):
+    d = _client(monkeypatch, tmp_path / "weg.pptx").get("/api/waterpresentatie").json()
+    assert d["pptx"] is None
+    assert d["aantal"] == len(wp.DIAS), "de presentatie zelf hangt niet aan het pptx"
+
+
+def test_de_kale_url_verwijst_naar_de_versie_van_vandaag(monkeypatch, tmp_path):
+    """Zodat een gedeelde link nooit een presentatie van gisteren oplevert."""
+    uit = tmp_path / "deck.pptx"
+    pb.bouw(uit)
+    r = _client(monkeypatch, uit).get("/waterpresentatie.pptx", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == f"/waterpresentatie.pptx?v={int(uit.stat().st_mtime)}"
+
+
+def test_een_verouderde_versie_in_de_url_verwijst_door(monkeypatch, tmp_path):
+    uit = tmp_path / "deck.pptx"
+    pb.bouw(uit)
+    r = _client(monkeypatch, uit).get("/waterpresentatie.pptx?v=1", follow_redirects=False)
+    assert r.status_code == 302
+
+
+def test_de_kale_url_levert_na_de_doorverwijzing_gewoon_het_bestand(monkeypatch, tmp_path):
+    uit = tmp_path / "deck.pptx"
+    pb.bouw(uit)
+    r = _client(monkeypatch, uit).get("/waterpresentatie.pptx")
+    assert r.status_code == 200 and r.content[:2] == b"PK"
