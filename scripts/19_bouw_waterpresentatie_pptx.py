@@ -135,7 +135,11 @@ def _beeld_balken(dia, b, links, top, hoog):
         deel = max(0.012, min(1.0, (r["waarde"] / r["max"]) if r["max"] else 0))
         _vlak(dia, spoorlinks, y, Emu(int(spoorbreed * deel)), h, _kl(r["kleur"]))
         waarde = f"{r['waarde']:,.0f}".replace(",", ".")
-        _tekst(dia, Emu(int(spoorlinks + 90000)), y, _emu(0.2), h, waarde, 11.5, "licht",
+        # Bij een korte balk valt de waarde half buiten de kleur en wordt zij onleesbaar. Dan
+        # zetten we hem er rechts náást, op de donkere achtergrond.
+        binnen = deel > 0.16
+        _tekst(dia, Emu(int(spoorlinks + (90000 if binnen else spoorbreed * deel + 110000))),
+               y, _emu(0.2), h, waarde, 11.5, "licht" if binnen else "muted",
                True, anker=MSO_ANCHOR.MIDDLE)
         if r.get("bij"):
             _tekst(dia, Emu(int(spoorlinks + spoorbreed + 130000)), y, _emu(0.22), h,

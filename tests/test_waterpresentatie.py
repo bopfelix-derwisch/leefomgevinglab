@@ -260,3 +260,44 @@ def test_het_aantal_bronnen_klopt_met_het_dossier():
     for lid in wh.LEDEN:
         live |= set(lid["live"])
     assert len(live) >= 8
+
+
+# --- het eindbeeld in de presentatie -----------------------------------------------------
+
+def test_het_eindbeeld_zit_in_de_presentatie():
+    """Het dossier eindigt niet op wat er mist, maar op wat je krijgt als het er is."""
+    dias = [d for d in wp.DIAS if d["deel"] == "Het eindbeeld"]
+    assert len(dias) == 2
+    assert all(d["link"] == "/eindbeeld" for d in dias)
+
+
+def test_de_eindbeeldcijfers_worden_afgeleid_en_niet_overgetypt():
+    """Verandert een aanname in eindbeeld.py, dan verandert de dia mee in plaats van te liegen."""
+    from leefomgevinglab.usecases import eindbeeld as eb
+
+    p = eb.product()
+    tekst = _alle_tekst(d for d in wp.DIAS if d["deel"] == "Het eindbeeld")
+    for getal in (p["ruimte"]["vrij_kg"], p["ruimte"]["onbenut_kg"], p["balans"]["gemeten_kg"]):
+        assert f"{getal:,.0f}".replace(",", ".") in tekst, f"{getal} staat niet op een dia"
+    assert str(p["ruimte"]["onbenut_maal_vrij"]).replace(".", ",") in tekst
+
+
+def test_de_eindbeelddias_zeggen_dat_zij_verzonnen_zijn():
+    """Twee dia's met kloppende getallen over niet-bestaande bedrijven; dat moet erbij staan."""
+    tekst = _alle_tekst(d for d in wp.DIAS if d["deel"] == "Het eindbeeld")
+    assert "verzonnen" in tekst or "synthetisch" in tekst
+    assert all("/eindbeeld" in d["bron"] for d in wp.DIAS if d["deel"] == "Het eindbeeld")
+
+
+def test_geen_dia_draagt_een_kapotte_duizendtalnotatie():
+    """Drie keer ging dit mis: `.replace(",", ".")` op een hele zin raakt ook de zinskomma.
+
+    Het patroon dat overblijft is een punt tussen twee woorden zonder spatie erna -- "Zandmaas.
+    één stof". Een getalscheiding staat altijd tussen cijfers.
+    """
+    import re
+
+    for d in wp.DIAS:
+        for regel in d["kern"] + [d["spreektekst"]]:
+            fout = re.search(r"[a-zà-ÿ]\.[a-zà-ÿ]", regel)
+            assert not fout, f"dia {d['nr']}: {regel[max(0, fout.start() - 30):fout.end() + 20]}"
