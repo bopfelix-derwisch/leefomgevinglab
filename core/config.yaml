@@ -329,6 +329,9 @@ leefomgevinglab:
     # Dezelfde domeintabel, maar als ruwe CSV: /kennisgraaf heeft de kolommen CASnummer,
     # Groep en Gerelateerd nodig, en die verdwijnen in de verdichting hierboven.
     aquo_csv_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_Parameter.csv"
+    # Vereenvoudigde KRW-geometrie van het Maasdistrict, om in een browser te kunnen
+    # tekenen (10 MB -> 59 kB). Verversen: scripts/20_bouw_maaskaart.py
+    maaskaart_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/maaskaart.json"
 
   waterpresentatie:
     # De PowerPoint wordt gegenereerd uit usecases/waterpresentatie.py en niet met de

@@ -77,6 +77,12 @@ LEDEN = [
      "live": ["Aquo-domeintabel Parameter (CSV op schijf, live ontleed)"],
      "synthetisch": ["CAS-nummers per E-PRTR-stof, met de hand uit bijlage II van de "
                      "E-PRTR-verordening overgenomen \u2014 de WFS levert dat veld niet"]},
+    {"id": "kaartvier", "pad": "/maaskaart", "label": "Vier lagen op de kaart",
+     "titel": "De vier lagen samen, op het Maasstroomgebied",
+     "samenvatting": "Kan, mag, gebeurt en gemeld op hun plek. Klik een meetpunt en wat "
+                     "bovenstrooms ligt licht op; elke stip draagt waar\u00f3p haar koppeling rust.",
+     "live": ["Atlas voor een Schone Maas", "RWS KRW-service (geometrie, vereenvoudigd)"],
+     "synthetisch": ["de stroomvolgorde tussen waterlichamen \u2014 een keuze van dit lab"]},
     {"id": "eindbeeld", "pad": "/eindbeeld", "label": "Eindbeeld",
      "titel": "Vrachtenbalans zink \u2014 Zandmaas, traject Roermond\u2013Venlo",
      "samenvatting": "Hoe het informatieproduct eruitziet als de gaten dicht zijn. Volledig "

@@ -47,6 +47,7 @@ from leefomgevinglab.usecases import water_hub as water_hub_mod
 from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
 from leefomgevinglab.usecases import eindbeeld as eindbeeld_mod
+from leefomgevinglab.usecases import maaskaart as maaskaart_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -438,6 +439,25 @@ def waterpresentatie_pptx(v: int | None = None):
         # gebeurd. `no-cache` laat de rand wél opslaan maar dwingt af dat hij elke keer
         # terugvraagt of de versie nog klopt.
         headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/maaskaart", response_class=HTMLResponse)
+def maaskaart_page():
+    """De vier lagen samen op het Maasstroomgebied, met de grondslag per koppeling."""
+    return _waterpagina("maaskaart.html", "kaartvier")
+
+
+@app.get("/api/maaskaart")
+def api_maaskaart(live: int = 1):
+    """Geometrie plus de vier lagen. De Atlas wordt live bevraagd en een dag gecachet."""
+    ll = _config.get("leefomgevinglab", {})
+    kmg = ll.get("kmg", {})
+    return maaskaart_mod.beeld(
+        kaart_pad=kmg.get("maaskaart_pad"),
+        overzicht_pad=kmg.get("overzicht_pad", ""),
+        metingen_pad=_kmg_pad(),
+        straal_m=kmg.get("straal_m", 250000),
+        live=bool(live))
 
 
 @app.get("/eindbeeld", response_class=HTMLResponse)
