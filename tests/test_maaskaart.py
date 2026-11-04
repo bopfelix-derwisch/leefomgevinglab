@@ -164,3 +164,72 @@ def test_de_pagina_gebruikt_geen_achtergrondkaart(monkeypatch):
 def test_een_ontbrekend_kaartbestand_zegt_hoe_je_het_bouwt():
     d = mk.beeld(kaart_pad="/bestaat/niet/maaskaart.json")
     assert d["beschikbaar"] is False and "scripts/20" in d["reden"]
+
+
+# --- doel tegenover norm, en wat er nog kan -----------------------------------------------
+
+def test_een_doel_en_een_norm_zijn_twee_verschillende_meetlatten(b):
+    """De meest gestelde vraag bij dit dossier. Een waterlichaam heeft wél doelen, maar de norm
+    voor zink is daar geen van: die is landelijk en geldt voor alle oppervlaktewater."""
+    soorten = {s["doel_soort"] for m in b["meetpunten"] for s in m["stoffen"]}
+    assert "doel per waterlichaam" in soorten
+    assert "chemische norm" in soorten
+
+
+def test_elke_meetlat_legt_uit_waar_zij_vandaan_komt(b):
+    for sleutel, m in b["meetlatten"].items():
+        assert m["kop"] and m["wat"] and m["let_op"] and m["waar"]
+        assert sleutel in {s["doel_soort"] for mp in b["meetpunten"] for s in mp["stoffen"]}
+
+
+def test_het_krw_doel_zegt_dat_het_geen_grenswaarde_is(b):
+    """Anders leest een klassengrens als iets waarop gehandhaafd kan worden."""
+    assert "géén grenswaarde" in b["meetlatten"]["doel per waterlichaam"]["let_op"]
+
+
+def test_de_norm_zegt_dat_hij_per_punt_gecorrigeerd_is(b):
+    t = b["meetlatten"]["chemische norm"]["let_op"]
+    assert "biobeschikbaarheid" in t and "opgeloste" in t
+
+
+def test_stikstof_toetst_tegen_een_doel_en_zink_tegen_een_norm(b):
+    """Concreet, want zonder voorbeeld blijft het onderscheid abstract."""
+    rijen = {(s["code"], s["doel_soort"]) for m in b["meetpunten"] for s in m["stoffen"]}
+    assert ("Ntot", "doel per waterlichaam") in rijen
+    assert ("Zn", "chemische norm") in rijen
+
+
+def test_wat_kan_er_nog_staat_er_als_vracht_en_niet_als_concentratie(b):
+    """Een afstand in µg/l zegt een beheerder niets; kilo's per jaar wel."""
+    met = [s for m in b["meetpunten"] for s in m["stoffen"] if s["ruimte"] is not None]
+    assert met
+    for s in met:
+        assert s["ruimte_kg_jaar"] is not None
+        assert (s["ruimte"] > 0) == (s["ruimte_kg_jaar"] > 0), "teken moet meelopen"
+
+
+def test_een_negatieve_ruimte_blijft_negatief(b):
+    """Stikstof zit boven het doel; dat is geen hoeveelheid die erbij kan maar een tekort."""
+    vol = [s for m in b["meetpunten"] for s in m["stoffen"]
+           if s["ruimte"] is not None and s["ruimte"] < 0]
+    assert vol, "op de Maas zit stikstof boven het doel"
+    assert all(s["ruimte_kg_jaar"] < 0 for s in vol)
+
+
+def test_een_onbekende_eenheid_levert_geen_vracht_op():
+    """Liever niets dan mg/l aannemen: dat is bij zink een factor duizend."""
+    assert mk._ruimte_kg_jaar(1.0, "ppm", "NL91ZM") is None
+    assert mk._ruimte_kg_jaar(None, "mg/l", "NL91ZM") is None
+    assert mk._ruimte_kg_jaar(1.0, "mg/l", "NL91ZM") > 0
+
+
+def test_de_omrekening_scheelt_een_factor_duizend_tussen_de_eenheden():
+    mg = mk._ruimte_kg_jaar(1.0, "mg/l", "NL91ZM")
+    ug = mk._ruimte_kg_jaar(1.0, "ug/l", "NL91ZM")
+    assert mg == pytest.approx(ug * 1000, rel=0.001)
+
+
+def test_de_pagina_legt_het_verschil_uit(monkeypatch):
+    h = _client(monkeypatch).get("/maaskaart").text
+    assert "Doel of norm?" in h
+    assert "Wat kan er nog" in h or "wat er nog bij kan" in h

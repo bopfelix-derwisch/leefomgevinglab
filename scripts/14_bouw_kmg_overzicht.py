@@ -68,6 +68,11 @@ def _stof_regel(bijdrage: dict) -> dict:
         "klasse": (bijdrage.get("doel") or {}).get("klasse"),
         "doel_soort": (bijdrage.get("doel") or {}).get("soort"),
         "doel_waarde": (bijdrage.get("doel") or {}).get("goed_tot"),
+        # De ruimte tot het doel of de norm, in de eenheid van de meting. Positief is wat er nog
+        # bij kan; negatief betekent dat de waarde er al boven zit en "wat kan hier nog" geen
+        # hoeveelheid is maar een tekort.
+        "ruimte": (bijdrage.get("doel") or {}).get("ruimte"),
+        "doel_element": (bijdrage.get("doel") or {}).get("element_naam"),
         "getoetste_waarde": (bijdrage.get("doel") or {}).get("getoetste_waarde"),
         "doel_grondslag": (bijdrage.get("doel") or {}).get("grondslag"),
     }

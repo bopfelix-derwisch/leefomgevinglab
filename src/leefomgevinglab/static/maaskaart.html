@@ -97,6 +97,34 @@
     .spoor i { display:block; height:100%; background:var(--mag); min-width:2px; }
     .stofrij .bij { font-size:11.5px; color:var(--dim); }
 
+    /* Wat kan er nog: het getal waar het om gaat. Groen als er ruimte is, rood als de waarde er
+       al boven zit -- dan is "wat kan hier nog" geen hoeveelheid maar een tekort. */
+    .ruimte { display:flex; align-items:baseline; gap:9px; margin-top:7px;
+      padding:7px 11px; border-radius:7px; background:var(--panel2);
+      border-left:3px solid var(--l); }
+    .ruimte.kan { --l:var(--accent); }
+    .ruimte.vol { --l:var(--weg); }
+    .ruimte .v { font-size:17px; font-weight:800; color:#eafff6; line-height:1.1;
+      font-variant-numeric:tabular-nums; }
+    .ruimte.vol .v { color:var(--weg); }
+    .ruimte .k { font-size:11.5px; color:var(--muted); }
+
+    .meetlat { margin-top:6px; font-size:11.5px; color:var(--dim);
+      border-left:2px solid var(--border); padding-left:9px; }
+    .meetlat b { color:var(--muted); }
+
+    .uitleg { background:var(--panel); border:1px solid var(--border); border-radius:12px;
+      padding:16px 18px; margin-top:14px; }
+    .uitleg .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.09em;
+      color:var(--dim); margin-bottom:10px; }
+    .mlrij { border-left:3px solid var(--l); padding:2px 0 2px 12px; margin-bottom:12px; }
+    .mlrij.doel { --l:var(--kan); } .mlrij.norm { --l:var(--mag); }
+    .mlrij h4 { font-size:13px; color:#eafff6; margin-bottom:4px; }
+    .mlrij p { font-size:12.5px; color:var(--muted); }
+    .mlrij p + p { margin-top:5px; }
+    .mlrij .waar { font-size:11px; color:var(--dim); margin-top:5px;
+      font-family:ui-monospace,monospace; }
+
     .telling { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px;
       color:var(--dim); }
     .telling b { color:var(--text); font-variant-numeric:tabular-nums; }
@@ -140,6 +168,7 @@
       <div class="kaartdoos"><div id="kaart">Kaart laden…</div></div>
       <div>
         <div class="paneel" id="paneel"><p class="leeg">Laden…</p></div>
+        <div class="uitleg" id="uitleg"></div>
         <div class="voorbehoud" id="voorbehoud"></div>
       </div>
     </div>
@@ -250,7 +279,9 @@
           `<h3>Klik een meetpunt</h3>` +
           `<div class="sub">De kaart beantwoordt dan de vraag waarmee dit dossier begon.</div>` +
           `<p class="leeg">Wat bovenstrooms ligt licht op, de rest dooft, en hier komt te staan ` +
-          `welke vergunningen kunnen bijdragen en hoeveel van de gemeten waarde zij verklaren.</p>` +
+          `welke vergunningen kunnen bijdragen, hoeveel van de gemeten waarde zij verklaren, en ` +
+          `— waar het om gaat — <b>wat er nog bij kan</b> voordat het doel of de norm wordt ` +
+          `geraakt.</p>` +
           `<div class="telling"><span><b>${nl(D.meetpunten.length)}</b> meetpunten</span>` +
           `<span><b>${nl(D.vergunningen.length)}</b> vergunningen</span>` +
           `<span><b>${nl(D.zuiveringen.length)}</b> zuiveringen</span>` +
@@ -280,14 +311,57 @@
             ? `<div class="bij">niet toe te rekenen — zie de laag "mag"</div>`
             : `<div class="spoor"><i style="width:${Math.min(100, pct)}%"></i></div>` +
               `<div class="bij">${nl(pct, 1)}% verklaard door ${nl(s.posten)} vergunning` +
-              `${s.posten === 1 ? "" : "en"}` +
-              (s.doel_waarde ? ` · doel ${nl(s.doel_waarde, 2)} ${esc(s.eenheid || "")}` : "") +
-              `</div>`) +
+              `${s.posten === 1 ? "" : "en"}</div>`) +
+          ruimteblok(s) + meetlatregel(s) +
           `</div>`;
       }
       h += `<div class="telling" style="margin-top:12px"><span>Koppeling meetpunt → waterlichaam: ` +
         `<b>op code</b></span></div>` + grondslagen();
       $("paneel").innerHTML = h;
+    }
+
+    // Wat kan er nog? Dit is waar het om gaat, en het is geen percentage maar een vracht:
+    // de afstand tot het doel maal de jaarafvoer van het waterlichaam.
+    function ruimteblok(s) {
+      if (s.ruimte === null || s.ruimte === undefined) {
+        return `<div class="bij" style="margin-top:6px">Wat kan er nog? Niet te zeggen — ` +
+          `${esc(s.doel_soort || "geen meetlat gevonden")}.</div>`;
+      }
+      const kan = s.ruimte > 0;
+      const kg = s.ruimte_kg_jaar;
+      return `<div class="ruimte ${kan ? "kan" : "vol"}">` +
+        `<span class="v">${kan ? "+" : ""}${nl(kg)} kg/jaar</span>` +
+        `<span class="k">${kan
+          ? `kan er nog bij vóór ${esc(s.doel_soort === "chemische norm" ? "de norm" : "het doel")} ` +
+            `van ${nl(s.doel_waarde, 2)} ${esc(s.eenheid || "")} wordt geraakt`
+          : `tekórt — de waarde zit al ${nl(Math.abs(s.ruimte), 2)} ${esc(s.eenheid || "")} ` +
+            `boven ${esc(s.doel_soort === "chemische norm" ? "de norm" : "het doel")}; er kan niets bij`}` +
+        `</span></div>`;
+    }
+
+    function meetlatregel(s) {
+      if (!s.meetlat) return "";
+      return `<div class="meetlat"><b>${esc(s.meetlat.kop)}</b>` +
+        (s.doel_grondslag ? ` · getoetst op het ${esc(s.doel_grondslag)}` : "") +
+        (s.klasse ? ` · oordeel: ${esc(s.klasse)}` : "") + `</div>`;
+    }
+
+    function tekenUitleg() {
+      const m = D.meetlatten || {};
+      const doel = m["doel per waterlichaam"], norm = m["chemische norm"];
+      let h = `<div class="t">Doel of norm? Twee meetlatten die vaak door elkaar lopen</div>`;
+      if (doel) h += `<div class="mlrij doel"><h4>${esc(doel.kop)}</h4>` +
+        `<p>${esc(doel.wat)}</p><p>${esc(doel.let_op)}</p>` +
+        `<div class="waar">${esc(doel.waar)}</div></div>`;
+      if (norm) h += `<div class="mlrij norm"><h4>${esc(norm.kop)}</h4>` +
+        `<p>${esc(norm.wat)}</p><p>${esc(norm.let_op)}</p>` +
+        `<div class="waar">${esc(norm.waar)}</div></div>`;
+      h += `<p style="font-size:12.5px;color:var(--muted)">Kort: een <b>waterlichaam</b> heeft ` +
+        `wél doelen, maar die gaan over ecologie en de fysisch-chemische toestand. De norm voor ` +
+        `zink of PFOA is géén doel van dít water — die geldt overal, en wordt via het ` +
+        `waterprogramma aan het waterlichaam gekoppeld. Daarom staat stikstof hier tegen een ` +
+        `doel van 2,5 mg/l en zink tegen een norm van 7,80 µg/l.</p>`;
+      $("uitleg").innerHTML = h;
     }
 
     function grondslagen() {
@@ -322,7 +396,7 @@
         return;
       }
       D = d;
-      tekenKnoppen(); tekenKaart(); tekenPaneel(); tekenVoorbehoud();
+      tekenKnoppen(); tekenKaart(); tekenPaneel(); tekenUitleg(); tekenVoorbehoud();
     }).catch(() => { $("kaart").textContent = "Het eindpunt /api/maaskaart antwoordde niet."; });
   </script>
 </body>

@@ -178,6 +178,10 @@ def toets(doelenset: dict, waterlichaam: str | None, stof: dict,
     goed_tot = doel.get("goed_tot")
     return {
         "beschikbaar": True,
+        # Welke meetlat dit is. Zonder dit veld zijn de twee niet uit elkaar te houden op een
+        # pagina, en dat is juist het onderscheid dat ertoe doet: een doel wordt pér waterlichaam
+        # vastgesteld, een norm geldt landelijk voor alle oppervlaktewater.
+        "soort": "doel per waterlichaam",
         "element": doel.get("code"), "element_naam": doel.get("naam"),
         "eenheid": doel.get("eenheid"), "grondslag": doel.get("grondslag"),
         "goed_tot": goed_tot,

@@ -26,6 +26,33 @@ from leefomgevinglab.usecases.kmg import toerekening
 
 KAART_PAD = "/mnt/nvme/geluidsmeter/data/external/wkp/maaskaart.json"
 
+# Twee meetlatten die allebei "het doel" worden genoemd en die het niet zijn. Dit onderscheid
+# is de meest gestelde vraag bij dit dossier, en het staat nergens in één zin bij elkaar.
+MEETLATTEN = {
+    "doel per waterlichaam": {
+        "kop": "KRW-doel \u2014 vastgesteld v\u00f3\u00f3r dit waterlichaam",
+        "wat": ("De waterbeheerder stelt per waterlichaam doelen vast voor de ecologische en "
+                "fysisch-chemische toestand: stikstof, fosfor, zuurstof, zuurgraad, chloride en "
+                "de biologie. Ze staan in het waterprogramma en verschillen per watertype \u2014 "
+                "een laaglandbeek krijgt een ander stikstofdoel dan een grote rivier."),
+        "let_op": ("Het is géén grenswaarde waar iemand op kan handhaven. Het is een doel "
+                   "dat in 2027 gehaald moet zijn, en de toets is een klasse (goed, matig, "
+                   "ontoereikend) op een zomergemiddelde."),
+        "waar": "KRW-doelen, Waterkwaliteitsportaal \u00b7 per waterlichaam",
+    },
+    "chemische norm": {
+        "kop": "Omgevingswaarde \u2014 landelijk, voor \u00e1lle oppervlaktewater",
+        "wat": ("Voor 122 chemische stoffen geldt een landelijke norm: 45 prioritaire stoffen die "
+                "Europa aanwijst en 77 die Nederland zelf aanwees. Die staan in bijlage III en "
+                "IIIa van het Besluit kwaliteit leefomgeving en zijn niet per waterlichaam "
+                "vastgesteld."),
+        "let_op": ("De norm is wel pér meetpunt gecorrigeerd voor biobeschikbaarheid \u2014 "
+                   "bij zink verschilt de getoetste waarde daardoor per punt \u2014 en geldt voor "
+                   "een bépaalde fractie: voor zink de opgeloste, niet de totale."),
+        "waar": "KRW-toetsresultaten \u00b7 per meetpunt, grondslag jaargemiddelde",
+    },
+}
+
 # Hoe een koppeling tussen twee lagen tot stand komt. Dit is de kern van wat de kaart laat zien:
 # dezelfde vier lagen, maar met zichtbaar waar de verbinding op rust.
 GRONDSLAG = {
@@ -82,16 +109,53 @@ def meetpunten(overzicht_pad: str, metingen_pad: str) -> list[dict]:
             "waterlichaam_naam": b.get("waterlichaam_naam"),
             "register": b.get("register"),
             "aandeel_max_pct": top,
-            "stoffen": [{"code": s["code"], "naam": s.get("naam"),
-                         "gemeten": s.get("gemeten"), "eenheid": s.get("eenheid"),
-                         "aandeel_pct": s.get("aandeel_pct"), "posten": s.get("posten"),
-                         "klasse": s.get("klasse"), "doel_waarde": s.get("doel_waarde")}
-                        for s in (b.get("stoffen") or [])],
+            "stoffen": [_stof(s, b.get("waterlichaam")) for s in (b.get("stoffen") or [])],
             # Hoe het meetpunt aan zijn waterlichaam komt: uit het meetobjectenbestand, dus
             # op een code. Dit is de enige koppeling in dit hele dossier die zo gelegd is.
             "grondslag": "code",
         })
     return uit
+
+
+# µg/l en mg/l naar kg per jaar, bij een debiet in m³/s. Dezelfde eenheidsval als elders in dit
+# dossier: wie hier mg/l aanneemt zit bij zink een factor duizend mis.
+_PER_KG = {"mg/l": 1_000.0, "ug/l": 1_000_000.0, "\u00b5g/l": 1_000_000.0}
+
+
+def _ruimte_kg_jaar(ruimte: float | None, eenheid: str | None,
+                    waterlichaam: str | None) -> float | None:
+    """De ruimte tot het doel, van een concentratie naar een vracht per jaar.
+
+    Levert `None` bij een onbekende eenheid in plaats van mg/l aan te nemen: een stille aanname
+    is hier een factor duizend waard. En bij een negatieve ruimte blijft het getal negatief —
+    dat is geen hoeveelheid die erbij kan maar een tekort, en dat hoort zichtbaar te blijven.
+    """
+    if ruimte is None or not eenheid:
+        return None
+    deler = _PER_KG.get(eenheid.strip())
+    if deler is None:
+        return None
+    debiet = kmg_service.DEBIET_M3_S.get(waterlichaam or "", kmg_service.STANDAARD_DEBIET)
+    return round(ruimte * debiet * toerekening.SECONDEN_PER_JAAR / deler)
+
+
+def _stof(s: dict, waterlichaam: str | None) -> dict:
+    """Eén gemeten stof, met haar meetlat en de ruimte die er nog is."""
+    ruimte = s.get("ruimte")
+    return {
+        "code": s.get("code"), "naam": s.get("naam"),
+        "hoedanigheid_naam": s.get("hoedanigheid_naam"),
+        "gemeten": s.get("gemeten"), "eenheid": s.get("eenheid"),
+        "aandeel_pct": s.get("aandeel_pct"), "posten": s.get("posten"),
+        "klasse": s.get("klasse"),
+        "doel_waarde": s.get("doel_waarde"),
+        "doel_soort": s.get("doel_soort"),
+        "doel_grondslag": s.get("doel_grondslag"),
+        "doel_element": s.get("doel_element"),
+        "ruimte": ruimte,
+        "ruimte_kg_jaar": _ruimte_kg_jaar(ruimte, s.get("eenheid"), waterlichaam),
+        "meetlat": MEETLATTEN.get(s.get("doel_soort") or ""),
+    }
 
 
 def _haal_atlas(x: float, y: float, straal_m: int):
@@ -165,6 +229,8 @@ def beeld(kaart_pad: str | None = None, overzicht_pad: str = "", metingen_pad: s
                    "stroomvolgorde", "zonder_positie", "telling")},
         **d,
         "bovenstrooms": bovenstrooms,
+        "meetlatten": MEETLATTEN,
+        "debiet_m3_s": kmg_service.DEBIET_M3_S,
         # Wat deze kaart over zichzelf moet zeggen, uit de data in plaats van uit een vaste zin.
         "voorbehoud": {
             "geometrie": (f"Het district telt {kaart['telling']['in_district']} waterlichamen; "
