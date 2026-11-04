@@ -183,3 +183,26 @@ def test_de_kale_url_levert_na_de_doorverwijzing_gewoon_het_bestand(monkeypatch,
     pb.bouw(uit)
     r = _client(monkeypatch, uit).get("/waterpresentatie.pptx")
     assert r.status_code == 200 and r.content[:2] == b"PK"
+
+
+def test_geen_tekst_in_een_stappenvak_loopt_over():
+    """Drie keer liep hier een tekst uit zijn kader, telkens pas zichtbaar na het renderen.
+
+    De schatting is ruw -- python-pptx weet niet hoe PowerPoint afbreekt -- maar grove overloop
+    hoort niet pas op de beamer op te vallen.
+    """
+    from pptx.util import Emu
+
+    for d in wp.DIAS:
+        if d["beeld"]["soort"] != "stappen":
+            continue
+        stappen = d["beeld"]["stappen"]
+        n = len(stappen)
+        breed = int((Emu(12192000) - 2 * pb.MARGE) / n) - 140000 - 380000
+        naam_hoog = 232000 * (3 if n >= 4 else 2)
+        sub_hoog = pb.BEELD_HOOG - (560000 + naam_hoog) - 60000
+        for s in stappen:
+            assert pb.past_in_vak(s["naam"], breed, naam_hoog, 13), \
+                f"dia {d['nr']}: naam te lang — {s['naam']}"
+            assert pb.past_in_vak(s["sub"], breed, sub_hoog, 10.5), \
+                f"dia {d['nr']}: subtekst te lang — {s['sub'][:60]}"

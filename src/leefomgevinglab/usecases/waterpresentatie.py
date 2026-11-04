@@ -164,7 +164,7 @@ DIAS = [
         "omgevingsplan valt af: over een lozing op rijkswater gaat niet de gemeente maar de "
         "minister. En de norm zelf komt er principieel niet uit, om de reden die we net zagen. De "
         "machine antwoordt keurig; alleen niet op deze vraag.",
-        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 35),
+        "DSO Ozon, regelingen op punt (Belfeld boven)", "/kmg", 30),
 
     _dia(
         6, "Mag", "De vergunningen: een voorschrift is tekst, geen grootheid",
@@ -250,7 +250,7 @@ DIAS = [
         "jaargemiddeld, op de opgeloste fractie. We hebben dus een vergunde waarde, een gemeten "
         "waarde en een norm, en we kunnen ze niet met zekerheid naast elkaar leggen. Niet omdat de "
         "data ontbreekt, maar omdat één veld niet wordt ingevuld.",
-        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 40),
+        "Aquo · KRW-toetsresultaten · Atlas", "/watermodel", 35),
 
     _dia(
         10, "Het resultaat", "Het register verklaart hoogstens een kwart",
@@ -277,7 +277,7 @@ DIAS = [
         "zochten in een cirkel van vijftig kilometer, en de Maas is tweehonderd kilometer lang. "
         "Sinds we het stroomgebieddistrict gebruiken telt Keizersveer vierenveertig vergunningen "
         "mee in plaats van geen.",
-        "Toerekeningsmodel van dit lab — bovengrens, geen vaststelling", "/kmg", 45),
+        "Toerekeningsmodel van dit lab — bovengrens, geen vaststelling", "/kmg", 40),
 
     _dia(
         11, "De blinde vlek", "Een hele route staat in geen enkel register",
@@ -297,7 +297,7 @@ DIAS = [
         "zorgwekkende stof. Wat de zuivering niet wegneemt gaat via het effluent de rivier in, en "
         "daarvoor staat nergens een grenswaarde. Voor zink dat via het riool binnenkomt is in dit "
         "hele register geen vergunde ruimte te vinden.",
-        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 40),
+        "Atlas voor een Schone Maas (live) · STOWA 2025-46", "/waterverhaal", 35),
 
     _dia(
         12, "De diagnose", "Drie keer hetzelfde ontbrekende veld",
@@ -319,7 +319,7 @@ DIAS = [
         "gevuld, negenenzestig van negenenzestig. Alleen draagt de melding een eigen "
         "inrichtingsnummer, en er is geen vertaling tussen die twee. Dat is één "
         "kruistabel, geen stelselwijziging.",
-        "koppeling.py · lozingsmodel.py", "/watermodel", 40),
+        "koppeling.py · lozingsmodel.py", "/watermodel", 35),
 
     _dia(
         13, "De kennisgraaf", "Eén gedeeld nummer tegen één handtabel",
@@ -484,7 +484,7 @@ DIAS = [
         "niet kan is net zo leerzaam: de meetwaarden hebben geen machine-ingang tot "
         "tweeduizendzevenentwintig, en een landelijk register van wie wat waar loost bestaat "
         "domweg niet. De drempel is dus niet de techniek.",
-        "connectors in dit lab, alle acht live geverifieerd", "/water", 40),
+        "connectors in dit lab, alle acht live geverifieerd", "/water", 35),
 
     _dia(
         20, "Over deze POC", "De risico's — vier, en de eerste is de ergste",
@@ -504,7 +504,7 @@ DIAS = [
         "niets gaat stuk. Drie: de Atlas-lagen staan open maar dragen geen enkele "
         "gebruiksvoorwaarde, dus wat je ermee mag is onduidelijk. En vier: één paar ogen, terwijl "
         "het resultaat eruitziet alsof iemand het heeft gevalideerd.",
-        "waarnemingen uit deze POC", "/kennisgraaf", 40),
+        "waarnemingen uit deze POC", "/kennisgraaf", 35),
 
     _dia(
         21, "Over deze POC", "Wat is minimaal nodig om dit serieus te doen?",
@@ -557,7 +557,7 @@ DIAS = [
         "stof — geen zink. In het eindbeeld zie je wie erachter zit: drieëntwintig aangesloten "
         "lozers, met hun regime erbij, en de derde daarvan valt onder algemene regels en heeft "
         "dus helemaal geen vergunning. Vandaag is dat één anonieme post.",
-        "/eindbeeld — volledig synthetisch", "/eindbeeld", 40),
+        "/eindbeeld — volledig synthetisch", "/eindbeeld", 35),
 
     _dia(
         23, "Het eindbeeld", "En dan zie je iets dat nu onzichtbaar is",
@@ -587,7 +587,40 @@ DIAS = [
         "/eindbeeld, doorgerekend uit de aannames daar", "/eindbeeld", 40),
 
     _dia(
-        24, "Hoe verder", "Wat nog mist — en een datum",
+        24, "Voor datamensen", "Wat dit project aantoont — en wat ik u zou aanraden",
+        ["Vier lagen, vier bronhouders, vier informatiemodellen — en nergens een gebrek aan data",
+         "Wat telkens ontbreekt is een sleutel of een relatie, niet een gegeven",
+         f"Een veld dat in de standaard staat maar nooit wordt ingevuld, is geen veld: "
+         f"0 van {_nl(CIJFERS['voorschriften_totaal'])} voorschriften is volledig",
+         "Twee registraties over hetzelfde object zonder gedeelde sleutel zijn twee registraties "
+         "over niets",
+         "Geen van de oplossingen vraagt een nieuw stelsel — een veld, een kruistabel, een relatie"],
+        {"soort": "stappen", "stappen": [
+            {"nr": "1", "naam": "Sleutel op een code, nooit op een naam",
+             "sub": "de echte Aquo-domeintabel bracht de bruikbaarheid van 57 naar 84 procent",
+             "actief": True},
+            {"nr": "2", "naam": "Voer de herkomst per veld mee",
+             "sub": "uit de bron, afgeleid, aangenomen of ontbrekend", "actief": True},
+            {"nr": "3", "naam": "Toets tegen de bron, niet tegen fixtures",
+             "sub": "804 tests stonden groen terwijl zink een factor 1000 te laag stond",
+             "actief": True},
+            {"nr": "4", "naam": "Publiceer de kruistabel",
+             "sub": "KvK gevuld in 69 van 69; de melding heeft een eigen nummer en er is "
+                    "geen vertaling", "actief": True},
+        ]},
+        "Voor wie met data werkt, zou ik het zo samenvatten. Vier lagen, vier bronhouders, vier "
+        "informatiemodellen — en nergens een gebrek aan gegevens. Wat telkens ontbreekt is een "
+        "sleutel of een relatie. Daaruit volgen vier aanbevelingen. Eén: sleutel op een code en "
+        "nooit op een naam; dat tilde de bruikbaarheid hier van zevenenvijftig naar vierentachtig "
+        "procent. Twee: voer de herkomst per veld mee, want zonder dat ziet een onvolledige "
+        "vergunning er netjes uit. Drie: toets tegen de bron en niet tegen zelfbedachte "
+        "voorbeelden — achthonderd tests stonden groen terwijl zink een factor duizend te laag "
+        "stond. En vier: als twee registers allebei een identificatie hebben, publiceer dan de "
+        "vertaling ertussen in plaats van een derde nummer te verzinnen.",
+        "de vier lagen van dit dossier, samengevat", "/watermodel", 40),
+
+    _dia(
+        25, "Hoe verder", "Wat nog mist — en een datum",
         ["De Aquo-drieslag als sleutel in het voorschrift: parameter, hoedanigheid, eenheid",
          "Een geldigheidsperiode per voorschrift",
          "Een kruistabel eMJV ↔ KvK-vestiging",
@@ -612,7 +645,7 @@ DIAS = [
         "/waterverhaal", 35),
 
     _dia(
-        25, "Slot", "Waar dit op neerkomt",
+        26, "Slot", "Waar dit op neerkomt",
         ["Vier lagen opgehaald uit vier bronnen, drie ervan live",
          "Het register verklaart hoogstens een kwart van wat gemeten wordt",
          "Niet door gebrek aan data, maar door lege velden en ontbrekende relaties",

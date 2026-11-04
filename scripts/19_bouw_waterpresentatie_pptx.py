@@ -174,10 +174,14 @@ def _beeld_stappen(dia, b, links, top, hoog):
         # Breed genoeg voor "EU" en "NL"; met 500000 EMU brak "EU" af over twee regels.
         _tekst(dia, Emu(int(x + 190000)), Emu(int(top + 110000)), Emu(900000), Emu(420000),
                str(s["nr"]), 16, "accent" if aan else "dim", True)
-        _tekst(dia, Emu(int(x + 190000)), Emu(int(top + 570000)), Emu(int(w - 380000)),
-               Emu(520000), s["naam"], 13, "licht", True)
-        _tekst(dia, Emu(int(x + 190000)), Emu(int(top + 1080000)), Emu(int(w - 380000)),
-               Emu(1050000), s["sub"], 10.5, "muted")
+        # Hoe meer kolommen, hoe smaller elk vak en hoe vaker de naam over drie regels loopt.
+        # Met een vaste hoogte van twee regels schoof de naam over zijn subtekst heen.
+        naam_hoog = 232000 * (3 if n >= 4 else 2)
+        _tekst(dia, Emu(int(x + 190000)), Emu(int(top + 560000)), Emu(int(w - 380000)),
+               Emu(naam_hoog), s["naam"], 13, "licht", True)
+        sub_top = 560000 + naam_hoog
+        _tekst(dia, Emu(int(x + 190000)), Emu(int(top + sub_top)), Emu(int(w - 380000)),
+               Emu(int(hoog - sub_top - 60000)), s["sub"], 10.5, "muted")
 
 
 def _beeld_chips(dia, b, links, top, hoog):
@@ -239,6 +243,24 @@ def _beeld_tijdlijn(dia, b, links, top, hoog):
                anker=MSO_ANCHOR.MIDDLE)
         _tekst(dia, Emu(int(links + 1300000)), y, _emu(0.83), h, x["wat"], 11.5, "muted",
                anker=MSO_ANCHOR.MIDDLE)
+
+
+def past_in_vak(tekst: str, breedte_emu: int, hoogte_emu: int, punten: float) -> bool:
+    """Ruwe schatting of een tekst in zijn vak past.
+
+    Geen letterexacte meting — python-pptx kan niet weten hoe PowerPoint afbreekt — maar genoeg
+    om grove overloop te vangen. Dat is nodig gebleken: in deze renderer liep drie keer een
+    tekst uit zijn kader, telkens pas zichtbaar na het renderen naar pdf.
+
+    Een teken is bij Segoe UI ongeveer 0,52 × de puntgrootte breed, en een regel ongeveer
+    1,22 × de puntgrootte hoog. Eén punt is 12700 EMU.
+    """
+    tekenbreedte = punten * 0.52 * 12700
+    regelhoogte = punten * 1.22 * 12700
+    per_regel = max(1, int(breedte_emu / tekenbreedte))
+    # +1 per woordafbreking die een regel vroegtijdig beëindigt; ruw benaderd met een marge.
+    regels = -(-len(tekst) // per_regel) + 1
+    return regels * regelhoogte <= hoogte_emu
 
 
 BEELDEN = {"lagen": _beeld_lagen, "balken": _beeld_balken, "drieluik": _beeld_drieluik,

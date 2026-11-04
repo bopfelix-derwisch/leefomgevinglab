@@ -301,3 +301,22 @@ def test_geen_dia_draagt_een_kapotte_duizendtalnotatie():
         for regel in d["kern"] + [d["spreektekst"]]:
             fout = re.search(r"[a-zà-ÿ]\.[a-zà-ÿ]", regel)
             assert not fout, f"dia {d['nr']}: {regel[max(0, fout.start() - 30):fout.end() + 20]}"
+
+
+def test_er_is_een_samenvatting_voor_datamensen():
+    """Eén dia die zegt wat het hele project aantoont, met vier aanbevelingen eronder."""
+    dia = next(d for d in wp.DIAS if d["deel"] == "Voor datamensen")
+    assert len(dia["beeld"]["stappen"]) == 4
+    assert all(s["actief"] for s in dia["beeld"]["stappen"]), \
+        "dit zijn aanbevelingen, geen keten waarin er één geldt"
+    tekst = _alle_tekst([dia])
+    for bewijs in ("57", "84", "804", "69 van 69"):
+        assert bewijs in tekst, f"aanbeveling zonder bewijs uit dit project: {bewijs} ontbreekt"
+
+
+def test_de_samenvatting_noemt_de_kern_van_het_hele_dossier():
+    dia = next(d for d in wp.DIAS if d["deel"] == "Voor datamensen")
+    tekst = " ".join(dia["kern"]).lower()
+    assert "nergens een gebrek aan data" in tekst
+    assert "sleutel of een relatie" in tekst
+    assert "nieuw stelsel" in tekst
