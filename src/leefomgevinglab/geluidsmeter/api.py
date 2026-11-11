@@ -48,6 +48,7 @@ from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
 from leefomgevinglab.usecases import eindbeeld as eindbeeld_mod
 from leefomgevinglab.usecases import maaskaart as maaskaart_mod
+from leefomgevinglab.usecases import modellen as modellen_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -439,6 +440,18 @@ def waterpresentatie_pptx(v: int | None = None):
         # gebeurd. `no-cache` laat de rand wél opslaan maar dwingt af dat hij elke keer
         # terugvraagt of de versie nog klopt.
         headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/modellen", response_class=HTMLResponse)
+def modellen_page():
+    """CIM-VTH-Flo, IMEV 3.0 en het GIR-databasemodel naast elkaar."""
+    return (Path(__file__).parent.parent / "static" / "modellen.html").read_text()
+
+
+@app.get("/api/modellen")
+def api_modellen():
+    """De vergelijking van de drie modellen, met hun tellingen en herkomst."""
+    return modellen_mod.analyse()
 
 
 @app.get("/maaskaart", response_class=HTMLResponse)

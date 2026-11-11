@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Drie modellen over hetzelfde</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --weg:#ff7a6b; --paars:#c792ea; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.65; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1020px; margin:0 auto; padding:0 20px 70px; }
+    .hero { padding:30px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:28px; font-weight:800; color:#eafff6; margin-bottom:9px;
+      text-wrap:balance; }
+    .hero p { color:var(--muted); font-size:14.5px; max-width:76ch; }
+    .hero p + p { margin-top:9px; }
+    .hero b { color:var(--text); }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:34px 0 10px; }
+    .tekst { font-size:14.5px; color:var(--text); max-width:76ch; }
+    .tekst.zacht { color:var(--muted); }
+    p + p { margin-top:10px; }
+    strong { color:#eafff6; }
+    code { font-family:ui-monospace,monospace; font-size:.88em; background:var(--panel2);
+      padding:1px 5px; border-radius:3px; border:1px solid var(--border); }
+
+    /* De drie lagen naast elkaar. Niet als trap van abstract naar concreet -- dat is juist de
+       misvatting -- maar als drie kolommen die elk een andere vraag beantwoorden. */
+    .lagen { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(275px,1fr));
+      margin-top:12px; }
+    .laag { background:var(--panel); border:1px solid var(--border);
+      border-top:3px solid var(--l); border-radius:11px; padding:15px 17px; }
+    .laag.kan { --l:var(--kan); } .laag.gebeurt { --l:var(--gebeurt); } .laag.mag { --l:var(--mag); }
+    .laag .soort { font-size:10.5px; text-transform:uppercase; letter-spacing:.11em;
+      color:var(--l); font-weight:700; }
+    .laag h3 { font-size:16px; color:#eafff6; margin:4px 0 2px; }
+    .laag .houder { font-size:11.5px; color:var(--dim); margin-bottom:10px; }
+    .laag dl { display:grid; grid-template-columns:auto 1fr; gap:5px 10px; font-size:12.5px; }
+    .laag dt { color:var(--dim); white-space:nowrap; }
+    .laag dd { color:var(--muted); }
+    .laag .omvang { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
+      font-size:12.5px; color:var(--text); }
+
+    /* Hetzelfde begrip, drie keer. De les onderaan is het punt van de rij. */
+    .vert { background:var(--panel); border:1px solid var(--border); border-radius:11px;
+      padding:15px 17px; margin-top:11px; }
+    .vert h4 { font-size:15px; color:#eafff6; margin-bottom:10px; }
+    .drie { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+    .drie div { background:var(--panel2); border-left:3px solid var(--l); border-radius:7px;
+      padding:9px 12px; font-size:12.5px; color:var(--muted); }
+    .drie .c { --l:var(--kan); } .drie .i { --l:var(--gebeurt); } .drie .g { --l:var(--mag); }
+    .drie .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      color:var(--l); font-weight:700; margin-bottom:3px; }
+    .vert .les { margin-top:11px; padding-top:10px; border-top:1px solid var(--border);
+      font-size:13.5px; color:var(--text); }
+    .vert .les::before { content:"↳ "; color:var(--accent); }
+
+    .bevindingen { display:flex; flex-direction:column; gap:10px; margin-top:12px;
+      counter-reset:b; }
+    .bev { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--paars);
+      border-radius:10px; padding:13px 16px 13px 46px; position:relative; }
+    .bev::before { counter-increment:b; content:counter(b,decimal-leading-zero);
+      position:absolute; left:16px; top:14px; font-family:ui-monospace,monospace;
+      font-size:12px; color:var(--dim); }
+    .bev h4 { font-size:14px; color:#eafff6; margin-bottom:4px; }
+    .bev p { font-size:13px; color:var(--muted); }
+    .bev .bron { font-size:11px; color:var(--dim); margin-top:6px;
+      font-family:ui-monospace,monospace; }
+
+    .herkomst { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+      margin-top:12px; }
+    .hk { background:var(--panel2); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; border-left:3px solid var(--l); }
+    .hk.live { --l:var(--accent); } .hk.doc { --l:var(--let,#ffb74d); }
+    .hk .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--l);
+      font-weight:700; margin-bottom:7px; }
+    .hk ul { margin-left:17px; font-size:12.5px; color:var(--muted); }
+    .hk li { margin-bottom:5px; }
+
+    .cijfers { display:flex; gap:26px; flex-wrap:wrap; margin:16px 0 4px; }
+    .cijfer .v { font-size:26px; font-weight:800; color:#eafff6; line-height:1.1;
+      font-variant-numeric:tabular-nums; }
+    .cijfer .k { font-size:12px; color:var(--dim); max-width:20ch; }
+
+    footer { border-top:1px solid var(--border); margin-top:36px; padding-top:18px;
+      font-size:12px; color:var(--dim); max-width:80ch; }
+    footer p + p { margin-top:8px; }
+    footer a { color:var(--accent); text-decoration:none; }
+
+    @media (max-width:760px) { .wrap { padding:0 14px 50px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">modellen</span>
+    <nav>
+      <a href="/">Home</a><a href="/vth">CIM-VTH-Flo</a><a href="/vth-bronnen">Bronnenkaart</a>
+      <a href="/dvth">Doelbeeld D-VTH</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Drie modellen over hetzelfde — en waarom een informatiemodel geen datamodel is</h2>
+      <p>Voor externe veiligheid liggen er drie modellen naast elkaar die alle drie over
+        dezelfde werkelijkheid gaan: een bedrijf dat een risicovolle activiteit uitvoert op een
+        plek, onder toezicht van een bevoegd gezag. Ze zijn <b>geen varianten van elkaar maar
+        lagen van een andere soort</b>, en de verwarring begint zodra je ze als wisselgeld
+        behandelt.</p>
+      <p>Aanleiding is het <b>GIR 2.0 databasemodel</b> van ICTU, dat iets doet wat elders
+        ontbreekt: het legt een informatiemodel naast een datamodel en houdt per attribuut bij
+        wat daarvan gebouwd is. Hiernaast gelegd: <b>IMEV 3.0</b> zoals het REV het publiceert,
+        en <b>CIM-VTH-Flo</b> van Geonovum.</p>
+      <div class="cijfers" id="cijfers"></div>
+    </div>
+
+    <div class="section-title">De drie lagen</div>
+    <p class="tekst zacht">Niet een trap van abstract naar concreet waarop je een punt kunt
+      kiezen — dat is juist de misvatting. Drie kolommen die elk een andere vraag beantwoorden.</p>
+    <div class="lagen" id="lagen"></div>
+
+    <div class="section-title">Hetzelfde begrip, drie keer anders gevangen</div>
+    <p class="tekst zacht">Geen van de drie is fout, en geen van de drie is door een van de
+      andere te vervangen. Dat is precies waarom je ze alle drie nodig hebt.</p>
+    <div id="vertalingen"></div>
+
+    <div class="section-title">Wat de vergelijking oplevert</div>
+    <div class="bevindingen" id="bevindingen"></div>
+
+    <div class="section-title">Wat hiervan te controleren is, en wat niet</div>
+    <p class="tekst zacht">Zonder dit onderscheid leest een analyse als één geheel terwijl de
+      helft niet te verifiëren is.</p>
+    <div class="herkomst" id="herkomst"></div>
+
+    <footer>
+      <p id="bronregels"></p>
+      <p>Zie ook: <a href="/vth">CIM-VTH-Flo als kapstok</a> over alle use-cases,
+        de <a href="/vth-bronnen">bronnenkaart</a> met 34 registraties op de kern-objecttypen,
+        en <a href="/wfs-kwaliteit">de datakwaliteitsscan</a> die de REV-lagen tegen IMEV 3.0.2
+        houdt.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t = document.createElement("span"); t.textContent = s == null ? "" : String(s); return t.innerHTML; };
+    const nl = n => Number(n).toLocaleString("nl-NL");
+
+    fetch("/api/modellen").then(r => r.json()).then(d => {
+      const t = d.telling;
+      const c = (v, k) => `<div class="cijfer"><div class="v">${esc(v)}</div><div class="k">${esc(k)}</div></div>`;
+      $("cijfers").innerHTML =
+        c(t.cim_views, "views in het conceptuele model") +
+        c(nl(t.imev_objecttypen), "objecttypen in IMEV 3.0") +
+        c(t.rev_resources, "resources in de REV-API") +
+        c(t.gir_tabellen, "tabellen in het GIR-datamodel") +
+        c(t.gir_niet_gebouwd, "daarvan ontworpen maar nooit gebouwd");
+
+      $("lagen").innerHTML = d.lagen.map(l => {
+        const b = d.bronnen[l.id];
+        return `<div class="laag ${esc(l.kleur)}">` +
+          `<div class="soort">${esc(l.soort)}</div>` +
+          `<h3>${esc(b.naam)}</h3>` +
+          `<div class="houder">${esc(b.houder)} · ${esc(b.versie)}</div>` +
+          `<dl>` +
+          `<dt>legt vast</dt><dd>${esc(l.legt_vast)}</dd>` +
+          `<dt>zegt niets over</dt><dd>${esc(l.zegt_niets_over)}</dd>` +
+          `<dt>vorm</dt><dd>${esc(l.vorm)}</dd>` +
+          `<dt>toetsbaar</dt><dd>${esc(l.toetsbaar)}</dd>` +
+          `</dl><div class="omvang">${esc(l.omvang)}</div></div>`;
+      }).join("");
+
+      $("vertalingen").innerHTML = d.vertalingen.map(v =>
+        `<div class="vert"><h4>${esc(v.begrip)}</h4><div class="drie">` +
+        `<div class="c"><div class="lbl">CIM-VTH-Flo</div>${esc(v.cim)}</div>` +
+        `<div class="i"><div class="lbl">IMEV 3.0</div>${esc(v.imev)}</div>` +
+        `<div class="g"><div class="lbl">GIR 2.0</div>${esc(v.gir)}</div>` +
+        `</div><div class="les">${esc(v.les)}</div></div>`).join("");
+
+      $("bevindingen").innerHTML = d.bevindingen.map(b =>
+        `<div class="bev"><h4>${esc(b.kop)}</h4><p>${esc(b.wat)}</p>` +
+        `<div class="bron">${esc(b.bron)}</div></div>`).join("");
+
+      $("herkomst").innerHTML =
+        `<div class="hk live"><div class="t">Zelf nagekeken</div><ul>` +
+        d.herkomst.live.map(x => `<li>${esc(x)}</li>`).join("") + `</ul></div>` +
+        `<div class="hk doc"><div class="t">Uit een document overgenomen</div><ul>` +
+        d.herkomst.document.map(x => `<li>${esc(x)}</li>`).join("") + `</ul></div>`;
+
+      $("bronregels").innerHTML = "<b>Bronnen.</b> " + Object.values(d.bronnen).map(b =>
+        (b.url ? `<a href="${esc(b.url)}">${esc(b.naam)}</a>` : esc(b.naam)) +
+        ` — ${esc(b.voluit)} (${esc(b.houder)}, ${esc(b.versie)})`).join(" · ") + ".";
+    }).catch(() => {
+      $("lagen").innerHTML = '<p class="tekst">Het eindpunt /api/modellen antwoordde niet.</p>';
+    });
+  </script>
+</body>
+</html>
