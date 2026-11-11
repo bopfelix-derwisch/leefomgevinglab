@@ -72,6 +72,28 @@
       font-size:13.5px; color:var(--text); }
     .vert .les::before { content:"↳ "; color:var(--accent); }
 
+    /* De overlap: twee registers naast elkaar, met de joinbaarheid als oordeel. */
+    .ov { background:var(--panel); border:1px solid var(--border); border-radius:11px;
+      padding:13px 16px; margin-top:10px; border-left:4px solid var(--j); }
+    .ov.ja { --j:var(--accent); } .ov.deels { --j:#ffb74d; } .ov.nee { --j:#ef5350; }
+    .ov .kop { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+      margin-bottom:9px; }
+    .ov .kop h4 { font-size:14.5px; color:#eafff6; }
+    .ov .chip { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      font-weight:700; color:var(--j); border:1px solid var(--j); border-radius:999px;
+      padding:2px 9px; white-space:nowrap; }
+    .ov .kanten { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+    .ov .kanten div { background:var(--panel2); border-radius:7px; padding:9px 12px;
+      font-size:12.5px; color:var(--muted); }
+    .ov .kanten .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      font-weight:700; margin-bottom:3px; }
+    .ov .kanten .g .lbl { color:var(--mag); } .ov .kanten .i .lbl { color:var(--gebeurt); }
+    .ov .waarom { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
+      font-size:13px; color:var(--text); }
+    .joinbalk { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; font-size:12.5px;
+      color:var(--dim); }
+    .joinbalk b { color:#eafff6; font-variant-numeric:tabular-nums; }
+
     .bevindingen { display:flex; flex-direction:column; gap:10px; margin-top:12px;
       counter-reset:b; }
     .bev { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--paars);
@@ -141,6 +163,15 @@
       andere te vervangen. Dat is precies waarom je ze alle drie nodig hebt.</p>
     <div id="vertalingen"></div>
 
+    <div class="section-title">Wat overlapt tussen het REV en het GIR</div>
+    <p class="tekst zacht">Twee registers over dezelfde Seveso-bedrijven, elk met een eigen
+      model. De vraag die ertoe doet is niet of zij op elkaar lijken, maar <b>waarop je kunt
+      joinen</b> — want zonder gedeelde sleutel is overeenkomst van begrippen alleen een
+      gesprek, geen koppeling. Per begrip staat hier wat elk register ervan vastlegt en of de
+      twee bij elkaar te brengen zijn.</p>
+    <div class="joinbalk" id="joinbalk"></div>
+    <div id="overlap"></div>
+
     <div class="section-title">Wat de vergelijking oplevert</div>
     <div class="bevindingen" id="bevindingen"></div>
 
@@ -193,6 +224,19 @@
         `<div class="i"><div class="lbl">IMEV 3.0</div>${esc(v.imev)}</div>` +
         `<div class="g"><div class="lbl">GIR 2.0</div>${esc(v.gir)}</div>` +
         `</div><div class="les">${esc(v.les)}</div></div>`).join("");
+
+      const jb = {ja: "harde sleutel in beide", deels: "te verbinden, niet te joinen",
+                  nee: "geen gedeelde sleutel"};
+      $("joinbalk").innerHTML = ["ja", "deels", "nee"].map(k =>
+        `<span><b>${t["join_" + k]}</b> van ${d.overlap.length} — ${esc(jb[k])}</span>`).join("");
+      $("overlap").innerHTML = d.overlap.map(o =>
+        `<div class="ov ${esc(o.join)}">` +
+        `<div class="kop"><h4>${esc(o.begrip)}</h4>` +
+        `<span class="chip">${esc(jb[o.join])}</span></div>` +
+        `<div class="kanten">` +
+        `<div class="g"><div class="lbl">GIR 2.0 · datamodel</div>${esc(o.gir)}</div>` +
+        `<div class="i"><div class="lbl">IMEV 3.0 · uitwisseling</div>${esc(o.imev)}</div>` +
+        `</div><div class="waarom">${esc(o.waarom)}</div></div>`).join("");
 
       $("bevindingen").innerHTML = d.bevindingen.map(b =>
         `<div class="bev"><h4>${esc(b.kop)}</h4><p>${esc(b.wat)}</p>` +

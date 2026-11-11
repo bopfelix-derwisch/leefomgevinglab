@@ -56,10 +56,18 @@ def test_elk_begrip_wordt_in_alle_drie_de_modellen_geplaatst(a):
         assert v["les"], f"{v['begrip']} zonder les is een tabelrij zonder punt"
 
 
-def test_het_begrip_toestemming_ontbreekt_in_beide_werkende_systemen(a):
-    """De scherpste bevinding: het begrip dat het VTH-stelsel draagt, zit in geen register."""
+def test_de_vergunning_is_in_geen_van_beide_een_entiteit_maar_wel_in_een_een_gegeven(a):
+    """Deze rij stond eerst fout op de pagina: IMEV zou de vergunning niet kennen.
+
+    Natellen in het schema wees uit dat 44 objecttypen het vergunningnummer, de datum en de
+    plicht als veld dragen. De bevinding is dus niet "het begrip ontbreekt in beide" maar de
+    asymmetrie: IMEV bewaart de identificatie, GIR laat hem vallen. De test bewaakt dat de
+    oude, te stellige formulering niet terugkomt.
+    """
     v = next(x for x in a["vertalingen"] if "mag dit bedrijf" in x["begrip"])
-    assert "komt niet voor" in v["imev"]
+    assert "komt niet voor" not in v["imev"], "de weerlegde bewering staat terug op de pagina"
+    assert "basisVergunningNummer" in v["imev"]
+    assert str(a["telling"]["imev_met_vergunningnummer"]) in v["imev"]
     assert "buiten scope" in v["gir"]
 
 
@@ -67,6 +75,66 @@ def test_bevoegd_gezag_is_in_gir_een_query_en_geen_relatie(a):
     v = next(x for x in a["vertalingen"] if "bevoegd gezag" in x["begrip"])
     assert "GEO-query" in v["gir"]
     assert "niet op historie" in v["les"] or "reproduceerbaar" in v["les"]
+
+
+# --- de overlap tussen de twee registers ----------------------------------------------------
+
+def test_elk_overlapbegrip_zegt_wat_beide_registers_ervan_vastleggen(a):
+    for o in a["overlap"]:
+        assert o["begrip"] and o["gir"] and o["imev"]
+        assert o["waarom"], f"{o['begrip']} zonder onderbouwing is een oordeel zonder grond"
+
+
+def test_joinbaarheid_is_een_van_drie_uitkomsten(a):
+    """`deels` is geen `ja`: te verbinden via een tussentabel is geen gedeelde sleutel."""
+    for o in a["overlap"]:
+        assert o["join"] in ("ja", "deels", "nee"), o["begrip"]
+
+
+def test_de_joinbare_begrippen_leunen_alle_op_een_basisregistratie(a):
+    """Dit is de bevinding. Niets wat de twee registers zelf afspraken, verbindt ze."""
+    buiten = ("KvK", "handelsregister", "BAG")
+    joinbaar = [o for o in a["overlap"] if o["join"] == "ja"]
+    assert joinbaar, "zonder joinbare begrippen is de analyse leeg"
+    for o in joinbaar:
+        tekst = o["gir"] + o["imev"] + o["waarom"]
+        assert any(x in tekst for x in buiten), \
+            f"{o['begrip']} heet joinbaar zonder sleutel van buiten te noemen"
+
+
+def test_de_meeste_begrippen_zijn_niet_te_joinen(a):
+    """Zou dit kantelen, dan is de boodschap van de sectie omgekeerd."""
+    t = a["telling"]
+    assert t["join_nee"] > t["join_ja"]
+    assert t["join_ja"] + t["join_deels"] + t["join_nee"] == len(a["overlap"])
+
+
+def test_bevoegd_gezag_is_in_beide_registers_iets_anders(a):
+    o = next(x for x in a["overlap"] if "bevoegd gezag" in x["begrip"])
+    assert o["join"] == "nee"
+    assert "OIN" in o["gir"] and "enum" in o["imev"]
+
+
+def test_de_vergunning_is_eenzijdig_vastgelegd(a):
+    o = next(x for x in a["overlap"] if x["begrip"] == "De vergunning")
+    assert o["join"] == "nee"
+    assert "basisVergunningNummer" in o["imev"]
+    assert "niets" in o["gir"] or "buiten scope" in o["gir"]
+
+
+def test_imev_eist_een_reden_bij_een_ontbrekende_waarde_en_gir_niet(a):
+    """De zekerheid-per-veld uit het waterdossier, hier als standaard aangetroffen."""
+    o = next(x for x in a["overlap"] if "ontbrekende waarde" in x["begrip"])
+    assert "geenWaardeReden" in o["imev"]
+    assert o["gir"].strip() == "NULL"
+    for reden in ("gegevenInTransitie", "nietVanToepassing", "waardeOnbekend"):
+        assert reden in o["imev"], reden
+
+
+def test_de_pagina_toont_de_overlap_en_de_joinbaarheid(monkeypatch):
+    h = _client(monkeypatch).get("/modellen").text
+    assert 'id="overlap"' in h and 'id="joinbalk"' in h
+    assert "joinen" in h, "de sectie moet de vraag benoemen die zij beantwoordt"
 
 
 # --- de bevindingen en hun herkomst ----------------------------------------------------------
@@ -108,6 +176,7 @@ def test_de_tellingen_dekken_de_inhoud(a):
     assert t["lagen"] == len(a["lagen"])
     assert t["vertalingen"] == len(a["vertalingen"])
     assert t["bevindingen"] == len(a["bevindingen"])
+    assert t["overlap"] == len(a["overlap"])
 
 
 # --- de pagina --------------------------------------------------------------------------------
@@ -133,5 +202,6 @@ def test_de_vth_paginas_wijzen_naar_de_analyse(monkeypatch):
 
 def test_het_eindpunt_levert_de_hele_analyse(monkeypatch):
     d = _client(monkeypatch).get("/api/modellen").json()
-    for sleutel in ("bronnen", "lagen", "vertalingen", "bevindingen", "herkomst", "telling"):
+    for sleutel in ("bronnen", "lagen", "vertalingen", "overlap", "bevindingen",
+                    "herkomst", "telling"):
         assert d[sleutel], sleutel
