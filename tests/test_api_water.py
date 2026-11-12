@@ -55,10 +55,23 @@ def test_dvth_is_geen_waterpagina_en_krijgt_de_balk_niet(monkeypatch):
     assert "__WATERNAV__" not in r.text, "placeholder moet leeg worden vervangen, niet blijven staan"
 
 
-def test_hoofdnav_heeft_een_ingang_naar_het_waterdossier(monkeypatch):
+def test_de_homepagina_heeft_precies_een_ingang_naar_het_waterdossier(monkeypatch):
+    """De hub is de enige plek waar staat wat het dossier is.
+
+    Deze test noemde eerder alleen `/gebruiksruimte`, waardoor de regel per ongeluk gold voor
+    één pagina in plaats van voor het beginsel. Hij leidt de lijst nu uit `water_hub.LEDEN` af,
+    zodat een nieuw dossierlid automatisch meebewaakt wordt — en zodat de homepagina niet
+    langzaam een tweede, verouderende inhoudsopgave van het dossier wordt.
+    """
     r = _client(monkeypatch).get("/")
-    assert 'href="/water"' in r.text
-    assert 'href="/gebruiksruimte"' not in r.text, "opgegaan in het dossier"
+    assert 'href="/water"' in r.text, "zonder ingang is het dossier onvindbaar"
+    for lid in wh.LEDEN:
+        pad = lid["pad"]
+        if pad == "/water":
+            continue
+        assert f'href="{pad}"' not in r.text, (
+            f"{pad} is lid van het dossier en hoort niet apart op de homepagina — "
+            "de hub zegt wat erbij hoort")
 
 
 @pytest.mark.parametrize("pad", ["/water", "/waterruimte", "/gebruiksruimte", "/lozing", "/balo"])

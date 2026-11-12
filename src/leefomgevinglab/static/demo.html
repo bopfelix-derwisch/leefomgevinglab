@@ -57,9 +57,9 @@
     <span class="badge">rondleiding</span>
     <nav>
       <a href="/">Home</a>
+      <a href="/water">Waterdossier</a>
+      <a href="/modellen">Modellen</a>
       <a href="/roadmap">Roadmap</a>
-      <a href="/viewer">REV-viewer</a>
-      <a href="/chatbot">Chatbot</a>
     </nav>
   </header>
 
@@ -67,11 +67,20 @@
     <div class="hero">
       <h2>Rondleiding — de stelselbevindingen, live</h2>
       <p>
-        Een korte tour (±4 min) langs het lab. Elke stop koppelt een concrete handeling aan wat je
-        ziet én aan een bevinding over de <a href="/roadmap" style="color:var(--accent)">kwaliteit van het stelsel</a> —
-        eat your own dogfood, in de praktijk.
+        Twaalf stops langs het lab (±10 min). Elke stop koppelt een handeling aan wat je ziet én
+        aan een bevinding over de <a href="/roadmap" style="color:var(--accent)">kwaliteit van het
+        stelsel</a> — eat your own dogfood, in de praktijk.
       </p>
-      <div class="meta">Tip: open elke link in een nieuw tabblad en kom terug voor de volgende stop.</div>
+      <p style="color:var(--muted); max-width:720px; font-size:14px; margin-top:10px">
+        De rode draad: <b style="color:#eafff6">elke fout hieronder is gevonden door een bewering
+        tegen een echte bron te houden</b>, nooit door een test op verzonnen data. Daarom staat bij
+        iedere stop wat er feitelijk gebeurt als je klikt, en niet alleen wat de bedoeling was.
+      </p>
+      <div class="meta">
+        Tip: open elke link in een nieuw tabblad en kom terug voor de volgende stop. Stops met
+        <span style="color:var(--accent)">live</span> bevragen op dat moment echt een externe bron —
+        die kunnen een paar seconden duren, en ze kunnen falen. Dat hoort erbij.
+      </div>
     </div>
 
     <div class="stops">
@@ -81,25 +90,25 @@
         <div class="body">
           <h3>Het doel <span class="t">± 30 sec</span></h3>
           <div class="row"><span class="k">Doe dit</span> <a href="/" target="_blank">open de openingspagina</a></div>
-          <div class="row"><span class="k">Je ziet</span> "eat your own dogfood" + de use-cases op echte open data/API's.</div>
-          <div class="finding good">Bevinding: het stelsel is rijk genoeg om er meteen iets bruikbaars op te bouwen — geen nieuw systeem, wel nieuwe connectors.</div>
+          <div class="row"><span class="k">Je ziet</span> "eat your own dogfood" en 26 use-cases op echte open data en API's, gegroepeerd naar water, VTH, modellen en de rest.</div>
+          <div class="finding good">Bevinding: het stelsel is rijk genoeg om er meteen iets bruikbaars op te bouwen — geen nieuw systeem nodig, wel nieuwe connectors.</div>
         </div>
       </div>
 
       <div class="stop">
         <div class="num">2</div>
         <div class="body">
-          <h3>REV-viewer — externe veiligheid op de kaart <span class="t">± 60 sec</span></h3>
+          <h3>REV-viewer — externe veiligheid op de kaart <span class="t">± 60 sec · live</span></h3>
           <div class="row"><span class="k">Doe dit</span> <a href="/viewer" target="_blank">open de REV-viewer</a>, hij opent op Rotterdam/Botlek. Klik een rood vlak → "AI-duiding".</div>
           <div class="row"><span class="k">Je ziet</span> productiefaciliteiten uit alle sectoren, met een begrijpelijke duiding per object.</div>
-          <div class="finding">Bevinding (REV/INSPIRE): de bron levert lat,lon (<code>EPSG:4258</code>) en verdeelt objecten over zes sector-collections — daarom moet je op industrie inzoomen en zet de connector de assen recht én voegt de collections samen.</div>
+          <div class="finding">Bevinding (REV/INSPIRE): de bron levert lat,lon (<code>EPSG:4258</code>) en verdeelt objecten over zes sector-collections — daarom moet je op industrie inzoomen, en zet de connector de assen recht én voegt hij de collections samen.</div>
         </div>
       </div>
 
       <div class="stop">
         <div class="num">3</div>
         <div class="body">
-          <h3>Onder de motorkap — ruwe, rechtgezette data <span class="t">± 30 sec</span></h3>
+          <h3>Onder de motorkap — ruwe, rechtgezette data <span class="t">± 30 sec · live</span></h3>
           <div class="row"><span class="k">Doe dit</span> <a href="/api/rev/features?bbox=4.20,51.85,4.35,51.92" target="_blank">open de REV-API direct</a></div>
           <div class="row"><span class="k">Je ziet</span> schone GeoJSON in lon,lat — de eerste coördinaat begint met ~4.x (lon), niet 51.x.</div>
           <div class="finding good">Bevinding: de eigenaardigheid van de bron is ingekapseld in de connector; de viewer krijgt standaard CRS84.</div>
@@ -109,30 +118,100 @@
       <div class="stop">
         <div class="num">4</div>
         <div class="body">
-          <h3>Vergunningen-chatbot — RAG met bronvermelding <span class="t">± 60 sec</span></h3>
-          <div class="row"><span class="k">Doe dit</span> <a href="/chatbot" target="_blank">open de chatbot</a> en vraag: "Wat is een omgevingsvergunning en wanneer heb ik die nodig?"</div>
-          <div class="row"><span class="k">Je ziet</span> een antwoord mét bron-URL's, disclaimer en vangnet; bij twijfel zegt hij eerlijk dat de context geen antwoord geeft.</div>
-          <div class="finding">Bevinding (IPLO): de kennispagina's zijn script-zwaar en URL's wijzigen — robuuste extractie en geverifieerde bron-URL's zijn nodig.</div>
+          <h3>Kan · mag · gebeurt op de Maas <span class="t">± 2 min · live</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/kmg" target="_blank">open kan · mag · gebeurt</a> en kies meetpunt <b>Belfeld boven</b>. Laat hem even laden.</div>
+          <div class="row"><span class="k">Je ziet</span> drie lagen naast elkaar: de regels op dat punt uit het DSO, 69 vergunde vestigingen uit de Atlas voor een Schone Maas, en de gemeten waarden van 2025 uit het Waterkwaliteitsportaal.</div>
+          <div class="finding">Bevinding — dit is de belangrijkste van het lab: <b>het vergunde deel verklaart 0 tot 14% van wat er gemeten wordt.</b> Bij Belfeld boven is dat 14,3% voor stikstof en 7,0% voor zink; bij Keizersveer precies niets, terwijl er 19 vergunningen in het register staan — geen ervan ligt bovenstrooms. De rest is bovenstroms en diffuus, en daar is geen register van.</div>
+          <div class="finding">Let op de proclaimer onderaan die pagina. De toerekening is <b>een bovengrens en nooit een vaststelling</b>: vergunde vracht gedeeld door de jaarafvoer, zonder verblijftijd, menging of afbraak. Drie getallen erin — de stroomvolgorde van de Maas, de jaarafvoer per waterlichaam en de zoekstraal — zijn keuzes van dit lab en komen uit geen bron. Dat staat er nu bij; eerder lazen ze als brongegeven.</div>
         </div>
       </div>
 
       <div class="stop">
         <div class="num">5</div>
         <div class="body">
-          <h3>De gesloten rand — regels opzoeken <span class="t">± 30 sec</span></h3>
-          <div class="row"><span class="k">Doe dit</span> <code>POST /api/regels</code> (bijv. via de chatbot-context) — of bekijk de status op de roadmap.</div>
-          <div class="row"><span class="k">Je ziet</span> <code>beschikbaar: false</code> met behoud van het antwoordcontract.</div>
-          <div class="finding">Bevinding (DSO): de Registratie Toepasbare Regels zit achter een API-key, en pad/header/respons staan alleen in de OpenAPI-spec — een bewust afgebakende, gesloten rand tot de key er is.</div>
+          <h3>De duurste valkuil: twee zinkreeksen <span class="t">± 60 sec</span></h3>
+          <div class="row"><span class="k">Doe dit</span> blijf op <a href="/kmg" target="_blank">kan · mag · gebeurt</a> en kijk bij de metingen naar de kolom <b>hoedanigheid</b>.</div>
+          <div class="row"><span class="k">Je ziet</span> zink twee keer: totaal (<code>NVT</code>) en opgelost na filtratie (<code>nf</code>). Bij Eijsden 52 metingen met mediaan 7,15 µg/l tegen 52 met 2,80.</div>
+          <div class="finding">Bevinding (Waterkwaliteitsportaal): <code>HoedanigheidCode</code> scheidt grootheden die hetzelfde heten. Wie die sleutel negeert, poolt de twee reeksen tot 4,54 µg/l — <b>een concentratie die niemand gemeten heeft.</b> De KRW-norm geldt juist voor de opgeloste fractie. Twee verwante valkuilen in dezelfde bron: <code>MonsterCompartimentCode</code> is bij chemische metingen leeg, en kwaliteitsoordeel <code>99</code> draagt de sentinel 999999999999 in 3000 van de 384.259 rijen.</div>
+          <div class="finding">En de eenheden: stikstof staat in mg/l, maar PFOA en zink in µg/l. Zonder omrekening stond zink een factor 1000 te laag op de pagina. Alle tests gebruikten mg/l-fixtures, dus dat kwam pas boven bij een echte run.</div>
         </div>
       </div>
 
       <div class="stop">
         <div class="num">6</div>
         <div class="body">
-          <h3>De balans — roadmap &amp; stelselkwaliteit <span class="t">± 30 sec</span></h3>
-          <div class="row"><span class="k">Doe dit</span> <a href="/roadmap" target="_blank">open de roadmap</a> en lees "Wat we leren over de kwaliteit van het stelsel".</div>
-          <div class="row"><span class="k">Je ziet</span> per bron wat schoon werkt en waar het schuurt — plus wat er nog op de planning staat.</div>
-          <div class="finding good">Bevinding: door zelf te koppelen wordt zichtbaar hoe de leefomgevings-data/API-wereld écht werkt — precies het doel van het lab.</div>
+          <h3>Wat kan hier nog? <span class="t">± 60 sec · live</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/gebruiksruimte" target="_blank">open de gebruiksruimte</a> voor Deventer en zet live aan.</div>
+          <div class="row"><span class="k">Je ziet</span> 20 regelingen die op dat punt gelden, live uit het DSO, in drie bakken verdeeld: 9 direct werkend, 10 indirect, en 1 die hier geldt maar dit voornemen niet raakt.</div>
+          <div class="finding good">Bevinding: die derde bak is het nuttigste van de drie. De waterschapsverordening gelt wél op deze locatie, maar niet voor een lozing op rijkswater. Een lijst "regels op dit punt" zonder dat onderscheid leest als twintig verplichtingen waar er negen gelden.</div>
+          <div class="finding">Bevinding: de vergunde vracht zit al ín de achtergrondconcentratie en wordt dus <b>niet</b> van de ruimte afgetrokken — hij staat apart om te laten zien hoeveel van de belasting in menselijke hand is. PFOA heeft per opzet geen ruimte: de achtergrond ligt boven de norm.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">7</div>
+        <div class="body">
+          <h3>De gesloten rand — en de rand die inmiddels open is <span class="t">± 45 sec · live</span></h3>
+          <div class="row"><span class="k">Doe dit</span> vergelijk twee DSO-ingangen: <code>POST /api/regels</code> geeft nog steeds <code>beschikbaar: false</code>, terwijl de vorige stop via Ozon wél 20 regelingen ophaalde.</div>
+          <div class="row"><span class="k">Je ziet</span> hetzelfde stelsel, twee ingangen, één open en één dicht — met in beide gevallen het antwoordcontract intact.</div>
+          <div class="finding">Bevinding (DSO): de Registratie Toepasbare Regels zit nog achter een sleutel die dit lab niet heeft, en pad, header en respons staan alleen in de OpenAPI-spec. Maar <b>Ozon en de Stelselcatalogus zijn wél bereikbaar</b> — dus "het DSO is dicht" is te grof. Per ingang verschilt het, en dat is precies het soort uitspraak dat je alleen kunt doen door het te proberen.</div>
+          <div class="finding">Drie valkuilen van de Stelselcatalogus, voor wie hem zelf wil bevragen: <code>Accept: application/json</code> geeft <b>406</b> (het moet <code>application/hal+json</code>), een queryparameter die niet bij het endpoint hoort geeft <b>400</b>, en er komt géén RDF uit terwijl het een SKOS-graaf is.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">8</div>
+        <div class="body">
+          <h3>De kennisgraaf vindt wat niemand zag <span class="t">± 90 sec</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/kennisgraaf" target="_blank">open de kennisgraaf</a> en ga naar de kwaliteitscontrole.</div>
+          <div class="row"><span class="k">Je ziet</span> 781 voorschriften uit het Maasregister gelegd tegen de Aquo-domeintabel en de E-PRTR-lijst, met per bevinding hoeveel voorschriften het raakt.</div>
+          <div class="finding">Bevinding: <b>90 van de 781 voorschriften staan op een vervallen Aquo-code.</b> De grootste groep daarvan is "Zwevende stof" — mét 83 voorschriften de meest voorkomende parameter in het hele register, en de code <code>ZS</code> is ingetrokken. Het veld "Vervangen door" is leeg, dus de bron biedt geen opvolger. Dit lab had in zijn eigen documentatie staan dat die koppeling werkte; de graaf weerlegde dat.</div>
+          <div class="finding good">Bevinding: dát is wat een graaf toevoegt boven een informatiemodel. Een model legt vast dat een voorschrift een parameter heeft. Een graaf kan vragen of die parameter nog bestaat — en 14 namen blijken in Aquo helemaal niet voor te komen, 2 leiden tot dubbeltelling.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">9</div>
+        <div class="body">
+          <h3>De vier lagen op één kaart <span class="t">± 60 sec · live</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/maaskaart" target="_blank">open de Maaskaart</a> en klik een punt aan.</div>
+          <div class="row"><span class="k">Je ziet</span> het Maasstroomgebied met 9 meetpunten, 62 vergunningen en 7 zuiveringen — en per punt de <b>grondslag</b> van de verbinding: een gedeelde code, een coördinaat, een gok op naam plus afstand, of helemaal niet gelegd.</div>
+          <div class="finding">Bevinding: er is géén achtergrondkaart, en dat is een keuze. Een tegellaag eronder voegt herkenbaarheid toe maar suggereert ook een nauwkeurigheid die de tot 150 meter vereenvoudigde omtrek niet heeft.</div>
+          <div class="finding">Bevinding: de laag "gemeld" wordt gevuld door de zuiveringen, want de eigenlijke meldingenstroom <b>heeft geen bron</b>. Het kaartje is daarmee eerlijker over het stelsel dan over de Maas: drie lagen hebben data, de vierde bestaat alleen als ontwerp.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">10</div>
+        <div class="body">
+          <h3>Een informatiemodel is geen datamodel <span class="t">± 2 min</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/modellen" target="_blank">open de modellenanalyse</a> en lees eerst de sectie over wat "IMEV" eigenlijk is.</div>
+          <div class="row"><span class="k">Je ziet</span> CIM-VTH-Flo, het IMEV-stelsel en het GIR-databasemodel als lagen van een andere soort — plus wat er tussen het REV en het GIR overlapt.</div>
+          <div class="finding">Bevinding: <b>"IMEV" is vier bestanden en drie soorten ding.</b> Het informatiemodel staat bij Geonovum, het berichtschema en de API-specificatie bij RWS. Daardoor verschuiven uitspraken ongemerkt: "IMEV ontsluit twee objecttypen" is onwaar, "de API-specificatie ontsluit twee resourcefamilies" is waar. De spec laat de verwarring zelf zien — haar <code>info.version</code> is letterlijk <code>IMEV 3.0.1</code> terwijl de titel <code>REV API - v5</code> is.</div>
+          <div class="finding">Bevinding: van de 58 verwijzingen in die API-specificatie gaan er <b>43 naar de envelop</b> — paginering, links, foutmeldingen — en maar 8 naar het inhoudelijke schema. Een OpenAPI is overwegend verpakking. En één van de vier gepubliceerde bestanden <b>parseert niet</b>: er staat een tab op regel 449, wat YAML verbiedt.</div>
+          <div class="finding">Bevinding: van de 12 begrippen die het REV en het GIR beide vastleggen zijn er <b>3 joinbaar, 2 deels en 7 niet</b> — en alle drie de joinbare leunen op een basisregistratie buiten beide registers (KvK-nummer, vestigingsnummer, BAG). Niets wat de twee registers zélf hebben afgesproken, verbindt ze.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">11</div>
+        <div class="body">
+          <h3>Het eindbeeld — hoe het eruitziet als de data er wél is <span class="t">± 90 sec</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/eindbeeld" target="_blank">open het eindbeeld</a> voor de Zandmaas tussen Roermond en Venlo.</div>
+          <div class="row"><span class="k">Je ziet</span> een sluitende zinkbalans: wat er gemeten wordt, wat er vergund is, wat er gemeld is en wat er nog vrij is. <b>Alle cijfers zijn verzonnen</b>, met de zes aannames en de acht gaten er expliciet bij.</div>
+          <div class="finding good">Bevinding: het product is pas interessant doordat het sluit. Dan wordt namelijk zichtbaar dat de <b>vergunde ruimte die vandaag stilligt 3,2 keer zo groot is als de ruimte tot de norm</b> — en dat 14,9% van het vergunde daadwerkelijk benut wordt. Dat is geen rekentruc maar een beleidsvraag: wie de vrije ruimte wil weten, moet weten wat er níet gebruikt wordt.</div>
+          <div class="finding">Bevinding: het eindbeeld is bewust synthetisch. Zet de gaten ernaast — geen meldingenregister, geen geldigheidsperiode op voorschriften, geen bovenstrooms-relatie tussen waterlichamen — en je ziet precies welke acht dingen er moeten gebeuren voordat dit echt kan.</div>
+        </div>
+      </div>
+
+      <div class="stop">
+        <div class="num">12</div>
+        <div class="body">
+          <h3>De balans — en de eerlijkheid over dit lab zelf <span class="t">± 90 sec</span></h3>
+          <div class="row"><span class="k">Doe dit</span> <a href="/roadmap" target="_blank">open de roadmap</a> voor wat schoon werkt en waar het schuurt, en daarna <a href="/waterpresentatie" target="_blank">de presentatie</a> — in het bijzonder het hoofdstuk over vibe coding.</div>
+          <div class="row"><span class="k">Je ziet</span> 26 dia's over het hele dossier, inclusief een hoofdstuk dat de vraag stelt die een bezoeker hoort te stellen: dit is een zolderkamerproject van één persoon, het ziet indrukwekkend uit, maar wat is de kwaliteit?</div>
+          <div class="finding good">Bevinding: wat je met API's en open data kunt doen is vandaag al veel meer dan het lijkt — en de minimale opzet is klein. Wat je er níet mee kunt, is de verantwoordelijkheid overnemen: de pagina's dragen daarom per veld een herkomst en een zekerheid, en noemen de bugs van dit lab bij naam.</div>
+          <div class="finding good">Bevinding, en de rode draad van deze hele tour: <b>geen van de fouten hierboven is door een test op verzonnen data gevonden.</b> Alle twaalf kwamen boven door een bewering tegen een echte bron te houden. Daarom draaien de tests hier tegen live bronnen, en zijn de getallen op de pagina's afgeleid in plaats van getypt.</div>
         </div>
       </div>
 

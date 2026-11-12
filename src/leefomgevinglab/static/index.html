@@ -71,26 +71,17 @@
     <div class="mark"></div>
     <h1>LeefomgevingLab</h1>
     <span class="badge">experimenteel · indicatief</span>
+    <!-- De nav draagt alleen de ingangen; de kaarten hieronder dragen de volle lijst. Met
+         negentien chips werd dit een tweede inhoudsopgave die over drie regels afbrak. -->
     <nav>
       <a href="/demo">Rondleiding</a>
-      <a href="/viewer">REV-viewer</a>
-      <a href="/chatbot">Chatbot</a>
-      <a href="/semantiek">Semantiek</a>
-      <a href="/poc">POC</a>
-      <a href="/datavraag">Datavraag</a>
+      <a href="/water">Waterdossier</a>
+      <a href="/vth">VTH-kapstok</a>
+      <a href="/modellen">Modellen</a>
+      <a href="/begrippen">Begrippen</a>
       <a href="/afval">Afval</a>
       <a href="/public">Geluidsmeter</a>
       <a href="/roadmap">Roadmap</a>
-      <a href="/kwaliteit">Kwaliteit</a>
-      <a href="/wfs-kwaliteit">WFS-check</a>
-      <a href="/vth">VTH-kapstok</a>
-      <a href="/vth-bronnen">Bronnenkaart</a>
-      <a href="/dvth">Doelbeeld D-VTH</a>
-      <a href="/lozing">Doelbeeld lozing</a>
-      <a href="/balo">BALO-lijnen</a>
-      <a href="/water">Waterdossier</a>
-      <a href="/evruimte">EV-ruimte</a>
-      <a href="/begrippen">Begrippen</a>
     </nav>
   </header>
 
@@ -99,19 +90,23 @@
       <h2>Een proeftuin voor de <span>leefomgeving</span>, op echte open data en API's.</h2>
       <p>
         LeefomgevingLab is een persoonlijk micro-innovatielab op een Jetson AGX Orin, in dezelfde lijn als
-        WaterLab. Het bouwt toepassingen — viewers, dashboards, duiding — bovenop echte, aanroepbare
-        bronnen (PDOK, REV, DSO, RIVM). Elke use-case staat op open data of een open API; geluid is er
-        één van. Indicatief, geen operationeel overheidssysteem.
+        WaterLab. Het bouwt toepassingen — viewers, dashboards, kaarten, duiding — bovenop echte, aanroepbare
+        bronnen (PDOK, REV, DSO, RWS, Informatiehuis Water, RIVM). Elke use-case staat op open data of een
+        open API; geluid is er één van. Wat begon als losse viewers is doorgegroeid naar hele ketens:
+        één dossier over een lozing op de Maas, en informatiemodellen die tegen elkaar en tegen de
+        werkelijkheid worden gehouden. Indicatief, geen operationeel overheidssysteem.
       </p>
       <a href="/demo" style="display:inline-flex; align-items:center; gap:8px; margin-top:22px;
          padding:11px 20px; border-radius:10px; font-size:14px; font-weight:700;
          color:#042; background:linear-gradient(135deg, var(--accent), var(--accent2));">
         ▶ Start de rondleiding
-        <span style="font-weight:400; color:#063; font-size:12px;">±4 min</span>
+        <span style="font-weight:400; color:#063; font-size:12px;">12 stops · ±10 min</span>
       </a>
       <div class="stack">
         <span>Jetson AGX Orin · edge</span>
         <span>PDOK / REV OGC API Features</span>
+        <span>DSO · Ozon + Stelselcatalogus</span>
+        <span>RWS KRW + Atlas Schone Maas</span>
         <span>lokale LLM (Qwen)</span>
         <span>privacy-by-design</span>
       </div>
@@ -131,23 +126,185 @@
           (eat your own dogfood) als methode binnen de POC's, kijken we ook nadrukkelijk naar de
           kwaliteit van het stelsel.
         </p>
+        <p style="color: var(--muted); max-width: 760px; margin-top: 12px;">
+          Dat laatste levert het meeste op, en steeds op dezelfde manier: <b style="color:#eafff6">elke
+          fout die hier gevonden is, kwam boven door een bewering tegen een echte bron te houden</b> —
+          nooit door een test op verzonnen data. Een vervallen Aquo-code onder de meest voorkomende
+          parameter in een vergunningenregister, twee zinkreeksen die samen een concentratie opleveren
+          die niemand gemeten heeft, een gepubliceerd schema met een tab erin waardoor het niet
+          parseert. Daarom staat op bijna elke pagina niet alleen een uitkomst, maar ook waar zij op
+          berust en hoe zeker zij is.
+        </p>
       </div>
     </section>
 
     <section>
-      <div class="section-title">Use-cases</div>
+      <div class="section-title">Water — het grootste dossier van dit lab</div>
+      <div style="background: var(--panel); border: 1px solid var(--border);
+                  border-left: 3px solid #4fc3f7; border-radius: 10px; padding: 20px 22px;">
+        <p style="font-size: 16px; color: #eafff6; font-weight: 700; margin-bottom: 10px;">
+          Wie mag wat lozen op de Maas, en hoeveel ruimte is er nog?
+        </p>
+        <p style="color: var(--muted); max-width: 820px;">
+          Eén directe lozing op een rijkswater, helemaal uitgewerkt: van de vraag wie het bevoegd
+          gezag is, langs de drie lagen <b>kan · mag · gebeurt</b> — de regels live uit het DSO,
+          69 vergunde vestigingen live uit de Atlas voor een Schone Maas, en de gemeten waarden
+          van 2025 uit het Waterkwaliteitsportaal — tot een kaart van het hele stroomgebied, een
+          kennisgraaf op de Aquo-domeintabel, en een synthetisch eindbeeld dat laat zien hoe een
+          informatieproduct eruitziet als de data er wél is.
+        </p>
+        <p style="color: var(--muted); max-width: 820px; margin-top: 10px;">
+          De kernbevinding: <b style="color:#eafff6">het vergunde deel verklaart 0 tot 14% van wat
+          er gemeten wordt</b> — op de meeste meetpunten niets. Het register verklaart de
+          waterkwaliteit dus niet, en dat is geen meetfout maar het stelsel.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px">
+          <a href="/water" style="display:inline-flex; align-items:center; gap:7px;
+             padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:700;
+             color:#042; background:linear-gradient(135deg, var(--accent), var(--accent2));">
+            Open het waterdossier →
+          </a>
+        </div>
+        <p style="color: var(--dim); font-size: 12px; margin-top: 14px;">
+          Het dossier zegt zelf welke pagina's erbij horen en in welke volgorde ze te lezen zijn —
+          daarom staan ze hier niet nog een keer.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">VTH &amp; externe veiligheid</div>
       <div class="grid">
 
+        <a class="card live" href="/vth">
+          <div class="top"><h3>VTH-kapstok</h3><span class="pill actief">actief</span></div>
+          <p>Het Conceptueel Informatiemodel VTH Fysieke Leefomgeving van Geonovum als kapstok over
+             alle use-cases: welke views en kern-objecttypen raken we al met echte data — en welke
+             blijven wit?</p>
+          <div class="src">Bron: Cim-VTH-Flo (Geonovum · programma Digitalisering VTH)</div>
+          <div class="go">Bekijk de kapstok →</div>
+        </a>
+
+        <a class="card live" href="/vth-bronnen">
+          <div class="top"><h3>Bronnenkaart CIM-VTH</h3><span class="pill actief">actief</span></div>
+          <p>34 registraties bij rijk, RWS, provincies, waterschappen, omgevingsdiensten en
+             gemeenten, gekoppeld aan de objecttypen van het informatiemodel — met de overlaps en
+             een live endpoint-check.</p>
+          <div class="src">Bron: PDOK, REV, DSO, KOOP, data.overheid.nl, DAMO, LMA e.a.</div>
+          <div class="go">Open de kaart →</div>
+        </a>
+
+        <a class="card live" href="/dvth">
+          <div class="top"><h3>Doelbeeld D-VTH</h3><span class="pill actief">actief</span></div>
+          <p>De doelarchitectuur voor de digitale VTH-keten op één Seveso-inrichting: DSO-loket →
+             zaaksysteem → Data.OD → beoordeling → besluit als STOP/TPOD → omgebouwd REV → GIR/LBR →
+             LHSO. Het ketentje draait echt, in ongeveer anderhalve seconde.</p>
+          <div class="src">Live in stap 3: REV-WFS (DWITHIN) + BAG (bbox) op een RD-punt</div>
+          <div class="go">Bekijk het doelbeeld →</div>
+        </a>
+
+        <a class="card live" href="/evruimte">
+          <div class="top"><h3>Kan hier nog een Seveso-inrichting bij?</h3><span class="pill actief">actief</span></div>
+          <p>De aandachtsgebieden van een voorgenomen inrichting over de bestaande contouren uit het
+             REV, met de gebouwen eronder live geteld in de BAG en ingedeeld naar kwetsbaarheid.
+             Europoort, Botlek, Gouda en Zutphen naast elkaar.</p>
+          <div class="src">Live: BAG (gebruiksdoel binnen de contour) + REV + DSO</div>
+          <div class="go">Open de kaart →</div>
+        </a>
+
         <a class="card live" href="/viewer">
-          <div class="top"><h3>REV-viewer</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Risicovolle productiefaciliteiten (externe veiligheid) op de kaart, met AI-duiding per object.</p>
+          <div class="top"><h3>REV-viewer</h3><span class="pill actief">actief</span></div>
+          <p>Risicovolle productiefaciliteiten op de kaart, met AI-duiding per object. De bron
+             levert lat,lon en splitst over zes sector-collections; de connector zet dat recht.</p>
           <div class="src">Bron: REV via PDOK OGC API Features</div>
           <div class="go">Open viewer →</div>
         </a>
 
+        <a class="card live" href="/wfs-kwaliteit">
+          <div class="top"><h3>Datakwaliteitsscan REV</h3><span class="pill actief">actief</span></div>
+          <p>Live scan over álle REV-WFS-lagen: exacte tellingen per bronhouder en activiteit, en
+             steekproefmetingen op geometrie, lege velden en conformiteit aan IMEV 3.0.2.</p>
+          <div class="src">Een koude scan duurt een minuut of anderhalf — daarna gecachet</div>
+          <div class="go">Start de scan →</div>
+        </a>
+
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">Modellen, begrippen en semantiek</div>
+      <div class="grid">
+
+        <a class="card live" href="/modellen">
+          <div class="top"><h3>Een informatiemodel is geen datamodel</h3><span class="pill nieuw">nieuw</span></div>
+          <p>CIM-VTH-Flo, het IMEV-stelsel en het GIR-databasemodel naast elkaar als lagen van een
+             andere soort. Inclusief wat er overlapt tussen het REV en het GIR, en de vraag die
+             ertoe doet: waarop kun je eigenlijk joinen?</p>
+          <div class="src">Van 12 gedeelde begrippen: 3 joinbaar, 2 deels, 7 niet</div>
+          <div class="go">Lees de analyse →</div>
+        </a>
+
+        <a class="card live" href="/begrippen">
+          <div class="top"><h3>Begrippen</h3><span class="pill actief">actief</span></div>
+          <p>De tien termen die dit lab hardgecodeerd gebruikte, live opgezocht in de
+             Stelselcatalogus Omgevingswet — met definitie, begrippenkader en juridische
+             vindplaats. Inclusief de plek waar onze eigen afleiding níét de definitie is.</p>
+          <div class="src">Alle tien gevonden; één afwijking expliciet benoemd</div>
+          <div class="go">Bekijk de begrippen →</div>
+        </a>
+
+        <a class="card live" href="/semantiek">
+          <div class="top"><h3>Semantische browser</h3><span class="pill actief">actief</span></div>
+          <p>De informatiemodellen (IMX-Geo, IMEV) en hun koppelingen als bewegend 3D-netwerk,
+             met demo's.</p>
+          <div class="src">Bron: IMX-Geo linked data + IMEV-begrippen</div>
+          <div class="go">Verken het netwerk →</div>
+        </a>
+
+        <a class="card live" href="/datavraag">
+          <div class="top"><h3>Datavraag-chatbot</h3><span class="pill actief">actief</span></div>
+          <p>Stel in taal een datavraag; de bot schrijft SPARQL op een linked-data-laag.
+             Bijvoorbeeld: "hoeveel productiefaciliteiten liggen bij een school?"</p>
+          <div class="src">Bron: eigen REV-LD + Kadaster KKG (SPARQL)</div>
+          <div class="go">Stel een vraag →</div>
+        </a>
+
+        <a class="card live" href="/chatbot">
+          <div class="top"><h3>Vergunningen-chatbot</h3><span class="pill actief">actief</span></div>
+          <p>"Welke regels gelden voor activiteit X op locatie Y?" — met bronverwijzing, disclaimer
+             en vangnet. Bij twijfel zegt hij dat de context geen antwoord geeft.</p>
+          <div class="src">Bron: DSO Toepasbare Regels + IPLO, via een lokale RAG-index</div>
+          <div class="go">Open chatbot →</div>
+        </a>
+
+        <a class="card live" href="/poc">
+          <div class="top"><h3>POC: datavragen op linked data</h3><span class="pill nieuw">uitleg</span></div>
+          <p>Hoe RAG, LLM en SPARQL samen een informatievraag beantwoorden — en wat we daarbij
+             leren over de kwaliteit van het stelsel.</p>
+          <div class="src">Visueel overzicht van de aanpak</div>
+          <div class="go">Lees de POC →</div>
+        </a>
+
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">Afval, geluid en de balans</div>
+      <div class="grid">
+
+        <a class="card live" href="/afval">
+          <div class="top"><h3>Afval &amp; circulariteit</h3><span class="pill actief">actief</span></div>
+          <p>Afvalindicatoren per provincie op de kaart, met trend, een duiding met doorkijk naar
+             2035 en een chatbot die de database in natuurlijke taal bevraagt — read-only SQL,
+             zichtbaar meegeleverd.</p>
+          <div class="src">CBS 83558NED + CLO/Afvalfonds/LMA in een DuckDB-datamodel</div>
+          <div class="go">Open dashboard →</div>
+        </a>
+
         <a class="card live" href="/public">
           <div class="top"><h3>Geluidsmeter</h3><span class="pill actief">actief</span></div>
-          <p>Privacyvriendelijk geluidsprofiel bij een vaste meetlocatie, met mobiele metingen op de kaart.</p>
+          <p>Privacyvriendelijk geluidsprofiel bij een vaste meetlocatie, met mobiele metingen op
+             de kaart. Geen ruwe audio — alleen kenmerken.</p>
           <div class="src">Bron: eigen sensor + RIVM / CVGG</div>
           <div class="go">Bekijk publiek →</div>
         </a>
@@ -159,94 +316,12 @@
           <div class="go">Open dashboard →</div>
         </a>
 
-        <a class="card live" href="/chatbot">
-          <div class="top"><h3>Vergunningen-chatbot</h3><span class="pill nieuw">nieuw</span></div>
-          <p>"Welke regels gelden voor activiteit X op locatie Y?" — met bronverwijzing en vangnet.</p>
-          <div class="src">Bron: DSO Toepasbare Regels + IPLO</div>
-          <div class="go">Open chatbot →</div>
-        </a>
-
-        <a class="card live" href="/datavraag">
-          <div class="top"><h3>Datavraag-chatbot</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Stel in taal een datavraag; de bot schrijft SPARQL op een linked-data-laag. Bv. "hoeveel productiefaciliteiten liggen bij een school?"</p>
-          <div class="src">Bron: eigen REV-LD + Kadaster KKG (SPARQL)</div>
-          <div class="go">Stel een vraag →</div>
-        </a>
-
-        <a class="card live" href="/semantiek">
-          <div class="top"><h3>Semantische browser</h3><span class="pill nieuw">nieuw</span></div>
-          <p>De informatiemodellen (IMX-Geo, IMEV) en hun koppelingen als bewegend 3D-netwerk, met demo's.</p>
-          <div class="src">Bron: IMX-Geo linked data + IMEV-begrippen</div>
-          <div class="go">Verken het netwerk →</div>
-        </a>
-
-        <a class="card live" href="/poc">
-          <div class="top"><h3>POC: datavragen op linked data</h3><span class="pill nieuw">uitleg</span></div>
-          <p>Hoe RAG + LLM + SPARQL samen een informatievraag beantwoorden — én wat we leren over de kwaliteit van het stelsel.</p>
-          <div class="src">Visueel overzicht van de aanpak</div>
-          <div class="go">Lees de POC →</div>
-        </a>
-
-        <a class="card live" href="/afval">
-          <div class="top"><h3>Afval & circulariteit</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Afvalstroom-indicatoren en circulariteit per provincie op de kaart, met trend, een AI-duiding met doorkijk naar 2035 (Holt-extrapolatie), en een chatbot die de data in natuurlijke taal bevraagt.</p>
-          <div class="src">CBS 83558NED + CLO/Afvalfonds/LMA in een DuckDB-datamodel — open proxy voor het gesloten LMA/AMICE</div>
-          <div class="go">Open dashboard →</div>
-        </a>
-
-        <a class="card live" href="/vth">
-          <div class="top"><h3>VTH-kapstok</h3><span class="pill nieuw">uitleg</span></div>
-          <p>Het Conceptueel Informatiemodel VTH Fysieke Leefomgeving van Geonovum als kapstok over alle use-cases: welke views en kern-objecttypen raken we al met echte data — en welke blijven wit?</p>
-          <div class="src">Bron: Cim-VTH-Flo (Geonovum · programma Digitalisering VTH)</div>
-          <div class="go">Bekijk de kapstok →</div>
-        </a>
-
-        <a class="card live" href="/vth-bronnen">
-          <div class="top"><h3>Bronnenkaart CIM-VTH</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Interactieve kaart van 34 registraties bij rijk, RWS, provincies, waterschappen, omgevingsdiensten en gemeenten, gekoppeld aan de objecttypen van het informatiemodel — inclusief de overlaps en een live endpoint-check.</p>
-          <div class="src">Bron: PDOK, REV, DSO, KOOP, data.overheid.nl, DAMO, LMA, Inspectieview e.a.</div>
-          <div class="go">Open de kaart →</div>
-        </a>
-
-        <a class="card live" href="/dvth">
-          <div class="top"><h3>Doelbeeld D-VTH</h3><span class="pill nieuw">nieuw</span></div>
-          <p>De doelarchitectuur voor de digitale VTH-keten, uitgewerkt op één Seveso-inrichting: DSO-loket → zaaksysteem → Data.OD → beoordeling → besluit als STOP/TPOD → omgebouwd REV → GIR/LBR → LHSO. Met interactieve plaat en een roadmap naar een werkend ketentje.</p>
-          <div class="src">CIM-VTH-Flo als informatiemodel · Bal §3.3.1 · LBR · LHSO</div>
-          <div class="go">Bekijk het doelbeeld →</div>
-        </a>
-
-        <a class="card live" href="/lozing">
-          <div class="top"><h3>Doelbeeld directe lozing</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Het spiegelbeeld: één lozingsactiviteit op een rijkswater, met RWS als bevoegd gezag. Twee bevoegde gezagen over één fabriek, ABM en immissietoets in plaats van afstandscirkels, Aquo in plaats van IMEV — en een register dat niet bestaat.</p>
-          <div class="src">Live: KRW-waterlichamen (RWS) + bestuurlijke gebieden (PDOK)</div>
-          <div class="go">Bekijk het doelbeeld →</div>
-        </a>
-
-        <a class="card live" href="/balo">
-          <div class="top"><h3>BALO-redeneerlijnen</h3><span class="pill nieuw">nieuw</span></div>
-          <p>Beide casussen langs het redeneermodel van de businessarchitectuur: links waardestroom → informatiebehoefte → informatiefuncties, rechts informatieobjecten → registers. Met de besluiten die eruit volgen, afgezet tegen kosten en waarde.</p>
-          <div class="src">Structuur: BALO businessarchitectuur v0.9 (concept)</div>
-          <div class="go">Bekijk de analyse →</div>
-        </a>
-
-        <a class="card live" href="/water">
-          <h3>Waterdossier</h3>
-          <p>Eén directe lozing op een rijkswater, van bevoegd gezag tot gebruiksruimte —
-             de keten, de kaart en de knelpunten bij elkaar.</p>
-        </a>
-
-        <a class="card live" href="/evruimte">
-          <div class="top"><h3>Kan hier nog een Seveso-inrichting bij?</h3><span class="pill nieuw">nieuw</span></div>
-          <p>De ruimtelijke tegenhanger, op de kaart: de aandachtsgebieden van een voorgenomen inrichting over de bestaande contouren uit het REV, met de gebouwen eronder live geteld en ingedeeld naar kwetsbaarheid. Rotterdam, Gouda en Zutphen naast elkaar.</p>
-          <div class="src">Live: BAG (gebruiksdoel binnen de contour) + REV + DSO</div>
-          <div class="go">Open de kaart →</div>
-        </a>
-
-        <a class="card live" href="/begrippen">
-          <div class="top"><h3>Begrippen</h3><span class="pill nieuw">nieuw</span></div>
-          <p>De termen die dit lab gebruikt, live opgezocht in de Stelselcatalogus Omgevingswet — met definitie, begrippenkader en juridische vindplaats. Inclusief de plek waar onze eigen afleiding níét de definitie is.</p>
-          <div class="src">Live: Stelselcatalogus Omgevingswet (SKOS, Catalogus Opvragen API v3)</div>
-          <div class="go">Bekijk de begrippen →</div>
+        <a class="card live" href="/roadmap">
+          <div class="top"><h3>Roadmap &amp; stelselkwaliteit</h3><span class="pill actief">actief</span></div>
+          <p>Per bron wat schoon werkt en waar het schuurt, plus wat er nog op de planning staat.
+             Dit is waar de bevindingen samenkomen.</p>
+          <div class="src">De balans van het lab</div>
+          <div class="go">Bekijk de roadmap →</div>
         </a>
 
         <div class="card">

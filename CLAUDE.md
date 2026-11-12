@@ -92,6 +92,12 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   gegenereerd en via een `__WATERNAV__`-placeholder geïnjecteerd (zelfde truc als `__DOSSIER__`
   in `_keten_tab`). NB: `keten-tab.html` bedient óók `/dvth` — daar wordt de placeholder leeg
   vervangen, want dat is geen waterpagina.
+  **De homepagina mag géén tweede inhoudsopgave van het dossier worden:** `/` draagt precies één
+  ingang (`/water`) en linkt niet naar de losse leden — anders staat het lidmaatschap op twee
+  plekken en verouderen ze uit elkaar. `tests/test_api_water.py::test_de_homepagina_heeft_precies_een_ingang_naar_het_waterdossier`
+  leidt die lijst uit `LEDEN` af, dus een nieuw dossierlid wordt automatisch meebewaakt. De
+  **rondleiding** (`/demo`) valt hier bewust buiten: dat is een geleide wandeling langs concrete
+  pagina's en juist wél bedoeld om diep te linken.
 - ✅ **Prik op de kaart (`/waterruimte`, `/api/waterruimte?x=&y=&debiet=&live=`):** "wat kan hier
   nog" op een willekeurig RD-punt. `waterprofiel.py` maakt van een KRW-feature een profiel met
   echt (naam, `owl_id`, `wbhnaam`, `owltype`, `owlcat`, `owlstat`, omvang, `gemdiepte`) strikt
