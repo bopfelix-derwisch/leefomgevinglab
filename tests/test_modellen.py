@@ -23,11 +23,13 @@ def _client(monkeypatch):
 
 # --- het onderscheid ------------------------------------------------------------------------
 
-def test_de_drie_lagen_zijn_van_verschillende_soort(a):
+def test_elke_laag_is_van_een_eigen_soort(a):
     """Zodra twee lagen dezelfde soort krijgen, is de stelling van deze pagina weg."""
     soorten = [l["soort"] for l in a["lagen"]]
-    assert len(set(soorten)) == 3
-    assert "conceptueel" in soorten and "fysiek" in soorten
+    assert len(set(soorten)) == len(soorten)
+    for verwacht in ("conceptueel", "informatiemodel", "technische uitwerking", "interface",
+                     "fysiek"):
+        assert verwacht in soorten, verwacht
 
 
 def test_elke_laag_zegt_ook_waar_zij_niets_over_zegt(a):
@@ -36,16 +38,114 @@ def test_elke_laag_zegt_ook_waar_zij_niets_over_zegt(a):
         assert l["legt_vast"] and l["zegt_niets_over"] and l["vorm"] and l["toetsbaar"]
 
 
-def test_alleen_het_conceptuele_model_is_niet_toetsbaar(a):
-    cim = next(l for l in a["lagen"] if l["id"] == "cim")
-    assert cim["toetsbaar"].startswith("nee")
-    assert all(l["toetsbaar"].startswith("ja") for l in a["lagen"] if l["id"] != "cim")
+def test_de_normatieve_lagen_zijn_niet_toetsbaar_en_de_technische_wel(a):
+    """Het scherpste gevolg van het onderscheid dat deze pagina maakt.
+
+    Een informatiemodel is normatief maar niet uitvoerbaar; een berichtschema is uitvoerbaar
+    maar niet normatief. Wie ze als één ding behandelt, verliest juist dat verschil.
+    """
+    per_id = {l["id"]: l["toetsbaar"] for l in a["lagen"]}
+    assert per_id["cim"].startswith("nee")
+    assert per_id["imev"].startswith("nee"), \
+        "het informatiemodel zelf is geen bestand waar een bericht tegen valideert"
+    for i in ("schema", "api", "gir"):
+        assert per_id[i].startswith("ja"), i
 
 
 def test_elke_laag_heeft_een_bron_met_houder_en_versie(a):
     for l in a["lagen"]:
         b = a["bronnen"][l["id"]]
         assert b["naam"] and b["houder"] and b["versie"] and b["voluit"]
+
+
+# --- vier bestanden, drie soorten ding -------------------------------------------------------
+
+def test_elk_artefact_zegt_wat_het_is_en_wat_het_niet_is(a):
+    """`niet` is het informatieve veld: wat een bestand niet is, is wat men erin zoekt."""
+    for x in a["artefacten"]:
+        assert x["bestand"] and x["soort"] and x["wat"] and x["vindplaats"] and x["omvang"]
+        assert x["niet"], f"{x['bestand']} zonder 'niet' nodigt uit tot de verwarring"
+
+
+def test_het_informatiemodel_en_het_berichtschema_hebben_verschillende_houders(a):
+    """Dit is waarom ze niet één ding zijn: ze worden door verschillende partijen beheerd."""
+    per = {x["soort"]: x for x in a["artefacten"]}
+    assert "Geonovum" in per["model"]["houder"]
+    assert "RWS" in per["berichtschema"]["houder"]
+    assert per["model"]["houder"] != per["berichtschema"]["houder"]
+    assert "geostandaarden" in per["model"]["vindplaats"]
+    assert "rev-portaal" in per["berichtschema"]["vindplaats"]
+
+
+def test_het_model_heeft_geen_bestand_en_dus_geen_verwijzingen(a):
+    per = {x["soort"]: x for x in a["artefacten"]}
+    assert per["model"]["verwijzingen"] is None, \
+        "een begrippenkader wordt niet door een OpenAPI aangeroepen"
+
+
+def test_de_api_specificatie_draagt_zelf_geen_inhoudelijk_schema(a):
+    """Zij verwijst; zij definieert niet. Daarom kan zij het model niet vervangen."""
+    assert a["telling"]["api_eigen_schemas"] == 0
+    api = next(x for x in a["artefacten"] if x["soort"] == "API-specificatie")
+    assert "geen enkel inhoudelijk schema" in api["niet"]
+
+
+def test_de_envelop_krijgt_meer_verwijzingen_dan_de_inhoud(a):
+    """Een OpenAPI is overwegend verpakking -- dat is het argument van de hele sectie."""
+    t = a["telling"]
+    assert t["refs_envelop"] > t["refs_inhoud"] * 4
+    assert t["refs_envelop"] + t["refs_inhoud"] < t["refs_totaal"], \
+        "de gedeelde geotypes horen ook in het totaal"
+    assert mo.verwijzingen()["aandeel_envelop"] > 0.5
+
+
+def test_de_tellingen_noemen_het_artefact_waar_zij_uit_komen(a):
+    """De oude sleutels heetten imev_*; dat schreef schema- en API-cijfers aan het model toe."""
+    t = a["telling"]
+    assert not [k for k in t if k.startswith("imev_")], \
+        "een telling die 'imev_' heet, legt een schema- of API-cijfer bij het informatiemodel"
+    for k in ("schema_definities", "schema_objecttypen", "api_paden", "api_resourcefamilies"):
+        assert k in t, k
+
+
+def test_geen_enkele_tekst_schrijft_de_api_keuze_aan_het_informatiemodel_toe(a):
+    """De fout die deze pagina aanwijst, één niveau lager toegepast op haar eigen tekst.
+
+    "IMEV ontsluit twee objecttypen" is onwaar; de API-specificatie doet dat. Een los woord
+    IMEV naast 'ontsluit', 'resource', 'endpoint' of 'pad' is daarom een rode vlag.
+
+    Geciteerde tekst blijft buiten de controle. De pagina citeert de foute formulering juist om
+    haar aan te wijzen, en een vangnet dat een tegenvoorbeeld niet van een bewering kan
+    onderscheiden, dwingt je de uitleg weg te laten.
+    """
+    import re
+    zonder_citaat = lambda x: re.sub(r"['\u2018\u2019\u201c\u201d\"][^'\u2018\u2019\u201c\u201d\"]{0,120}"
+                                    r"['\u2018\u2019\u201c\u201d\"]", " ", x)
+    teksten = []
+    for v in a["vertalingen"]:
+        teksten += [v["imev"], v["les"]]
+    for o in a["overlap"]:
+        teksten += [o["imev"], o["waarom"]]
+    for b in a["bevindingen"]:
+        teksten.append(b["wat"])
+    for x in a["artefacten"]:
+        teksten += [x["wat"], x["niet"]]
+    verdacht = re.compile(r"\bIMEV\b(?![\s-]*(?:3\.0|-stelsel|\(het))[^.]{0,40}"
+                          r"(ontsluit|resourcefam|endpoint|paden\b)", re.I)
+    for tekst in teksten:
+        assert not verdacht.search(zonder_citaat(tekst)), \
+            f"IMEV krijgt hier een API-eigenschap: {tekst[:120]}"
+
+
+def test_het_vangnet_ziet_de_fout_die_het_moet_zien():
+    """Anders is de vorige test een test die altijd slaagt."""
+    import re
+    verdacht = re.compile(r"\bIMEV\b(?![\s-]*(?:3\.0|-stelsel|\(het))[^.]{0,40}"
+                          r"(ontsluit|resourcefam|endpoint|paden\b)", re.I)
+    assert verdacht.search("IMEV ontsluit twee objecttypen, niet 88")
+    assert verdacht.search("In IMEV zitten twintig paden")
+    assert not verdacht.search("IMEV 3.0 kent 88 objecttypen")
+    assert not verdacht.search("De API-specificatie ontsluit twee resourcefamilies")
 
 
 # --- de vertalingen -------------------------------------------------------------------------
@@ -67,7 +167,7 @@ def test_de_vergunning_is_in_geen_van_beide_een_entiteit_maar_wel_in_een_een_geg
     v = next(x for x in a["vertalingen"] if "mag dit bedrijf" in x["begrip"])
     assert "komt niet voor" not in v["imev"], "de weerlegde bewering staat terug op de pagina"
     assert "basisVergunningNummer" in v["imev"]
-    assert str(a["telling"]["imev_met_vergunningnummer"]) in v["imev"]
+    assert str(a["telling"]["schema_met_vergunningnummer"]) in v["imev"]
     assert "buiten scope" in v["gir"]
 
 
@@ -131,6 +231,13 @@ def test_imev_eist_een_reden_bij_een_ontbrekende_waarde_en_gir_niet(a):
         assert reden in o["imev"], reden
 
 
+def test_de_pagina_houdt_de_drie_soorten_apart(monkeypatch):
+    h = _client(monkeypatch).get("/modellen").text
+    for woord in ("informatiemodel", "berichtschema", "API-specificatie"):
+        assert woord in h, woord
+    assert 'id="artefacten"' in h
+
+
 def test_de_pagina_toont_de_overlap_en_de_joinbaarheid(monkeypatch):
     h = _client(monkeypatch).get("/modellen").text
     assert 'id="overlap"' in h and 'id="joinbalk"' in h
@@ -154,16 +261,46 @@ def test_de_analyse_scheidt_wat_nagekeken_is_van_wat_uit_een_document_komt(a):
 def test_het_gir_document_wordt_niet_als_publieke_bron_gepresenteerd(a):
     """Het is een intern document; een URL suggereren die er niet is, is een valse vindplaats."""
     assert a["bronnen"]["gir"]["url"] is None
-    assert a["bronnen"]["imev"]["url"].startswith("https://rev-portaal.nl/")
+
+
+def test_elke_bron_wijst_naar_de_partij_die_haar_beheert(a):
+    """Het informatiemodel staat bij Geonovum, de bestanden bij RWS. Dat is het onderscheid.
+
+    Deze test verving een oudere die van `bronnen["imev"]` een rev-portaal-URL eiste. Die eis
+    was precies de verwarring: zij maakte het model een bestand van het REV.
+    """
+    assert a["bronnen"]["imev"]["url"].startswith("https://definities.geostandaarden.nl/")
+    for sleutel in ("schema", "api"):
+        assert a["bronnen"][sleutel]["url"].startswith("https://rev-portaal.nl/oas/")
+    assert "Geonovum" in a["bronnen"]["imev"]["houder"]
 
 
 # --- de tellingen ----------------------------------------------------------------------------
 
-def test_de_imev_tellingen_zijn_onderling_consistent(a):
+def test_de_indeling_van_het_schema_dekt_elke_definitie(a):
+    """De som moet exact het totaal zijn. Een restpost zou een stil gat in de telling zijn."""
     t = a["telling"]
-    assert t["imev_objecttypen"] + t["imev_referentietypen"] + t["imev_enumeraties"] < t["imev_definities"]
-    assert t["rev_resources"] < t["imev_objecttypen"], \
-        "de API ontsluit minder dan het schema beschrijft -- dat is de bevinding"
+    assert sum(mo.indeling().values()) == t["schema_definities"]
+    for naam, _, aantal in mo.INDELING:
+        assert t[f"schema_{naam}"] == aantal > 0, naam
+
+
+def test_elke_bak_in_de_indeling_zegt_op_welke_regel_zij_berust(a):
+    """Zonder die regel is de indeling een lijstje en niet na te rekenen."""
+    for naam, regel, _ in mo.INDELING:
+        assert naam and regel and len(regel) > 20, naam
+
+
+def test_de_api_ontsluit_minder_dan_het_schema_beschrijft(a):
+    t = a["telling"]
+    assert t["api_resourcefamilies"] < t["schema_objecttypen"], \
+        "dat de API er twee ontsluit en het schema 79 beschrijft, is de bevinding"
+
+
+def test_de_velden_met_een_vergunningnummer_passen_in_de_objecttypen(a):
+    t = a["telling"]
+    assert t["schema_met_vergunningnummer"] < t["schema_objecttypen"], \
+        "44 van de 79 -- niet van de 168, want hulptypen en enumeraties dragen geen velden"
 
 
 def test_het_aantal_niet_gebouwde_tabellen_past_in_het_totaal(a):
@@ -177,6 +314,7 @@ def test_de_tellingen_dekken_de_inhoud(a):
     assert t["vertalingen"] == len(a["vertalingen"])
     assert t["bevindingen"] == len(a["bevindingen"])
     assert t["overlap"] == len(a["overlap"])
+    assert t["artefacten"] == len(a["artefacten"])
 
 
 # --- de pagina --------------------------------------------------------------------------------
@@ -202,6 +340,6 @@ def test_de_vth_paginas_wijzen_naar_de_analyse(monkeypatch):
 
 def test_het_eindpunt_levert_de_hele_analyse(monkeypatch):
     d = _client(monkeypatch).get("/api/modellen").json()
-    for sleutel in ("bronnen", "lagen", "vertalingen", "overlap", "bevindingen",
+    for sleutel in ("bronnen", "artefacten", "lagen", "vertalingen", "overlap", "bevindingen",
                     "herkomst", "telling"):
         assert d[sleutel], sleutel

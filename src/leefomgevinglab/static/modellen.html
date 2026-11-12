@@ -48,6 +48,7 @@
     .laag { background:var(--panel); border:1px solid var(--border);
       border-top:3px solid var(--l); border-radius:11px; padding:15px 17px; }
     .laag.kan { --l:var(--kan); } .laag.gebeurt { --l:var(--gebeurt); } .laag.mag { --l:var(--mag); }
+    .laag.paars { --l:var(--paars); } .laag.teal { --l:var(--accent2); }
     .laag .soort { font-size:10.5px; text-transform:uppercase; letter-spacing:.11em;
       color:var(--l); font-weight:700; }
     .laag h3 { font-size:16px; color:#eafff6; margin:4px 0 2px; }
@@ -57,6 +58,27 @@
     .laag dd { color:var(--muted); }
     .laag .omvang { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
       font-size:12.5px; color:var(--text); }
+
+    /* De gepubliceerde bestanden. `niet` is hier het informatieve veld: wat een bestand níet
+       is, is precies wat mensen erin zoeken. */
+    .arte { display:flex; flex-direction:column; gap:9px; margin-top:12px; }
+    .art { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:12px 15px; display:grid; gap:4px 14px;
+      grid-template-columns:minmax(0,1fr) minmax(0,1.5fr); align-items:start; }
+    .art .naam { font-family:ui-monospace,monospace; font-size:13px; color:#eafff6;
+      word-break:break-word; }
+    .art .soort { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      font-weight:700; color:var(--accent); margin-top:2px; }
+    .art .vp { font-size:11px; color:var(--dim); font-family:ui-monospace,monospace;
+      margin-top:4px; word-break:break-all; }
+    .art .wat { font-size:12.5px; color:var(--muted); }
+    .art .niet { font-size:12.5px; color:var(--text); margin-top:5px; }
+    .art .niet::before { content:"niet: "; color:var(--weg); font-weight:700; }
+    .art .omvang { grid-column:1/-1; margin-top:7px; padding-top:7px;
+      border-top:1px solid var(--border); font-size:12px; color:var(--dim);
+      display:flex; gap:16px; flex-wrap:wrap; }
+    .art .omvang b { color:var(--muted); font-weight:600; font-variant-numeric:tabular-nums; }
+    @media (max-width:560px) { .art { grid-template-columns:1fr; } }
 
     /* Hetzelfde begrip, drie keer. De les onderaan is het punt van de rij. */
     .vert { background:var(--panel); border:1px solid var(--border); border-radius:11px;
@@ -148,14 +170,32 @@
         behandelt.</p>
       <p>Aanleiding is het <b>GIR 2.0 databasemodel</b> van ICTU, dat iets doet wat elders
         ontbreekt: het legt een informatiemodel naast een datamodel en houdt per attribuut bij
-        wat daarvan gebouwd is. Hiernaast gelegd: <b>IMEV 3.0</b> zoals het REV het publiceert,
-        en <b>CIM-VTH-Flo</b> van Geonovum.</p>
+        wat daarvan gebouwd is. Hiernaast gelegd: het <b>IMEV</b>-stelsel zoals het REV het
+        publiceert — informatiemodel, berichtschema en API-specificatie, drie dingen die vaak
+        één naam krijgen — en <b>CIM-VTH-Flo</b> van Geonovum.</p>
       <div class="cijfers" id="cijfers"></div>
     </div>
 
-    <div class="section-title">De drie lagen</div>
+    <div class="section-title">Eerst: "IMEV" is vier bestanden en drie soorten ding</div>
+    <p class="tekst zacht">Voor je iets over IMEV kunt beweren, moet duidelijk zijn wélk IMEV je
+      bedoelt. Het <b>informatiemodel</b> staat bij Geonovum en zegt wat de begrippen zijn. Het
+      <b>berichtschema</b> staat bij RWS en maakt dat afdwingbaar. De <b>API-specificatie</b>
+      zegt alleen hoe je erbij komt — zij draagt zelf geen enkel inhoudelijk schema. Daarnaast
+      liggen er twee hulpbestanden. In het dagelijks gesprek heten ze alle vier IMEV, en daardoor
+      verschuiven uitspraken ongemerkt van het model naar de interface en terug.</p>
+    <div class="arte" id="artefacten"></div>
+    <p class="tekst zacht" style="margin-top:12px">Dat dit geen muggenziften is, blijkt uit de
+      verhouding: van de <b id="reftot"></b> verwijzingen in de API-specificatie gaan er
+      <b id="refenv"></b> naar de envelop — paginering, links, foutmeldingen — en maar
+      <b id="refinh"></b> naar het inhoudelijke schema. Een OpenAPI is overwegend verpakking.
+      Zij kan een informatiemodel dus niet vervangen, en een uitspraak over de één is geen
+      uitspraak over de ander.</p>
+
+    <div class="section-title">De lagen</div>
     <p class="tekst zacht">Niet een trap van abstract naar concreet waarop je een punt kunt
-      kiezen — dat is juist de misvatting. Drie kolommen die elk een andere vraag beantwoorden.</p>
+      kiezen — dat is juist de misvatting. Kolommen die elk een andere vraag beantwoorden. Let op
+      welke toetsbaar zijn: het conceptuele model en het informatiemodel zijn dat niet. Zij zijn
+      normatief; je valideert er geen bericht tegen.</p>
     <div class="lagen" id="lagen"></div>
 
     <div class="section-title">Hetzelfde begrip, drie keer anders gevangen</div>
@@ -199,10 +239,27 @@
       const c = (v, k) => `<div class="cijfer"><div class="v">${esc(v)}</div><div class="k">${esc(k)}</div></div>`;
       $("cijfers").innerHTML =
         c(t.cim_views, "views in het conceptuele model") +
-        c(nl(t.imev_objecttypen), "objecttypen in IMEV 3.0") +
-        c(t.rev_resources, "resources in de REV-API") +
+        c(nl(t.schema_objecttypen), "objecttypen in het berichtschema") +
+        c(t.api_resourcefamilies, "resourcefamilies in de API-specificatie") +
         c(t.gir_tabellen, "tabellen in het GIR-datamodel") +
         c(t.gir_niet_gebouwd, "daarvan ontworpen maar nooit gebouwd");
+
+      $("artefacten").innerHTML = d.artefacten.map(a =>
+        `<div class="art">` +
+        `<div><div class="naam">${esc(a.bestand)}</div>` +
+        `<div class="soort">${esc(a.soort)}</div>` +
+        `<div class="vp">${esc(a.vindplaats)}</div></div>` +
+        `<div><div class="wat">${esc(a.wat)}</div>` +
+        `<div class="niet">${esc(a.niet)}</div></div>` +
+        `<div class="omvang"><span>${esc(a.omvang)}</span>` +
+        `<span>houder: <b>${esc(a.houder)}</b></span>` +
+        (a.verwijzingen
+          ? `<span><b>${esc(a.verwijzingen)}</b>× aangeroepen door de API-specificatie</span>`
+          : "") +
+        `</div></div>`).join("");
+      $("reftot").textContent = nl(t.refs_totaal);
+      $("refenv").textContent = nl(t.refs_envelop);
+      $("refinh").textContent = nl(t.refs_inhoud);
 
       $("lagen").innerHTML = d.lagen.map(l => {
         const b = d.bronnen[l.id];
@@ -221,7 +278,7 @@
       $("vertalingen").innerHTML = d.vertalingen.map(v =>
         `<div class="vert"><h4>${esc(v.begrip)}</h4><div class="drie">` +
         `<div class="c"><div class="lbl">CIM-VTH-Flo</div>${esc(v.cim)}</div>` +
-        `<div class="i"><div class="lbl">IMEV 3.0</div>${esc(v.imev)}</div>` +
+        `<div class="i"><div class="lbl">REV · model + schema</div>${esc(v.imev)}</div>` +
         `<div class="g"><div class="lbl">GIR 2.0</div>${esc(v.gir)}</div>` +
         `</div><div class="les">${esc(v.les)}</div></div>`).join("");
 
@@ -235,7 +292,7 @@
         `<span class="chip">${esc(jb[o.join])}</span></div>` +
         `<div class="kanten">` +
         `<div class="g"><div class="lbl">GIR 2.0 · datamodel</div>${esc(o.gir)}</div>` +
-        `<div class="i"><div class="lbl">IMEV 3.0 · uitwisseling</div>${esc(o.imev)}</div>` +
+        `<div class="i"><div class="lbl">REV · berichtschema</div>${esc(o.imev)}</div>` +
         `</div><div class="waarom">${esc(o.waarom)}</div></div>`).join("");
 
       $("bevindingen").innerHTML = d.bevindingen.map(b =>
