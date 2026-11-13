@@ -196,11 +196,15 @@ def test_voorbehoud_ontbreekt_niet_meer_zodra_de_contextsleutel_gevuld_is():
     assert "stoffen_met_norm" not in tekst
 
 
-def test_runlog_is_altijd_none_in_dit_dossier():
-    """Deel D (de runlog) komt pas in taak 6b; tot die tijd is dit altijd `None`, nooit stil
-    een ander soort leeg."""
-    assert dossier.dossier({"voorschriften": []}, {})["runlog"] is None
-    assert dossier.dossier({"voorschriften": []}, {}, uit={"uitlegger"})["runlog"] is None
+def test_runlog_draagt_uitgezet_en_stappen_ook_zonder_een_draaiende_crew():
+    """Sinds taak 6b bekabeld (R14): `dossier()` geeft nooit meer `None` terug voor deel D, ook
+    niet zonder een echte `Runlog` -- `uitgezet` komt rechtstreeks uit `uit`, en `stappen` blijft
+    dan gewoon leeg in plaats van het hele deel D af te schaffen."""
+    d = dossier.dossier({"voorschriften": []}, {})
+    assert d["runlog"] == {"uitgezet": [], "stappen": []}
+    d_uit = dossier.dossier({"voorschriften": []}, {}, uit={"uitlegger"})
+    assert d_uit["runlog"]["uitgezet"] == ["uitlegger"]
+    assert d_uit["runlog"]["stappen"] == []
 
 
 def test_een_uitgezette_agent_staat_vooraan_in_de_voorbehouden():

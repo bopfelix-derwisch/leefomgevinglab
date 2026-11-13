@@ -48,11 +48,14 @@ welke contextsleutel ontbrak (`gemeten_codes`, `waterlichaam`, `register_codes`,
 `stoffen_met_norm`) en welke agent is uitgezet (`uit`). De taalregel geldt ook hier: geen van deze
 zinnen noemt een "overtreding".
 
-**`uit` en `runlog`.** `dossier()` accepteert al een derde parameter `uit: set[str] | None` en
-geeft altijd `runlog: None` terug. Geen van beide doet hier iets anders dan zichtbaar zijn: een
-latere taak (de runner, taak 6/6b) vult `runlog` en roept `dossier()` aan met de agents die zijn
-uitgezet. Wat vandaag al werkt: een uitgezette agent komt in `voorbehouden[0]` te staan, zodat hij
-niet stilzwijgend minder dossier oplevert (plan, R2 in de ledger).
+**`uit` en `runlog` (sinds taak 6b bekabeld).** `dossier()` accepteert `uit: set[str] | None` en
+`runlog` (een `toezicht.runlog.Runlog`, optioneel). De runner (taak 6/6b, `runner.
+tool_dossier_samenstellen`) roept `dossier()` aan met de agents die uitstaan én met de runlog die
+tot dan toe is opgebouwd; `dossier()` zet die om in deel D (`d["runlog"]`, met `uitgezet` en
+`stappen`) en in het `stap`-veld per signaal (zie `_signalen_stap`). Zonder een echte run blijft
+`runlog["stappen"]` leeg, maar het dict zelf is nooit `None` -- zie `dossier()` zelf. Wat al vanaf
+taak 4/5 werkt: een uitgezette agent komt óók in `voorbehouden[0]` te staan, zodat hij niet
+stilzwijgend minder dossier oplevert (plan, R2 in de ledger).
 
 **Wat deze module niet bouwt.** `context["stoffen_met_norm"]` (de Aquo-codes met een KRW-norm,
 nodig voor de zwaarte van signaal 1) wordt hier niet gevuld -- dat vraagt een live opzoeking in de
@@ -192,10 +195,31 @@ def _zekerheid(regel_id: str, bewijs: list[dict]) -> str:
     return _HERKOMST_PER_REGEL[regel_id][1]
 
 
-def _signaal_deel_b(ruw: dict) -> dict:
+# Taak 6b (R14): de agent in `runner.py` wiens stap de signalen oplevert. Eigen klein koppelpunt
+# met de runnerconfiguratie (alleen deze naam, geen import van `runner.py` zelf -- die module
+# importeert op haar beurt `dossier.py`, en een importcirkel is hier geen prijs waard voor één
+# string) zodat elk signaal kan terugwijzen naar de stap die het opleverde, zonder de inhoud van
+# die stap hier te dupliceren.
+_SIGNAALSTELLER_AGENT = "signaalsteller"
+
+
+def _signalen_stap(runlog) -> dict | None:
+    """De runlog-stap die de signalen heeft bepaald, voor het `stap`-veld van elk signaal (R14).
+    `None` zonder meegegeven runlog, of als die (nog) geen signaalsteller-stap bevat -- bv. een
+    losse `Runlog()` in een test, of `dossier()` zonder de runner aangeroepen. Geen stap is dan
+    zelf de juiste uitkomst: er is immers geen proces om naar terug te wijzen."""
+    if runlog is None:
+        return None
+    for s in runlog.als_gegeven():
+        if s.get("agent") == _SIGNAALSTELLER_AGENT:
+            return {"agent": s["agent"], "tool": s.get("tool"), "nr": s["nr"]}
+    return None
+
+
+def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
     regel_id = ruw["regel"]
     grondslag, _ = _HERKOMST_PER_REGEL[regel_id]
-    return {
+    uit = {
         "regel": regel_id,
         "signaal": ruw["signaal"],
         "zwaarte": ruw["zwaarte"],
@@ -205,6 +229,9 @@ def _signaal_deel_b(ruw: dict) -> dict:
         "zekerheid": _zekerheid(regel_id, ruw["bewijs"]),
         "wat_te_doen": _WAT_TE_DOEN_PER_REGEL[regel_id],
     }
+    if stap is not None:
+        uit["stap"] = stap
+    return uit
 
 
 def _telling(vestiging: dict, signalen_lijst: list[dict]) -> dict:
@@ -254,18 +281,28 @@ def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
     return voorbehouden
 
 
-def dossier(vestiging: dict, context: dict, uit: set[str] | None = None) -> dict:
+def dossier(vestiging: dict, context: dict, uit: set[str] | None = None, runlog=None) -> dict:
     """Het signaaldossier voor één vestiging: `kaart` (deel A), `signalen` (deel B, gerangschikt),
-    `telling` (afgeleide aantallen) en `voorbehouden`. `runlog` (deel D) is hier altijd `None` --
-    dat vult de runner (taak 6/6b); `uit` is al wel zichtbaar, via `voorbehouden[0]`.
+    `telling` (afgeleide aantallen), `voorbehouden` en `runlog` (deel D, taak 6b).
 
-    Geen netwerk, geen LLM: alles komt binnen via `vestiging` en `context`, precies zoals
-    `signalen.signalen` dat al afdwingt."""
-    signalen_lijst = [_signaal_deel_b(s) for s in signalen_mod.signalen(vestiging, context)]
+    `runlog` is hier een optionele `toezicht.runlog.Runlog` (of een object met dezelfde
+    `als_gegeven()`) -- typisch de log die de runner tijdens deze dossier-run al heeft opgebouwd
+    (zie `runner.tool_dossier_samenstellen`). Zonder een echte `Runlog` (bv. `dossier()` los
+    aangeroepen, zoals elders in deze testsuite) blijft `runlog["stappen"]` leeg, maar `runlog`
+    is nooit meer `None`: `uitgezet` komt altijd uit `uit`, ook zonder een draaiende crew, zodat
+    een uitgezette agent in het dossier zichtbaar blijft los van of er een echte run was.
+
+    Geen netwerk, geen LLM hier zelf: alles komt binnen via `vestiging`, `context` en `runlog`,
+    precies zoals `signalen.signalen` dat al afdwingt."""
+    stap = _signalen_stap(runlog)
+    signalen_lijst = [_signaal_deel_b(s, stap) for s in signalen_mod.signalen(vestiging, context)]
     return {
         "kaart": _kaart(vestiging),
         "signalen": signalen_lijst,
         "telling": _telling(vestiging, signalen_lijst),
         "voorbehouden": _voorbehouden(context, uit),
-        "runlog": None,
+        "runlog": {
+            "uitgezet": sorted(uit) if uit else [],
+            "stappen": runlog.als_gegeven() if runlog is not None else [],
+        },
     }
