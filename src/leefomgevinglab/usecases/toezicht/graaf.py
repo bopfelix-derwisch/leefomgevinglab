@@ -28,15 +28,23 @@ beweringen met uiteenlopende zekerheid dragen (de hoedanigheid "aangenomen", de 
 **Wat wél en niet een eigen Bewering-node krijgt.** De rechtstreekse Atlas-velden van een
 voorschrift (`parameter`, `waarde`, `eenheid`, `bemonstering`, `rd`) zijn altijd een directe
 lezing van de bron -- daarover bestaat in dit lab geen gedocumenteerde onzekerheid, dus zij staan
-als gewone literal-properties op het Voorschrift-knooppunt. De twee velden die
-`usecases/kmg/lozingsmodel.py` en `toezicht/aquo.py` zelf al als onzeker documenteren --
-de hoedanigheid (de Atlas geeft hem nooit, zie `HOEDANIGHEID_AANNAME`) en de Aquo-koppeling (een
-naam-op-code-match, dus "afgeleid", niet "uit de bron") -- krijgen wel een Bewering. Dezelfde
+als gewone literal-properties op het Voorschrift-knooppunt. Twee andere velden krijgen wel een
+Bewering, elk gedocumenteerd als onzeker in de module die hem invoert: de hoedanigheid (de Atlas
+geeft hem nooit, zie `usecases/kmg/lozingsmodel.py`, `HOEDANIGHEID_AANNAME`) en de Aquo-koppeling
+(een naam-op-code-match, dus "afgeleid", niet "uit de bron", zie `toezicht/aquo.py`). Dezelfde
 negen kaartvelden van een vestiging als `dossier._KAART_VELDEN` (deel A van het signaaldossier)
 krijgen elk een Bewering, zodat ook "welke vestiging mist een kenmerk?" een SPARQL-vraag wordt.
 Deze module roept `dossier.dossier()` daarvoor niet aan -- dat zou de hele signaalmotor meetrekken
 voor wat hier alleen een veldenlijst is -- en houdt die lijst zelfstandig (kleine, bewuste
 duplicatie van een veldnaam-opsomming, niet van logica).
+
+**Wat bewust géén Bewering krijgt: de geldigheidsperiode.** `lozingsmodel.py` noemt de
+geldigheidsperiode naast de hoedanigheid als het andere veld dat de Atlas niet geeft -- maar dat
+is hier niet als derde Bewering gemodelleerd, en dat is geen omissie.
+`signalen.regel_geen_geldigheidsduur` behandelt het al als een vaststaand gegeven voor het hele
+register (elke vergunning mist hem, zonder uitzondering), niet als iets dat per voorschrift
+verschilt; een Bewering per voorschrift zou daar niets aan toevoegen boven die ene registerbrede
+constatering.
 
 **Zekerheid komt uit één bron.** `kmg.lozingsmodel.ZEKERHEDEN` is het enige vocabulaire voor
 "uit de bron"/"afgeleid"/"aangenomen"/"ontbreekt" in dit lab (R13); deze module importeert die

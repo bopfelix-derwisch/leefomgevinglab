@@ -30,9 +30,20 @@ patroon op tekst:
 - **Een `LIMIT` is verplicht bij een SELECT.** Dit wijkt af van `afval/chat.valideer_sql`, die een
   ontbrekende `LIMIT` stilzwijgend toevoegt -- de verbatim test van dit brief (stap 1) eist juist
   dat een SELECT zonder `LIMIT` een `OngeldigeSparql` opwerpt, dus deze module weigert in plaats
-  van aan te vullen. Is de `LIMIT` er en te groot, dan wordt hij wel teruggebracht (zelfde
-  gedrag als `afval/chat.py`). Bij `ASK` is `LIMIT` niet verplicht: dat levert een boolean, geen
+  van aan te vullen. Bij `ASK` is `LIMIT` niet verplicht: dat levert een boolean, geen
   rijenverzameling om te begrenzen.
+- **Een te grote `LIMIT` wordt geweigerd, niet teruggebracht.** Een eerdere versie herschreef hem
+  met een tekst-brede `re.sub` over de hele querytekst -- en trof daarmee niet alleen de `LIMIT`-
+  clausule, maar ook elke stringliteral die toevallig op hetzelfde patroon lijkt (bv. een
+  triple pattern met `"limit 99999"` als object werd mee herschreven: fix-ronde 1, Important). Een
+  op zichzelf valide verbetering (de AST in plaats van de tekst herschrijven) bleek niet
+  mogelijk: de geparste `limitoffset`-node draagt geen enkele locatie-informatie (geen offset,
+  geen regel/kolom) om terug te vinden waar in de originele tekst die clausule stond -- geverifieerd
+  door de node en zijn `limit`-waarde te inspecteren (zie het taakrapport, fix-ronde 1). Zonder dat
+  anker zou elke herschrijving weer op tekstpatronen moeten gokken, en dat is precies de fout die
+  hier wordt rechtgezet. Een te grote `LIMIT` krijgt daarom dezelfde behandeling als een
+  ontbrekende: geweigerd, met de toegestane bovengrens in de boodschap. Zo blijft de uitgevoerde
+  query altijd letterlijk gelijk aan de query die de lezer te zien krijgt.
 
 Overwogen en bewust buiten scope gelaten: een commentaarregel die een verboden keyword lijkt te
 bevatten. De SPARQL-tokenizer gooit commentaar weg vóór het parsen, dus zo'n regel kan niets
@@ -72,7 +83,7 @@ BRON = "Toezichtgraaf: Atlas voor een Schone Maas + WKP + KRW-normen + Aquo (eig
 
 class OngeldigeSparql(Exception):
     """De query is geen geldige SPARQL-leesquery (SELECT/ASK), bevat een verboden operatie, een
-    SERVICE- of FROM-clause, of mist een verplichte LIMIT."""
+    SERVICE- of FROM-clause, mist een verplichte LIMIT, of overschrijdt de toegestane LIMIT."""
 
 
 def _bevat_knooppunt(node, naam: str) -> bool:
@@ -96,8 +107,9 @@ def _bevat_knooppunt(node, naam: str) -> bool:
 
 
 def valideer_sparql(q: str) -> str:
-    """De bewaking: werpt `OngeldigeSparql` voor alles wat geen read-only SELECT/ASK is, en geeft
-    anders de (eventueel op `LIMIT` teruggebrachte) query terug."""
+    """De bewaking: werpt `OngeldigeSparql` voor alles wat geen read-only SELECT/ASK is, voor een
+    ontbrekende LIMIT bij een SELECT, en voor een LIMIT boven `_MAX_LIMIT`. Geeft anders de query
+    ongewijzigd terug -- nooit een herschreven versie, zie de moduledocstring."""
     tekst = (q or "").strip()
     if not tekst:
         raise OngeldigeSparql("lege query")
@@ -121,7 +133,12 @@ def valideer_sparql(q: str) -> str:
         if limiet is None:
             raise OngeldigeSparql("LIMIT is verplicht bij een SELECT")
         if int(limiet) > _MAX_LIMIT:
-            tekst = re.sub(r"(?i)\blimit\s+\d+\b", f"LIMIT {_MAX_LIMIT}", tekst)
+            # Geen tekst-brede re.sub meer (fix-ronde 1, Important): die trof ook stringliterals
+            # die toevallig op "limit <getal>" lijken. De geparste node draagt geen locatie om
+            # alleen de echte clausule te raken, dus wordt een te grote LIMIT geweigerd -- net als
+            # een ontbrekende -- in plaats van de tekst te herschrijven. Zie de moduledocstring.
+            raise OngeldigeSparql(f"LIMIT boven de toegestane {_MAX_LIMIT} wordt geweigerd, "
+                                  "niet aangepast")
     return tekst
 
 

@@ -84,10 +84,31 @@ def test_een_ask_query_zonder_limit_mag_wel():
     assert vraag.valideer_sparql("ASK { ?s ?p ?o }") == "ASK { ?s ?p ?o }"
 
 
-def test_een_te_groot_limiet_wordt_teruggebracht():
-    q = vraag.valideer_sparql("SELECT * WHERE { ?s ?p ?o } LIMIT 999999")
-    assert "LIMIT 200" in q
-    assert "999999" not in q
+def test_een_te_groot_limiet_wordt_geweigerd_niet_teruggebracht():
+    """Fix-ronde 1 (Important): een eerdere versie bracht een te grote LIMIT terug met een
+    tekst-brede `re.sub`, en die trof ook stringliterals die op "limit <getal>" lijken (zie de
+    volgende test). De geparste `limitoffset`-node draagt geen locatie om de herschrijving naar de
+    echte clausule te richten, dus wordt een te grote LIMIT nu geweigerd -- net als een
+    ontbrekende -- en genoemd in de boodschap."""
+    with pytest.raises(vraag.OngeldigeSparql, match=str(vraag._MAX_LIMIT)):
+        vraag.valideer_sparql("SELECT * WHERE { ?s ?p ?o } LIMIT 999999")
+
+
+def test_een_limiet_boven_het_maximum_laat_een_stringliteral_dat_op_limit_lijkt_onaangeroerd():
+    """De exacte reproductie uit fix-ronde 1 (Important): vóór de fix herschreef `re.sub` de hele
+    querytekst, en trof daarmee ook het stringliteral `"limit 99999"` -- dat werd mee
+    `"LIMIT 200"`, zodat de uitgevoerde query iets anders zocht dan wat de lezer op het scherm
+    zag. Nu wordt de hele query in één keer geweigerd (zie de vorige test) in plaats van ergens
+    herschreven te worden: er bestaat dus geen enkel pad meer waarop deze functie een string
+    teruggeeft waarin dat literal is aangepast. Deze test legt dat vast door te bewijzen dat het
+    enige wat gebeurt een `OngeldigeSparql` is, met de oorspronkelijke tekst nog volledig intact
+    (geen enkele aanroep muteert `q` zelf, want Python-strings zijn immutable -- de garantie die
+    hier telt is dat er geen teruggegeven, stilzwijgend herschreven waarde bestaat)."""
+    q = 'SELECT ?s WHERE { ?s ?p "limit 99999" } LIMIT 999999'
+    with pytest.raises(vraag.OngeldigeSparql, match=str(vraag._MAX_LIMIT)):
+        resultaat = vraag.valideer_sparql(q)
+        pytest.fail(f"had moeten weigeren, maar gaf terug: {resultaat!r}")
+    assert q == 'SELECT ?s WHERE { ?s ?p "limit 99999" } LIMIT 999999'
 
 
 def test_select_met_limiet_binnen_het_maximum_blijft_ongewijzigd():
