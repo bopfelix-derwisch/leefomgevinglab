@@ -4,6 +4,8 @@ Deze module test de zeven regels die aan de vergunning zelf genoeg hebben (taak 
 regels die meetdata en stroomrichting nodig hebben (`geen_onafhankelijke_meting`,
 `norm_overschreden_bovenstrooms`, `stof_buiten_register`) komen in taak 2 erbij.
 """
+import pytest
+
 from leefomgevinglab.usecases.toezicht import signalen
 
 
@@ -90,6 +92,29 @@ def test_concentratie_met_debietvoorschrift_geeft_geen_signaal():
     assert signalen.regel_vracht_onbepaald(v, {}) == []
 
 
+@pytest.mark.parametrize("eenheid", sorted(signalen.DEBIET_EENHEDEN))
+def test_elke_bekende_debietspelling_voorkomt_het_signaal(eenheid):
+    """Elke spelling uit `kmg/lozingsmodel.py` en `gebruiksruimte/atlas_register.py` moet hier
+    als debiet herkend worden, anders ontstaat een vals-positieve "vracht niet te bepalen" op
+    een vestiging die wél een debietvoorschrift heeft -- alleen in een andere spelling."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter"},
+        {"parameter": "Debiet", "waarde": 100.0, "eenheid": eenheid}]}
+    assert signalen.regel_vracht_onbepaald(v, {}) == []
+
+
+def test_een_onbekende_kubieke_meter_eenheid_telt_niet_als_debiet():
+    """Niet elke eenheid van de vorm "kubieke meter per ..." is een doorlopend debiet --
+    `atlas_register.py` noemt "kubieke meter per schoonmaakactie" expliciet als tegenvoorbeeld.
+    Zo'n onbekende spelling mag het signaal dus niet onderdrukken."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter"},
+        {"parameter": "Spoeling", "waarde": 2.0, "eenheid": "kubieke meter per schoonmaakactie"}]}
+    uit = signalen.regel_vracht_onbepaald(v, {})
+    assert len(uit) == 1
+    assert {b["parameter"] for b in uit[0]["bewijs"]} == {"Zink"}
+
+
 def test_alle_drie_identificerende_velden_ontbreken_weegt_hoog():
     v = {"naam": "X", "url": None, "kenmerk": None, "besluitdatum": None, "voorschriften": []}
     uit = signalen.regel_vergunning_niet_te_vinden(v, {})
@@ -133,6 +158,17 @@ def test_geen_bemonsteringsregime_geeft_geen_signaal():
     assert signalen.regel_niet_regime_zuiver(v, {}) == []
 
 
+def test_niet_regime_zuiver_blijft_laag_bij_veel_voorschriften():
+    """De omvang die getoond wordt mag de echte, grote telling zijn -- de zwaarte moet daar niet
+    door kunnen kantelen naar "hoog" of "midden"."""
+    v = {"voorschriften": [{"parameter": f"Stof {i}", "waarde": 1.0,
+                             "eenheid": "milligram per liter", "bemonstering": "Steekmonster"}
+                            for i in range(150)]}
+    s = signalen.regel_niet_regime_zuiver(v, {})[0]
+    assert s["omvang"] == 150
+    assert s["zwaarte"] == "laag"
+
+
 def test_geen_geldigheidsduur_geeft_precies_een_signaal_per_dossier():
     v = {"voorschriften": [
         {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter"},
@@ -148,10 +184,41 @@ def test_geen_voorschriften_geeft_geen_geldigheidssignaal():
     assert signalen.regel_geen_geldigheidsduur({"voorschriften": []}, {}) == []
 
 
+def test_geen_geldigheidsduur_blijft_laag_bij_veel_voorschriften():
+    v = {"voorschriften": [{"parameter": f"Stof {i}", "waarde": 1.0,
+                             "eenheid": "milligram per liter"} for i in range(150)]}
+    s = signalen.regel_geen_geldigheidsduur(v, {})[0]
+    assert s["omvang"] == 150
+    assert s["zwaarte"] == "laag"
+
+
 def test_zwaarte_werpt_keyerror_op_een_onbekende_regel():
-    import pytest
     with pytest.raises(KeyError):
         signalen.zwaarte("deze_regel_bestaat_niet", 5)
+
+
+# Eén test per uitkomst van `zwaarte()` zelf (plan, Global Constraints), los van welke regel
+# toevallig op die uitkomst uitkomt. "vergunning_niet_te_vinden" heeft drempel 3; elke rule met
+# een echte (niet-sentinel) drempel zou hier even goed dienen.
+
+def test_zwaarte_op_of_boven_de_drempel_is_hoog():
+    assert signalen.zwaarte("vergunning_niet_te_vinden", 3) == "hoog"
+
+
+def test_zwaarte_onder_de_drempel_maar_niet_nul_is_midden():
+    assert signalen.zwaarte("vergunning_niet_te_vinden", 1) == "midden"
+
+
+def test_zwaarte_op_nul_is_laag():
+    assert signalen.zwaarte("vergunning_niet_te_vinden", 0) == "laag"
+
+
+def test_zwaarte_van_een_altijd_laag_regel_blijft_laag_bij_een_grote_omvang():
+    """De drempel-99-sentinel moet dit afdwingen zonder dat een aanroeper een nep-omvang nodig
+    heeft: ook een werkelijk grote telling mag deze twee regels niet naar "hoog" of "midden"
+    tillen."""
+    assert signalen.zwaarte("niet_regime_zuiver", 1000) == "laag"
+    assert signalen.zwaarte("geen_geldigheidsduur", 1000) == "laag"
 
 
 def test_signalen_verzamelt_alle_regels_en_rangschikt_op_zwaarte_dan_omvang():

@@ -26,7 +26,26 @@ from typing import Callable, NamedTuple
 # (zie DEBIET_EENHEDEN) ergens in dezelfde vestiging is zo'n grens niet naar een vracht om te
 # rekenen -- dat is regel 5.
 CONCENTRATIE_EENHEDEN = {"milligram per liter", "microgram per liter"}
-DEBIET_EENHEDEN = {"kubieke meter per uur", "kubieke meter per dag"}
+
+# Letterlijk overgenomen uit de eenhedentabellen die dit lab al heeft, niet opnieuw verzonnen:
+# `usecases/kmg/lozingsmodel.py` (EENHEDEN, dimensie "debiet", incl. de schrijffout "kubieke met
+# per etmaal" die daar bewust wordt herkend) en `usecases/gebruiksruimte/atlas_register.py`
+# (_DEBIET, met "kubieke meter per etmaal", "... per week" en "... per seconde" erbij). Beide
+# tabellen blijven ongeïmporteerd -- dit bestand mag niet van een connector of brontabel afhangen
+# -- maar de spellingen moeten wel matchen, anders ontstaat hier een vals-positieve
+# "vracht niet te bepalen" op een vestiging die wél een debietvoorschrift heeft.
+# Expliciete opsomming, geen patroon op "kubieke meter per ...": niet elke eenheid met die vorm is
+# een doorlopend debiet (atlas_register.py noemt "kubieke meter per schoonmaakactie" als
+# tegenvoorbeeld), dus een onbekende spelling telt bewust niet mee.
+DEBIET_EENHEDEN = {
+    "kubieke meter per uur",
+    "kubieke meter per dag",
+    "kubieke meter per jaar",
+    "kubieke meter per etmaal",
+    "kubieke meter per week",
+    "kubieke meter per seconde",
+    "kubieke met per etmaal",  # schrijffout in de bron, zie lozingsmodel._EENHEID_NOTITIE
+}
 
 # Sentinel voor "nog niet opgezocht": ontbreekt de sleutel `aquo` op een voorschrift, dan heeft
 # niemand geprobeerd deze naam aan een code te koppelen en is er niets te signaleren. Pas een
@@ -68,25 +87,27 @@ def zwaarte(regel_id: str, omvang: float, norm_aanwezig: bool = False) -> str:
     verhouding tussen de hoogste en de laagste grenswaarde, bij regel 1 een aantal
     voorschriften. Een onbekende regel werpt een KeyError in plaats van stil `laag` te geven:
     een nieuwe regel zonder drempel is een vergeten keuze, niet een lichte bevinding.
+
+    Drempel `99` is geen telling om te halen maar een sentinel (zie `DREMPELS`,
+    `niet_regime_zuiver` en `geen_geldigheidsduur`): zo'n regel weegt per ontwerp altijd `laag`,
+    wat de werkelijke omvang ook is. Die garantie zit daarom hier, in de afleiding zelf, en niet
+    in een nep-omvang die een aanroeper verzint om er toevallig op uit te komen -- anders stopt
+    de garantie onopgemerkt zodra de rest van deze functie verandert.
     """
     drempel, _ = DREMPELS[regel_id]
+    if drempel >= 99:
+        return "laag"
     if omvang >= drempel:
         return "hoog" if norm_aanwezig or drempel < 99 else "midden"
     return "midden" if omvang > 0 else "laag"
 
 
 def _signaal(regel_id: str, kop: str, omvang: float, bewijs: list[dict],
-             norm_aanwezig: bool = False, omvang_voor_zwaarte: float | None = None) -> dict:
-    """Eén signaal in de vaste vorm. `omvang` bepaalt wat er getoond en op gerangschikt wordt.
-
-    Voor de meeste regels bepaalt die omvang ook de zwaarte via `zwaarte()`. Voor de twee regels
-    met drempel 99 (`niet_regime_zuiver`, `geen_geldigheidsduur`) is de telling zelf niet de maat
-    -- zij wegen per ontwerp altijd `laag` -- en geeft `omvang_voor_zwaarte=0` dat door aan
-    `zwaarte()`, zonder de getoonde `omvang` te veranderen.
-    """
-    maat = omvang if omvang_voor_zwaarte is None else omvang_voor_zwaarte
+             norm_aanwezig: bool = False) -> dict:
+    """Eén signaal in de vaste vorm. `omvang` bepaalt zowel wat er getoond wordt als -- via
+    `zwaarte()` -- hoe zwaar het weegt, zodat de twee niet uit de pas kunnen lopen."""
     return {"regel": regel_id, "signaal": kop,
-            "zwaarte": zwaarte(regel_id, maat, norm_aanwezig),
+            "zwaarte": zwaarte(regel_id, omvang, norm_aanwezig),
             "omvang": omvang, "bewijs": bewijs}
 
 
@@ -162,26 +183,24 @@ def regel_niet_regime_zuiver(vestiging: dict, context: dict) -> list[dict]:
     meting niet meldt, dus een vergelijking van meting tegen deze grenswaarde is niet
     regime-zuiver. Dat is altijd zo zodra een voorschrift een regime draagt (de meting meldt het
     regime nooit, geverifieerd in het plan), en dus altijd `laag`: een voorbehoud, geen bevinding
-    op zichzelf. Daarom gaat niet de telling maar een vaste `0` de zwaarte-afleiding in; de
-    telling zelf blijft wel zichtbaar in `omvang`."""
+    op zichzelf. Die `laag` komt uit de drempel-99-sentinel in `zwaarte()` zelf; hier gaat de
+    echte telling de afleiding in, er wordt niets gefabriceerd."""
     getroffen = [v for v in (vestiging.get("voorschriften") or []) if v.get("bemonstering")]
     if not getroffen:
         return []
-    return [_signaal("niet_regime_zuiver", "toets niet regime-zuiver", len(getroffen), getroffen,
-                      omvang_voor_zwaarte=0)]
+    return [_signaal("niet_regime_zuiver", "toets niet regime-zuiver", len(getroffen), getroffen)]
 
 
 def regel_geen_geldigheidsduur(vestiging: dict, context: dict) -> list[dict]:
     """Geen geldigheidsduur -- de Atlas kent geen geldigheidsperiode per voorschrift, alleen een
     besluitdatum per vergunning (zie `kmg.lozingsmodel`). Dat geldt voor het hele dossier in één
-    keer, dus precies één signaal per vestiging, nooit één per voorschrift. Ook hier gaat een
-    vaste `0` de zwaarte-afleiding in: het is geen telling die ergens boven een drempel kan
-    uitkomen -- `omvang` toont wel hoeveel voorschriften het betreft."""
+    keer, dus precies één signaal per vestiging, nooit één per voorschrift. Ook deze regel weegt
+    altijd `laag` via de drempel-99-sentinel in `zwaarte()`; `omvang` draagt hier gewoon de
+    echte telling, hoeveel voorschriften het betreft."""
     voorschriften = vestiging.get("voorschriften") or []
     if not voorschriften:
         return []
-    return [_signaal("geen_geldigheidsduur", "geen geldigheidsduur", len(voorschriften), [],
-                      omvang_voor_zwaarte=0)]
+    return [_signaal("geen_geldigheidsduur", "geen geldigheidsduur", len(voorschriften), [])]
 
 
 REGELS: list[Regel] = [
