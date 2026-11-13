@@ -15,7 +15,9 @@ from leefomgevinglab.usecases.toezicht import signalen
 #
 # Welke regel waarop in deze vestiging/context vuurt:
 # - geen_onafhankelijke_meting: "Zwevende stof" (ZS) en "Zuurgraad" (pH) zijn vergund maar staan
-#   niet in `gemeten_codes` (alleen Zn is "gemeten").
+#   niet in `gemeten_codes` (alleen Zn is "gemeten"); `stoffen_met_norm` bevat geen van beide
+#   codes, dus deze twee signalen komen op `midden` uit -- de `hoog`-tak zelf heeft haar eigen
+#   directe tests op `regel_geen_onafhankelijke_meting`.
 # - vervallen_code: "Zwevende stof" draagt `aquo_status: "Vervallen"`.
 # - niet_in_referentie: "Onbekend sulfiet-mengsel" heeft `aquo: None`.
 # - meerdere_grenswaarden: Zink heeft twee grenswaarden (0.5 en 2.0 mg/l).
@@ -46,6 +48,7 @@ VESTIGING_MET_ALLES = {
 
 CONTEXT_MET_ALLES = {
     "gemeten_codes": {"Zn"},
+    "stoffen_met_norm": {"Ntot"},  # geen van de ongemeten codes (ZS, pH) hier -- zie de regel 1.
     "waterlichaam": "NL91ZM",
     "is_bovenstrooms": lambda waterlichaam, meetpunt_waterlichaam: True,
     "overschrijdingen": [
@@ -315,16 +318,28 @@ def test_vergunde_stof_die_nergens_gemeten_wordt_geeft_een_signaal():
     assert "geen onafhankelijke meting" in uit[0]["signaal"]
 
 
-def test_geen_onafhankelijke_meting_verzamelt_alle_niet_gemeten_codes_in_een_signaal():
-    """Eén signaal per vestiging, net als `vervallen_code` -- `omvang` is het totaal aantal
-    voorschriften zonder meting, niet per stof."""
+def test_geen_onafhankelijke_meting_geeft_een_apart_signaal_per_code():
+    """Eén signaal per aquo-code, niet één voor de hele vestiging -- §6 maakt de zwaarte
+    afhankelijk van de stof, en pH en Q kunnen een verschillende norm-status hebben. `omvang` is
+    per signaal het aantal voorschriften zonder meting op die ene code."""
     v = {"voorschriften": [
         {"parameter": "Zuurgraad", "waarde": 7.0, "eenheid": "dimensieloos", "aquo": "pH"},
         {"parameter": "Debiet", "waarde": 10.0, "eenheid": "kubieke meter per uur", "aquo": "Q"},
         {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"}]}
     uit = signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": {"Zn"}})
+    assert {s["bewijs"][0]["aquo"] for s in uit} == {"pH", "Q"}
+    assert all(s["omvang"] == 1 for s in uit)
+
+
+def test_geen_onafhankelijke_meting_groepeert_meerdere_voorschriften_op_dezelfde_code():
+    """Twee voorschriften op dezelfde ongemeten code horen in één signaal, met `omvang` 2."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter", "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": set()})
     assert len(uit) == 1
-    assert {b["aquo"] for b in uit[0]["bewijs"]} == {"pH", "Q"}
+    assert uit[0]["omvang"] == 2
+    assert len(uit[0]["bewijs"]) == 2
 
 
 def test_geen_onafhankelijke_meting_telt_een_ontbrekende_code_niet_mee():
@@ -349,6 +364,42 @@ def test_geen_onafhankelijke_meting_zwijgt_zonder_een_meetset_in_de_context():
     v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
                              "aquo": "Zn"}]}
     assert signalen.regel_geen_onafhankelijke_meting(v, {}) == []
+
+
+def test_geen_onafhankelijke_meting_is_hoog_voor_een_stof_met_een_norm():
+    """Fix-ronde 1, bevinding 1 (Important): zonder `stoffen_met_norm` op de aanroep kon dit
+    signaal nooit `hoog` worden, ook al bestaat er voor zink een echte KRW-norm -- de
+    `NORM_BEPAALT_ZWAARTE`-plumbing uit de zwaarte-reparatie was dan onbereikbaar vanaf de enige
+    aanroeplocatie die er is. Dit test het nu door de regel zelf, niet alleen via `zwaarte()`."""
+    v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                             "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(
+        v, {"gemeten_codes": set(), "stoffen_met_norm": {"Zn"}})
+    assert len(uit) == 1
+    assert uit[0]["zwaarte"] == "hoog"
+
+
+def test_geen_onafhankelijke_meting_is_midden_voor_een_stof_zonder_norm():
+    """Zelfde voorschrift, nu zonder dat `Zn` in `stoffen_met_norm` staat: het signaal gaat nog
+    steeds af, maar blijft op `midden` -- er is dan niets om de grenswaarde tegen te houden."""
+    v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                             "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(
+        v, {"gemeten_codes": set(), "stoffen_met_norm": {"Ntot"}})
+    assert len(uit) == 1
+    assert uit[0]["zwaarte"] == "midden"
+
+
+def test_geen_onafhankelijke_meting_valt_terug_op_midden_zonder_stoffen_met_norm():
+    """Ontbreekt `stoffen_met_norm` zelf (de sleutel staat niet in `context`), dan mag het
+    signaal niet verdwijnen -- "we weten niet of er een norm is" is geen reden om te zwijgen,
+    alleen een reden om niet naar `hoog` te escaleren. Dit is bewust anders dan `gemeten_codes`
+    en `register_codes`, waar een ontbrekende sleutel de hele regel laat zwijgen."""
+    v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                             "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": set()})
+    assert len(uit) == 1
+    assert uit[0]["zwaarte"] == "midden"
 
 
 def test_norm_overschreden_bovenstrooms_signaleert_bij_een_overschrijding_benedenstrooms():
@@ -389,6 +440,26 @@ def test_norm_overschreden_bovenstrooms_valt_terug_op_kmg_toerekening():
     assert len(signalen.regel_norm_overschreden_bovenstrooms({}, context)) == 1
 
 
+def test_norm_overschreden_bovenstrooms_telt_dezelfde_stof_op_twee_meetpunten_als_een():
+    """Fix-ronde 1, bevinding 2 (Minor): `omvang` is "aantal overschreden stoffen" (`DREMPELS`),
+    geen aantal overschrijdingsrijen -- Zn op twee meetpunten benedenstrooms moet `omvang == 1`
+    geven, met beide rijen toch in `bewijs`."""
+    context = {
+        "waterlichaam": "NL91ZM",
+        "is_bovenstrooms": lambda a, b: True,
+        "overschrijdingen": [
+            {"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "Zn",
+             "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"},
+            {"meetpunt": "P2", "waterlichaam": "NL91BM", "stof": "Zn",
+             "gemeten": 9.0, "norm": 7.8, "eenheid": "ug/l"},
+        ],
+    }
+    uit = signalen.regel_norm_overschreden_bovenstrooms({}, context)
+    assert len(uit) == 1
+    assert uit[0]["omvang"] == 1
+    assert len(uit[0]["bewijs"]) == 2
+
+
 def test_stof_buiten_register_signaleert_een_stof_die_in_geen_voorschrift_voorkomt():
     context = {"register_codes": {"Zn"},
                "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA",
@@ -421,6 +492,20 @@ def test_stof_buiten_register_is_een_bevinding_over_het_register_niet_over_de_ve
     b = signalen.regel_stof_buiten_register({"voorschriften": [{"parameter": "X"}]}, context)
     assert a == b
     assert len(a) == 1
+
+
+def test_stof_buiten_register_telt_dezelfde_stof_op_twee_meetpunten_als_een():
+    """Fix-ronde 1, bevinding 2 (Minor): zelfde reden als bij `norm_overschreden_bovenstrooms` --
+    `omvang` is "aantal gemeten stoffen zonder enig voorschrift" (`DREMPELS`), geen aantal rijen."""
+    context = {"register_codes": set(),
+               "overschrijdingen": [
+                   {"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA"},
+                   {"meetpunt": "P2", "waterlichaam": "NL91BM", "stof": "PFOA"},
+               ]}
+    uit = signalen.regel_stof_buiten_register({}, context)
+    assert len(uit) == 1
+    assert uit[0]["omvang"] == 1
+    assert len(uit[0]["bewijs"]) == 2
 
 
 def test_de_fixture_met_alles_laat_alle_tien_regels_vuren():

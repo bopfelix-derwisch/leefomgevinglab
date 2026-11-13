@@ -14,7 +14,9 @@ Zeven regels hebben aan de vergunning zelf genoeg:
 De overige drie hebben meetdata en stroomrichting nodig, en krijgen die via `context` aangeleverd
 -- deze module blijft zelf vrij van connectors en netwerk, ook voor deze drie:
 
-- `geen_onafhankelijke_meting` (1) -- `context["gemeten_codes"]`.
+- `geen_onafhankelijke_meting` (1) -- `context["gemeten_codes"]` en, voor de zwaarte,
+  `context["stoffen_met_norm"]` (de Aquo-codes met een KRW-norm; ontbreekt die sleutel, dan
+  zwijgt het signaal niet maar blijft de zwaarte op `midden` staan).
 - `norm_overschreden_bovenstrooms` (6) -- `context["overschrijdingen"]`,
   `context["waterlichaam"]` (van deze vestiging) en `context["is_bovenstrooms"]`
   (standaard `kmg.toerekening.is_bovenstrooms`, zelf ook pure logica, geen I/O).
@@ -194,8 +196,13 @@ def regel_geen_onafhankelijke_meting(vestiging: dict, context: dict) -> list[dic
     """Geen onafhankelijke meting -- het voorschrift noemt een stof die op geen enkel meetpunt in
     `context["gemeten_codes"]` voorkomt, dus er is geen onafhankelijke meting in het watersysteem
     waartegen de grenswaarde te houden valt. Wie wil controleren, is dan afhankelijk van de
-    zelfrapportage van de lozer. Eén signaal per vestiging, net als `vervallen_code`: `omvang` is
-    het totaal aantal voorschriften zonder meting (zie `DREMPELS`), niet per stof.
+    zelfrapportage van de lozer.
+
+    Eén signaal **per aquo-code**, niet één voor de hele vestiging: §6 maakt de zwaarte
+    uitdrukkelijk afhankelijk van de stof ("hoog bij een stof met een KRW-norm, anders midden"),
+    en die twee uitkomsten kunnen binnen één vestiging naast elkaar bestaan -- een vergunning kan
+    tegelijk zink (met norm) en zuurgraad (zonder norm) ongemeten vergund hebben. `omvang` is per
+    signaal het aantal voorschriften zonder meting op die ene code.
 
     `aquo` moet aanwezig en niet-`None` zijn om mee te tellen -- een voorschrift zonder geldige
     code hoort bij `niet_in_referentie` of `vervallen_code`, niet hier: zonder code is er geen
@@ -204,16 +211,32 @@ def regel_geen_onafhankelijke_meting(vestiging: dict, context: dict) -> list[dic
     Ontbreekt `gemeten_codes` zelf (de sleutel staat niet in `context`), dan zwijgt de regel --
     dat is "geen meetset aangeleverd", niet "geen enkele stof wordt gemeten". Een lege
     `set()` die wél is aangeleverd, blijft wel gelden: dan is bewust vastgesteld dat er niets
-    gemeten is, en telt elke vergunde stof als onafhankelijk ongetoetst."""
+    gemeten is, en telt elke vergunde stof als onafhankelijk ongetoetst.
+
+    `context["stoffen_met_norm"]` (Aquo-codes met een KRW-norm) bepaalt `norm_aanwezig` per code.
+    Dit werkt **anders** dan `gemeten_codes`: ontbreekt deze sleutel, dan zwijgt de regel niet --
+    het signaal blijft gewoon afgaan, alleen valt de zwaarte terug op het geen-norm-geval
+    (`midden`), precies zoals wanneer de sleutel er wél is maar voor die code leeg blijft. Een
+    ontbrekende norm-opgave mag een signaal dus nooit onderdrukken, want "we weten niet of er een
+    norm is" is geen reden om te zwijgen over een stof die nergens onafhankelijk gemeten wordt --
+    het is alleen een reden om niet naar `hoog` te escaleren."""
     gemeten_codes = context.get("gemeten_codes")
     if gemeten_codes is None:
         return []
-    getroffen = [v for v in (vestiging.get("voorschriften") or [])
-                 if v.get("aquo") and v["aquo"] not in gemeten_codes]
-    if not getroffen:
-        return []
-    return [_signaal("geen_onafhankelijke_meting", "geen onafhankelijke meting", len(getroffen),
-                      getroffen)]
+    stoffen_met_norm = context.get("stoffen_met_norm") or set()
+
+    per_code: dict[str, list[dict]] = {}
+    for v in vestiging.get("voorschriften") or []:
+        code = v.get("aquo")
+        if code and code not in gemeten_codes:
+            per_code.setdefault(code, []).append(v)
+
+    uit = []
+    for code, voorschriften in per_code.items():
+        uit.append(_signaal("geen_onafhankelijke_meting", "geen onafhankelijke meting",
+                             len(voorschriften), voorschriften,
+                             norm_aanwezig=code in stoffen_met_norm))
+    return uit
 
 
 def regel_norm_overschreden_bovenstrooms(vestiging: dict, context: dict) -> list[dict]:
@@ -229,7 +252,12 @@ def regel_norm_overschreden_bovenstrooms(vestiging: dict, context: dict) -> list
     regel toetst zelf geen norm, dat is al gedaan. `context["waterlichaam"]` is het waterlichaam
     van déze vestiging; zonder dat gegeven is de richting niet te bepalen en zwijgt de regel.
     `context["is_bovenstrooms"]` is injecteerbaar voor de tests en valt terug op
-    `kmg.toerekening.is_bovenstrooms` -- pure logica, geen bron, dus veilig te importeren."""
+    `kmg.toerekening.is_bovenstrooms` -- pure logica, geen bron, dus veilig te importeren.
+
+    `omvang` is het aantal **verschillende stoffen** in `bewijs` (zie `DREMPELS`: "aantal
+    overschreden stoffen benedenstrooms"), niet het aantal overschrijdingsrijen -- dezelfde stof
+    kan op twee meetpunten benedenstrooms overschreden zijn en telt dan als één stof, al blijven
+    beide rijen in `bewijs` staan."""
     waterlichaam = context.get("waterlichaam")
     if not waterlichaam:
         return []
@@ -238,8 +266,9 @@ def regel_norm_overschreden_bovenstrooms(vestiging: dict, context: dict) -> list
                  if is_bovenstrooms(waterlichaam, o.get("waterlichaam"))]
     if not getroffen:
         return []
+    omvang = len({o.get("stof") for o in getroffen})
     return [_signaal("norm_overschreden_bovenstrooms",
-                      "meting boven de norm, lozer bovenstrooms", len(getroffen), getroffen)]
+                      "meting boven de norm, lozer bovenstrooms", omvang, getroffen)]
 
 
 def regel_stof_buiten_register(vestiging: dict, context: dict) -> list[dict]:
@@ -253,7 +282,12 @@ def regel_stof_buiten_register(vestiging: dict, context: dict) -> list[dict]:
 
     Ontbreekt `register_codes` zelf, dan zwijgt de regel -- net als bij `gemeten_codes` in
     `regel_geen_onafhankelijke_meting` is "geen register aangeleverd" iets anders dan "het
-    register is leeg"."""
+    register is leeg".
+
+    `omvang` is het aantal **verschillende stoffen** in `bewijs` (zie `DREMPELS`: "aantal
+    gemeten stoffen zonder enig voorschrift"), niet het aantal overschrijdingsrijen -- dezelfde
+    stof kan op twee meetpunten de norm overschrijden en telt dan als één stof, al blijven beide
+    rijen in `bewijs` staan."""
     register_codes = context.get("register_codes")
     if register_codes is None:
         return []
@@ -261,8 +295,9 @@ def regel_stof_buiten_register(vestiging: dict, context: dict) -> list[dict]:
                  if o.get("stof") not in register_codes]
     if not getroffen:
         return []
+    omvang = len({o.get("stof") for o in getroffen})
     return [_signaal("stof_buiten_register", "gemeten stof die in geen vergunning staat",
-                      len(getroffen), getroffen)]
+                      omvang, getroffen)]
 
 
 def regel_vergunning_niet_te_vinden(vestiging: dict, context: dict) -> list[dict]:

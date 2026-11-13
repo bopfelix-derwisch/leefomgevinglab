@@ -40,6 +40,18 @@ def test_laad_scheidt_geldige_en_ingetrokken_codes(tmp_path):
     assert ref["aantal"]["Vervallen"] == 2
 
 
+def test_laad_telt_concept_geldig_ook_als_geldig(tmp_path):
+    """Fix-ronde 1, bevinding 3 (Minor): `_GELDIGE_STATUSSEN` bevat ook "Concept, Geldig" (7 van
+    de 7109 rijen in de echte bron), maar niets testte dat -- een stille regressie die die status
+    uit de tuple liet vallen, zou onopgemerkt blijven."""
+    pad = tmp_path / "aquo_Parameter.csv"
+    _schrijf_csv(pad, [_rij(1, "Hg", "kwik", "Concept, Geldig")])
+    ref = aquo.laad(str(pad))
+    assert ref["geldig"] == {"kwik": "Hg"}
+    assert ref["vervallen"] == {}
+    assert ref["aantal"]["Concept, Geldig"] == 1
+
+
 def test_laad_zonder_bestand_faalt_zacht_met_een_reden(tmp_path):
     ref = aquo.laad(str(tmp_path / "bestaat_niet.csv"))
     assert ref["beschikbaar"] is False
