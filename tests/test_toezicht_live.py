@@ -46,9 +46,13 @@ def test_het_register_heeft_de_omvang_die_de_pagina_noemt(tmp_path):
     c = SmwkAtlasConnector(cache_dir=str(tmp_path))
     alles = c.vergunningen_bij_punt(170000.0, 390000.0, straal_m=250000)
     assert len(alles) == 69, "aantal vestigingen gewijzigd -- pagina en plan bijwerken"
-    assert sum(len(v["voorschriften"]) for v in alles) == 782
+    assert sum(len(v["voorschriften"]) for v in alles) == 782, (
+        "aantal voorschriften gewijzigd -- pagina en plan bijwerken"
+    )
     leeg = {f: sum(1 for v in alles if not v.get(f)) for f in ("url", "kenmerk", "besluitdatum")}
-    assert leeg == {"url": 8, "kenmerk": 6, "besluitdatum": 5}
+    assert leeg == {"url": 8, "kenmerk": 6, "besluitdatum": 5}, (
+        "aantal lege velden (url/kenmerk/besluitdatum) gewijzigd -- pagina en plan bijwerken"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -165,7 +169,13 @@ def test_signaal_1_vindt_de_stoffen_zonder_onafhankelijke_meting(register, vergu
     stoffen (dit lab volgt alleen stikstof, zink en PFOA); alleen de ruwe CSV (492 ParameterCodes
     in heel het bestand) laat zien wát er werkelijk op die 92 punten gemeten wordt. Met de
     verdichte set zelf zou dit bijna elke stof als 'ongemeten' melden -- fout, zoals de
-    taakbrief vermeldt."""
+    taakbrief vermeldt.
+
+    De aggregaten (18 stoffen, 274 voorschriften) laten een verschuiving in de samenstelling
+    onopgemerkt: gaat een WKP-export morgen Cl2 (5 voorschriften) wél meten en T (11) niet meer,
+    dan blijven totaal én aantal gelijk terwijl de stoffen die de pagina noemt zijn veranderd.
+    Daarom wordt hieronder de volledige verdeling per Aquo-code in één keer tegen de verwachting
+    gehouden, niet alleen de twee totalen."""
     ref = lozingsmodel.laad_parameters(_AQUO_JSON)
     geannoteerd = []
     for v in register:
@@ -180,16 +190,33 @@ def test_signaal_1_vindt_de_stoffen_zonder_onafhankelijke_meting(register, vergu
     for v in geannoteerd:
         alle_signalen.extend(signalen.regel_geen_onafhankelijke_meting(v, context))
 
-    codes_zonder_meting = {s["bewijs"][0]["aquo"] for s in alle_signalen}
-    totaal_voorschriften = sum(s["omvang"] for s in alle_signalen)
+    # Eén code kan in meerdere vestigingen een eigen signaal opleveren (regel_geen_onafhankelijke_
+    # meting vuurt per vestiging per code); de Counter telt hun omvang dus bij elkaar op tot één
+    # totaal per stof, in plaats van alleen de laatste te onthouden.
+    per_code = Counter()
+    for s in alle_signalen:
+        per_code[s["bewijs"][0]["aquo"]] += s["omvang"]
+    totaal_voorschriften = sum(per_code.values())
 
     assert len(vergunde_codes) == 56, f"{len(vergunde_codes)} vergunde stoffen i.p.v. 56"
-    assert len(codes_zonder_meting) == 18, (
-        f"{len(codes_zonder_meting)} stoffen zonder meting i.p.v. 18 -- de Atlas, de WKP-CSV of "
-        "de regel zelf is gewijzigd; plan §3/§6 en de pagina moeten dan mee"
+    assert len(per_code) == 18, (
+        f"{len(per_code)} stoffen zonder meting i.p.v. 18 -- de Atlas, de WKP-CSV of de regel "
+        "zelf is gewijzigd; plan §3/§6 en de pagina moeten dan mee"
     )
     assert totaal_voorschriften == 274, (
         f"{totaal_voorschriften} voorschriften zonder meting i.p.v. 274 -- zie vorige assert"
+    )
+    verwacht_per_code = {
+        "pH": 88, "Q": 58, "minrlole": 47, "WARMTE": 26, "smetln6": 16, "T": 11, "Cl2": 5,
+        "NKj": 4, "sVBCl": 4, "VERMGN": 2, "smetlglt": 2, "BZV5": 2, "OVERSFQTE": 2, "Bi": 2,
+        "VERVLWDE": 2, "BZV1": 1, "smetln5": 1, "sMAK": 1,
+    }
+    assert dict(per_code) == verwacht_per_code, (
+        f"de samenstelling van de 18 ongemeten stoffen is veranderd: {dict(per_code)} i.p.v. "
+        f"{verwacht_per_code} -- de aantallen stoffen/voorschriften hierboven kunnen toevallig "
+        "gelijk blijven terwijl de WKP een andere stof is gaan (of gestopt is met) meten, of "
+        "terwijl het register een ander voorschrift heeft gekregen; loop in dat geval na welke "
+        "stof(fen) van kant wisselden voordat je deze verwachting bijwerkt"
     )
 
 
