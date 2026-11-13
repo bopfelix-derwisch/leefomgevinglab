@@ -1,0 +1,54 @@
+# De standaardpijplijn van `/toezicht`, in CrewAI-vorm (description/expected_output/agent/context).
+# Sequentieel: `runner.Crew.draai` doorloopt deze taken in deze volgorde (dict-volgorde = YAML-
+# volgorde) en geeft dezelfde staat van taak naar taak door. `context` benoemt welke eerdere
+# taken deze taak voedt -- dat is hier ook wat er feitelijk gebeurt, geen losse intentie.
+#
+# `leg_signalen_uit` (agent `uitlegger`) staat hier al, met zijn echte taak, al bestaat de tool
+# die hem moet uitvoeren (`uitleg_genereren`) nog niet (taak 7). Dat is bewust: zo toont een
+# gewone run van vandaag al hoe de runner met een aangekondigde-maar-nog-niet-gebouwde tool omgaat
+# (een luide `niet_beschikbaar`-stap, zie `runner.py`), in plaats van dat dit alleen in een
+# losstaande test te zien is. `vraagsteller` en `terugkoppelaar` hebben nog geen taak: hun werk
+# (een vrije vraag beantwoorden, terugkoppelen) is geen vaste stap in elke dossier-run maar een
+# los te starten actie -- die krijgt een eigen taak zodra een latere taak daar iets mee doet.
+
+lees_vergunning:
+  description: >
+    Lees de vestiging uit het Maas-lozingenregister en verrijk elk voorschrift met de
+    Aquo-referentie, zodat waar mogelijk elke parameter een code draagt.
+  expected_output: >
+    De vestiging, met op elk voorschrift een Aquo-code of expliciet `None` als die niet
+    gevonden is.
+  agent: vergunninglezer
+  context: []
+
+bepaal_signalen:
+  description: >
+    Pas de tien deterministische signaalregels toe op de verrijkte vestiging en de aangeleverde
+    context (metingen, normen, stroomrichting).
+  expected_output: >
+    De ruwe signalenlijst, gerangschikt op zwaarte en dan omvang.
+  agent: signaalsteller
+  context:
+    - lees_vergunning
+
+stel_dossier_samen:
+  description: >
+    Stel uit de kaart van de vestiging, de signalen en de voorbehouden het volledige
+    signaaldossier samen, inclusief de runlog van dit proces als vierde deel.
+  expected_output: >
+    Het signaaldossier: kaart, signalen, telling, voorbehouden en runlog.
+  agent: dossiersteller
+  context:
+    - lees_vergunning
+    - bepaal_signalen
+
+leg_signalen_uit:
+  description: >
+    Voeg per signaal een korte uitleg toe waarom het voor een toezichthouder iets betekent.
+    Tot taak 7 bestaat de tool hiervoor nog niet; deze taak staat al in de pijplijn zodat de
+    runlog dat expliciet meldt in plaats van de stap stilzwijgend over te slaan.
+  expected_output: >
+    Het dossier met per signaal een `waarom`-veld.
+  agent: uitlegger
+  context:
+    - stel_dossier_samen

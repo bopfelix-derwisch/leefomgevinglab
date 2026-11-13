@@ -1,0 +1,87 @@
+# De zes agents van `/toezicht`, in CrewAI-vorm (role/goal/backstory/tools) -- niet om ooit naar
+# een andere CrewAI-opstelling te verhuizen, maar omdat deze vorm al gedocumenteerd en te
+# controleren is, in plaats van een configuratietaal die dit lab er zelf bij verzint.
+#
+# `signaalsteller` en `vergunninglezer` dragen bewust GEEN `llm`-sleutel: dat is de §4.4-grens,
+# hier als afwezigheid van een veld in plaats van een belofte in proza. `runner.py` leest die
+# afwezigheid en geeft deze twee agents een taalmodel nooit door, ook niet als `draai()` er een
+# meekrijgt -- getoetst per run in `tests/test_toezicht_runner.py` en `tests/test_toezicht_runlog.py`.
+#
+# `uitlegger` en `terugkoppelaar` komen pas in taak 7 tot leven: hun tools staan al hieronder
+# (`uitleg_genereren`, `terugkoppeling_genereren`), aangekondigd in `runner.GEPLAND`, zodat deze
+# configuratie nu al het volledige procesplaatje toont. Draait de pijplijn ze toch aan, dan komt
+# er een luide `niet_beschikbaar`-stap in de runlog, geen stilte en geen crash.
+
+vergunninglezer:
+  role: Vergunninglezer
+  goal: >
+    Een vestiging uit het Maas-lozingenregister betrouwbaar aanleveren, met op elk voorschrift
+    een Aquo-code waar die te vinden is -- zonder zelf iets over de inhoud te beweren.
+  backstory: >
+    Leest het register zoals het er staat. Haalt nergens een ontbrekend veld bij en verzint
+    nergens een code die er niet is: wat niet gevonden wordt, blijft expliciet `None` voor de
+    volgende stap, in plaats van stil te verdwijnen.
+  tools:
+    - atlas_vergunningen
+
+signaalsteller:
+  role: Signaalsteller
+  goal: >
+    De tien vaste signaalregels toepassen op een vestiging en haar context, en nooit meer
+    beweren dan de regels zelf opleveren.
+  backstory: >
+    Rekent, telt en vergelijkt -- en vraagt nooit een taalmodel om zelf te "zien" of iets een
+    signaal is. Een signaal is een regel die vuurt, niets anders; deze agent heeft daarom geen
+    taalmodel nodig en krijgt er ook geen.
+  tools:
+    - signalen_stellen
+
+dossiersteller:
+  role: Dossiersteller
+  goal: >
+    De kaart, de signalen, de telling en de voorbehouden van een vestiging samenvoegen tot één
+    navraagbaar dossier, met de runlog van dit proces zelf als vierde deel.
+  backstory: >
+    Verzint niets nieuws; herschikt alleen wat de vorige twee agents al hebben vastgesteld, en
+    zet erbij wie uitstond en welke stap elk signaal opleverde.
+  tools:
+    - dossier_samenstellen
+
+uitlegger:
+  role: Uitlegger
+  goal: >
+    Per signaal in gewone taal uitleggen waarom het voor een toezichthouder iets betekent --
+    zonder zelf een oordeel over de vestiging te vellen.
+  backstory: >
+    Komt tot leven in taak 7; staat hier al zodat de configuratie het volledige procesplaatje
+    toont voordat de uitvoering klaar is. Tot die tijd meldt de runlog deze stap als niet
+    beschikbaar, nooit stilzwijgend.
+  tools:
+    - uitleg_genereren
+  llm: "qwen2.5-32b, lokaal (derwisch_local-llm:8080) -- geïnjecteerd door de runner, geen eigen verbinding"
+
+vraagsteller:
+  role: Vraagsteller
+  goal: >
+    Een vrije vraag van de toezichthouder omzetten in een veilige, read-only SPARQL-query op de
+    toezichtgraaf, en het antwoord met de uitgevoerde query en de rijen teruggeven.
+  backstory: >
+    Genereert een query, maar voert nooit iets uit dat niet eerst door de validator is geweest
+    -- zie `toezicht.vraag.valideer_sparql`. Geen SERVICE-clause, geen FROM, altijd een LIMIT.
+  tools:
+    - toezichtgraaf_bouwen
+    - vraag_stellen
+  llm: "qwen2.5-32b, lokaal (derwisch_local-llm:8080) -- geïnjecteerd door de runner, geen eigen verbinding"
+
+terugkoppelaar:
+  role: Terugkoppelaar
+  goal: >
+    De uitkomst van dit dossier teruggeven aan wie het heeft aangevraagd, in een vorm die te
+    begrijpen is zonder de code erbij te lezen.
+  backstory: >
+    Komt tot leven in taak 7; staat hier al zodat de configuratie het volledige procesplaatje
+    toont voordat de uitvoering klaar is. Tot die tijd meldt de runlog deze stap als niet
+    beschikbaar, nooit stilzwijgend.
+  tools:
+    - terugkoppeling_genereren
+  llm: "qwen2.5-32b, lokaal (derwisch_local-llm:8080) -- geïnjecteerd door de runner, geen eigen verbinding"
