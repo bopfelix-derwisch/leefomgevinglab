@@ -239,6 +239,37 @@ def test_het_dossier_is_nooit_een_vaststelling():
         assert verboden not in tekst, verboden
 
 
+def test_het_gerenderde_werkblad_is_ook_nooit_een_vaststelling(tmp_path):
+    """Fix-ronde 1, bevinding 1 (Important): de vorige test toetst alleen wat `dossier()`
+    teruggeeft. `rapport.py` schrijft daarnaast zelf teksten de cel in die niet uit `dossier()`
+    komen -- met name `signalen.DREMPELS[regel_id][1]` ("omvang betekent"). Verandert die string
+    ooit in een vaststelling, dan zou de test hierboven dat niet merken: hij heeft `DREMPELS` nooit
+    gezien.
+
+    Dit scant daarom het **geschreven bestand**, niet de invoer ervan: elke cel van elk blad, plus
+    de bladnamen zelf. `VESTIGING_MET_ALLES`/`CONTEXT_MET_ALLES` laat signaal 1 twee keer vuren,
+    dus dit raakt meerdere bladen, niet toevallig het eerste."""
+    d = dossier.dossier(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES, uit={"uitlegger"})
+    pad = tmp_path / "taalregel.xlsx"
+    rapport.schrijf(d, str(pad))
+
+    wb = load_workbook(str(pad))
+    assert len(wb.sheetnames) > 1, "anders toetst dit maar één blad, niet de herhaling van signaal 1"
+
+    gevonden = []
+    for naam in wb.sheetnames:
+        gevonden.append(naam)
+        ws = wb[naam]
+        for rij in ws.iter_rows(values_only=True):
+            for cel in rij:
+                if cel is not None:
+                    gevonden.append(str(cel))
+
+    tekst = " ".join(gevonden).lower()
+    for verboden in _VERBODEN:
+        assert verboden not in tekst, f"'{verboden}' staat in het gerenderde werkblad"
+
+
 # -- Deel C: het rapport ----------------------------------------------------------------------
 
 def test_het_rapport_heeft_een_blad_per_signaal_en_neemt_de_bronrijen_mee(tmp_path):

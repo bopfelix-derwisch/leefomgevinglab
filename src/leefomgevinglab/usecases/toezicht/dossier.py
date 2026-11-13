@@ -100,6 +100,24 @@ def _kaart(vestiging: dict) -> dict:
 
 # Per regel: (grondslag, zekerheid-als-er-bewijs-is). Zie de moduledocstring voor de redenering
 # in het algemeen; hier de verantwoording per regel.
+#
+# Fix-ronde 1, bevinding 2: `grondslag == "geen"` dekt hieronder twee verschillende situaties,
+# en dat is met opzet, niet per ongeluk -- `maaskaart.GRONDSLAG` heeft geen vijfde waarde om ze
+# uit elkaar te houden, en die vocabulaire is gedeeld met `/maaskaart` en hier niet uit te
+# breiden. De twee situaties:
+#   (a) **een koppeling is geprobeerd en mislukt** -- `niet_in_referentie` (de naam koppelde niet
+#       aan een Aquo-code) en `vergunning_niet_te_vinden` (het identificerende veld is er niet om
+#       mee te koppelen aan het vergunningdocument). Hier is "geen" het resultaat van een poging.
+#   (b) **er is nooit een koppeling geprobeerd, en dat is ook niet nodig** -- `meerdere_
+#       grenswaarden`, `vracht_onbepaald` en `niet_regime_zuiver` vergelijken alleen voorschriften
+#       binnen dezelfde vestiging; `geen_geldigheidsduur` constateert een afwezig veld dat voor
+#       het hele register geldt. Hier is "geen" de afwezigheid van een poging, niet het resultaat
+#       van een mislukte.
+# Beide lezen in deze tabel identiek (`"geen"`), met dezelfde tekst uit `maaskaart.GRONDSLAG` --
+# dat is feitelijk niet onjuist (in beide gevallen is er geen koppeling gelegd), maar wie één
+# woord voor twee begrippen gebruikt, graaft hier een volgende verwarring op dezelfde plek als
+# `"ontbrekend"` vs. `"ontbreekt"` eerder in dit dossier. Vastgelegd hier in woorden in plaats van
+# in een nieuwe grondslagwaarde, omdat die uitbreiding buiten de scope van deze taak valt.
 _HERKOMST_PER_REGEL = {
     # Eigen voorschrift, aquo-code vergeleken met een vreemde set (de WKP-meetset) -- gekoppeld
     # via een gedeelde code.
@@ -107,11 +125,10 @@ _HERKOMST_PER_REGEL = {
     # Eigen voorschrift; `aquo_status` komt uit een geslaagde codekoppeling in `aquo.verrijk`
     # (de ingetrokken code zelf is gevonden, alleen niet meer geldig).
     "vervallen_code": ("code", UIT_DE_BRON),
-    # Eigen voorschrift waarvoor de codekoppeling juist mislukte (`aquo: None`) -- dat is
-    # letterlijk `maaskaart.GRONDSLAG["geen"]`: de gegevens bestaan, de verbinding niet.
+    # (a) koppeling geprobeerd, mislukt: de codekoppeling vond geen Aquo-code (`aquo: None`).
     "niet_in_referentie": ("geen", UIT_DE_BRON),
-    # Twee voorschriften van dezelfde vestiging onderling vergeleken -- geen koppeling met iets
-    # buiten de vestiging nodig of gemaakt.
+    # (b) geen koppeling geprobeerd: twee voorschriften van dezelfde vestiging onderling
+    # vergeleken, geen koppeling met iets buiten de vestiging nodig of gemaakt.
     "meerdere_grenswaarden": ("geen", UIT_DE_BRON),
     "vracht_onbepaald": ("geen", UIT_DE_BRON),
     # Koppelt via de positie van het waterlichaam in de stroomvolgorde -- een ruimtelijke/
@@ -121,14 +138,15 @@ _HERKOMST_PER_REGEL = {
     # maar via het hele register, niet via deze ene vestiging: afgeleid, niet uit de bron van
     # déze vestiging zelf.
     "stof_buiten_register": ("code", AFGELEID),
-    # Het bewijs ís de afwezigheid van `url`/`kenmerk`/`besluitdatum` -- geen koppeling gelegd,
-    # en de zekerheid is zelf `ontbreekt`: er is niets om de vergunning mee terug te vinden.
+    # (a) koppeling geprobeerd, mislukt: het bewijs ís de afwezigheid van `url`/`kenmerk`/
+    # `besluitdatum` -- er is niets om de vergunning mee terug te vinden, en de zekerheid is
+    # daarom zelf `ontbreekt`.
     "vergunning_niet_te_vinden": ("geen", ONTBREEKT),
-    # Eigen voorschrift; het is een voorbehoud over vergelijkbaarheid, geen koppeling met iets
-    # anders.
+    # (b) geen koppeling geprobeerd: eigen voorschrift, een voorbehoud over vergelijkbaarheid.
     "niet_regime_zuiver": ("geen", UIT_DE_BRON),
-    # Geldt per definitie voor het hele dossier; bewijs is bewust leeg (zie `signalen.py`), dus
-    # de generieke lege-bewijs-regel hieronder bepaalt de zekerheid toch al op `ontbreekt`.
+    # (b) geen koppeling geprobeerd: geldt per definitie voor het hele dossier; bewijs is bewust
+    # leeg (zie `signalen.py`), dus de generieke lege-bewijs-regel hieronder bepaalt de
+    # zekerheid toch al op `ontbreekt`.
     "geen_geldigheidsduur": ("geen", ONTBREEKT),
 }
 # Volledigheid van deze tabel (elke regel in `signalen.DREMPELS` heeft een herkomst, en elke
