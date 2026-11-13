@@ -362,10 +362,19 @@ no-hallucination-regel van `/chatbot`, hier verplicht.
 ### 5.5 `vraagsteller` — de bevraagbare laag
 Zet een vraag in natuurlijke taal om in een **SPARQL-query** op de triple-store van §7, langs het
 patroon dat `usecases/datavraag/nl2sparql.py` al gebruikt: grounding meegeven, query genereren,
-valideren, uitvoeren, antwoord samenvatten met de rijen erbij. De validator wordt strenger dan de
-bestaande: alleen `SELECT` en `ASK`, geen `INSERT`/`DELETE`/`LOAD`/`DROP`, verplichte `LIMIT`,
-analoog aan `afval/chat.py::valideer_sql`. Dit is de "deterministisch gemaakt"-gedachte uit het
-gesprek: het model schrijft de vraag, de store geeft het antwoord.
+valideren, uitvoeren, antwoord samenvatten met de rijen erbij. De validator is **strenger** dan
+`afval/chat.py::valideer_sql`, en op één punt bewust anders: alleen `SELECT` en `ASK`, geen
+`INSERT`/`DELETE`/`LOAD`/`DROP`, en een **ontbrekende `LIMIT` wordt geweigerd in plaats van stil
+toegevoegd**. Een te grote `LIMIT` wordt wél teruggebracht.
+
+Dat onderscheid is het punt, en deze paragraaf had het eerst fout ("analoog aan `afval/chat.py`",
+dat stil een `LIMIT` aanvult). Op een pagina waarvan de hele premisse navraagbaarheid is, geeft een
+stil toegevoegde `LIMIT` een afgekapt antwoord dat de lezer niet heeft gevraagd en niet kan zien.
+Weigeren maakt de fout van het model zichtbaar; aftoppen begrenst alleen een kostenpost en verbergt
+niets. De eerste helft van het gedrag van `afval/chat.py` is hier dus verkeerd en de tweede goed.
+
+Dit is de "deterministisch gemaakt"-gedachte uit het gesprek: het model schrijft de vraag, de store
+geeft het antwoord.
 
 ### 5.6 `terugkoppelaar`
 Slaat per antwoord een beoordeling op (bruikbaar / niet bruikbaar / signaal was juist / signaal was
