@@ -15,6 +15,11 @@ een test die hem tegen de echte bron narekent. (3) Een **agentlaag**: configuree
 het signaaldossier samenstellen, uitleggen en bevraagbaar maken — nooit agents die zélf bepalen
 of er een signaal is.
 
+**De configuratie is geen inrichtingsdetail maar een doel op zich.** In dit lab gebeurt veel onder
+water: de gegevensherkomst is zichtbaar, de bewerking niet. Een leesbare `agents.yaml` plus een
+runlog per dossier maken ook het *proces* navraagbaar — zie §4.2, waar vier eisen staan die
+voorkomen dat die configuratie documentatie wordt die verouderd.
+
 **Tech Stack:** Python 3.10, FastAPI, pytest, rdflib (bestaande `ld/store.py`), lokale Qwen2.5-32B
 op `localhost:8080` (OpenAI-compatibel), bge-m3 op `localhost:8082`, openpyxl voor de
 inspectiebijlage. Agentconfiguratie in **CrewAI-compatibele YAML**, uitgevoerd door een eigen
@@ -51,7 +56,12 @@ kan worden.
   "vraagt aandacht", "kan duiden op", "niet te controleren". Een test bewaakt dat op de
   gegenereerde tekst, niet alleen op de sjablonen.
 - **Geen LLM in de signaalbepaling.** Een taalmodel mag een signaal uitleggen, samenvatten en
-  bevraagbaar maken. Het mag nooit bepalen *of* er een signaal is. Zie §4.3.
+  bevraagbaar maken. Het mag nooit bepalen *of* er een signaal is. Zie §4.4.
+- **Niets gebeurt buiten de configuratie om.** Elke stap die een dossier vormt, staat in
+  `agents.yaml`/`tasks.yaml` en komt in de runlog terecht. Een tool die een agent niet heeft
+  verklaard, kan hij niet aanroepen. Een pijplijnplaatje op de pagina wordt uit diezelfde YAML
+  gegenereerd en nooit los onderhouden. Dit is geen stijlregel maar de voorwaarde waaronder de
+  transparantie van §4.2 waar blijft, en er staan drie tests op.
 
 ---
 
@@ -100,7 +110,7 @@ niet weggelaten. Van de 69 vestigingen mist er bij 8 een `url`, bij 6 een `kenme
 
 **Deel B — de signalen, gerangschikt.** Per signaal:
 
-- `signaal` — de regel die vuurde, uit de catalogus van §4.2
+- `signaal` — de regel die vuurde, uit de catalogus van §6
 - `zwaarte` — `hoog` / `midden` / `laag`, **afgeleid** uit de regel plus de omvang, nooit getypt
 - `bewijs` — de concrete rijen: welk voorschrift, welke meting, welke code, met waarden
 - `grondslag` — waarop de koppeling berust: `code`, `ruimtelijk`, `heuristiek` of `geen`
@@ -109,10 +119,19 @@ niet weggelaten. Van de 69 vestigingen mist er bij 8 een `url`, bij 6 een `kenme
   (hergebruikt uit `lozingsmodel`)
 - `waarom` — waarom dit aandacht vraagt, met benoemde vindplaats (§5.4)
 - `wat te doen` — de vraag die de inspecteur ter plaatse kan stellen
+- `stap` — welke agent dit signaal vaststelde, met welke tool en in welke stap van de runlog.
+  Dit is de procesherkomst uit §4.2: een inspecteur die op een signaal wordt aangesproken, kan
+  terug tot de bewerking die het maakte en niet alleen tot de bronrij.
 
 **Deel C — de inspectiebijlage.** Eén `.xlsx` met een blad per signaal en alle onderliggende rijen,
 zodat het dossier offline mee kan. Dit is letterlijk wat Klaas als bruikbaar beschreef: "dan maak
 ik daar een Excel rapportje van (...) en daarmee kan een handhaver op pad gaan."
+
+**Deel D — de runlog.** Wat er deze keer is gebeurd, in de volgorde waarin het gebeurde: per stap
+de agent, de taak, de aangeroepen tools met hun argumenten, hoeveel rijen erin gingen en eruit
+kwamen, de duur, en of een taalmodel is gebruikt. Plus welke agents uit stonden. Dit is geen
+technisch logboek achteraf maar onderdeel van het product: het is het antwoord op "hoe weet je
+dit?" dat verder gaat dan de bron.
 
 **Wat het product uitdrukkelijk níet doet:** het geeft geen oordeel, geen prioritering tussen
 vestigingen op risico, en geen voorspelling. Het rangschikt signalen binnen één dossier en
@@ -187,9 +206,42 @@ rechtstreeks relevant voor Klaas' probleem, want het betekent dat zijn crew niet
 hoeft. Maar het kan **niet in dezelfde venv** als dit lab, en het brengt een telemetriekanaal mee
 dat je in een toezichtomgeving expliciet moet dichtzetten.
 
-### 4.2 De keuze: CrewAI-compatibele configuratie, eigen runner
+### 4.2 De eerste reden voor configureerbare agents: transparantie
 
-Niet "CrewAI gebruiken" en niet "CrewAI namaken", maar: **de configuratie is het koppelvlak.**
+In dit lab gebeurt veel onder water. Een pagina toont een getal, en de bezoeker kan zien waar het
+*gegeven* vandaan komt — daar zijn `herkomst`, `zekerheid`, `grondslag` en de live tests voor. Maar
+wat de **bewerking** heeft gedaan, is alleen te zien door de code te lezen. Welke stappen zijn er
+gezet, in welke volgorde, met welke bronnen, en waar zat een taalmodel in de keten? Dat staat nu in
+Python, verspreid over modules, en is voor iedereen behalve de bouwer onzichtbaar.
+
+Dat is precies het gat dat agents-met-configuratie dichten, en het is in het gesprek ook zo
+benoemd: *"wat je dus met dat crew doet, is eigenlijk je maakt het transparant van wat al die
+dingen doen."* Een `agents.yaml` die je kunt lezen zonder programmeur, waarin staat wie wat doet
+met welk gereedschap op welke bron, is **procesherkomst** naast de gegevensherkomst die dit lab al
+heeft. Voor een toezichtproduct is dat geen bijkomstigheid: een signaal dat een inspecteur meeneemt
+naar een bedrijf moet navraagbaar zijn tot op de stap die het maakte.
+
+Dat stelt vier eisen, want een configuratie die het proces alleen *beschrijft* is documentatie die
+gaat verouderen — en dan is de transparantie nep.
+
+**(a) De configuratie bestuurt, zij beschrijft niet.** Een agent krijgt van de runner uitsluitend
+het gereedschap dat in zijn `tools` staat. Een aanroep van een tool die bestaat maar voor deze
+agent niet is verklaard, faalt. Niet alleen een onbekende tool dus — ook een bekende die niet in
+deze rol hoort.
+
+**(b) Elk dossier draagt zijn eigen runlog.** Per stap: welke agent, welke taak, welke tools met
+welke argumenten, hoeveel rijen erin en eruit, hoe lang het duurde, en of er een taalmodel aan te
+pas kwam. Daarmee is "wat is hier gebeurd?" te beantwoorden zonder de code te openen, en is de
+grens uit §4.4 per run aantoonbaar in plaats van in proza beloofd.
+
+**(c) De pagina toont de pijplijn, gegenereerd uit dezelfde YAML die de runner heeft geladen.**
+Geen getekende plaat die stil verouderd, net zoals `/modellen` zijn eigen gegevens rendert.
+
+**(d) Aan en uit zetten is zichtbaar in de uitkomst.** Staat een agent uit, dan zegt het dossier
+dat die sectie ontbreekt en waarom — in plaats van stil minder te leveren. Dat is het verschil
+tussen configureerbaar en onopgemerkt kreupel.
+
+### 4.3 En vervolgens: CrewAI-compatibele configuratie, eigen runner
 
 De agents worden beschreven in twee YAML-bestanden met exact de vorm die CrewAI gebruikt
 (`agents.yaml` met `role`/`goal`/`backstory`/`tools`, `tasks.yaml` met
@@ -207,7 +259,12 @@ dunne runner van zo'n 150 regels in de projectvenv. Daarmee:
   eigen venv tegen hetzelfde lokale model, zodat de twee uitkomsten te vergelijken zijn. Dat is een
   nuttige test op zichzelf: geeft een echt agentframework hetzelfde antwoord als onze runner?
 
-### 4.3 De scherpste ontwerpregel: agents bepalen geen signalen
+**Let op wat hier de keuze bepaalt.** De eigen runner is te verdedigen omdat de eisen (a) tot (d)
+erin af te dwingen zijn en met een test te bewaken. Zou een framework dat beter doen, dan is dat
+een reden om te wisselen — de YAML blijft dan gelijk. De configuratie is het blijvende deel, de
+runner het vervangbare.
+
+### 4.4 De scherpste ontwerpregel: agents bepalen geen signalen
 
 Klaas' opzet laat agents analyses doen en daarbij Python-scripts genereren voor het rekenwerk. Dat
 is slim, en het is precies op dat punt dat voor toezicht een grens hoort te liggen. Een signaal dat
@@ -240,8 +297,9 @@ standaardisatiediscussie — dit is wat gestandaardiseerd publiceren oplevert.
 ### 5.2 `signaalsteller`
 Draait de tien regels uit §6 over één vestiging en levert de gerangschikte lijst met bewijs.
 Deterministisch; de "agent" is hier een orkestratiestap zonder LLM. Dat hij in de configuratie
-tóch een agent is, is opzettelijk: zo staat in één overzicht wat er gebeurt, en zo kan hij in een
-CrewAI-opzet meelopen.
+tóch een agent is, is opzettelijk en volgt uit eis (a) van §4.2: wie de YAML leest, ziet de hele
+keten in één overzicht, inclusief de stappen waar géén taalmodel aan te pas komt. Zijn
+configuratieregel draagt daarom geen `llm`-sleutel, en een test dwingt af dat die er niet komt.
 
 ### 5.3 `dossiersteller`
 Stelt deel A, B en C samen en schrijft de `.xlsx`. Tools: `dossier.dossier`, `rapport.schrijf`.
@@ -360,6 +418,8 @@ src/leefomgevinglab/usecases/toezicht/
   terugkoppeling.py  beoordelingen opslaan en rangschikken
   rapport.py       de .xlsx-bijlage
   runner.py        de dunne agentrunner die agents.yaml/tasks.yaml uitvoert
+  runlog.py        de procesherkomst: per stap agent, taak, tools, rijen in/uit, duur, llm ja/nee
+  pijplijn.py      leest agents.yaml/tasks.yaml en levert de keten als gegeven voor de pagina
   config/agents.yaml   CrewAI-compatibel
   config/tasks.yaml    CrewAI-compatibel
 src/leefomgevinglab/static/toezicht.html
@@ -368,6 +428,7 @@ scripts/22_bouw_toezichtgraaf.py  de triple-store bouwen
 tests/test_toezicht_signalen.py   per regel, met geïnjecteerde bronnen
 tests/test_toezicht_dossier.py    taalregels, zwaarte-afleiding, volledigheid
 tests/test_toezicht_vraag.py      de SPARQL-validator
+tests/test_toezicht_runlog.py     procesherkomst: volledig, en geen onverklaarde toolaanroep
 tests/test_toezicht_live.py       de tellingen tegen de echte Atlas; skipt zonder DSO_API_KEY
 ```
 
@@ -626,10 +687,80 @@ def test_een_agent_die_een_onbekende_tool_vraagt_faalt_bij_het_laden():
 Waarom deze eerst: een agent die stil zonder tool doorgaat, geeft een plausibel ogend antwoord
 zonder bron. Dat is in deze use-case de ergste fout die er is.
 
-- [ ] **Stap 2: Test dat de runner zonder LLM werkt voor de deterministische agents**
-- [ ] **Stap 3: Implementeer de runner (sequentieel, `context` doorgeven, per stap loggen)**
-- [ ] **Stap 4: Test dat de YAML de CrewAI-velden gebruikt** — `role`, `goal`, `backstory`,
+- [ ] **Stap 2: Test dat een agent een bestaande tool die hij niet heeft verklaard, niet mag
+      aanroepen** — eis (a) van §4.2, en de scherpere helft ervan
+
+```python
+def test_een_agent_mag_alleen_zijn_eigen_verklaarde_gereedschap_gebruiken():
+    """Een onbekende tool weigeren is niet genoeg. Zou een agent een bestaande tool mogen
+    aanroepen die niet in zijn `tools` staat, dan beschrijft de YAML het proces in plaats van
+    het te besturen -- en dan is de transparantie die zij belooft niet waar."""
+    crew = runner.laad_uit_dict(
+        {"leesagent": {"role": "x", "goal": "y", "tools": ["atlas_vergunningen"]}},
+        {"t1": {"description": "d", "expected_output": "e", "agent": "leesagent"}})
+    with pytest.raises(runner.NietVerklaardeTool) as f:
+        crew.tools_voor("leesagent")["signalen_stellen"]
+    assert "signalen_stellen" in str(f.value)
+    assert "leesagent" in str(f.value)
+```
+
+- [ ] **Stap 3: Test dat de runner zonder LLM werkt voor de deterministische agents**
+- [ ] **Stap 4: Implementeer de runner (sequentieel, `context` doorgeven, per stap naar de runlog)**
+- [ ] **Stap 5: Test dat de YAML de CrewAI-velden gebruikt** — `role`, `goal`, `backstory`,
       `tools`, en bij taken `description`, `expected_output`, `agent`, `context`
+- [ ] **Stap 6: Commit**
+
+### Task 6b: De runlog — procesherkomst als onderdeel van het product
+
+**Files:**
+- Create: `src/leefomgevinglab/usecases/toezicht/runlog.py`
+- Test: `tests/test_toezicht_runlog.py`
+
+**Interfaces:**
+- Produces: `Runlog.stap(agent, taak, tool, rijen_in, rijen_uit, llm) -> None`;
+  `Runlog.als_gegeven() -> list[dict]`; `Runlog.telling() -> dict`
+- Consumes: wordt door `runner.Crew.draai` gevuld en door `dossier.dossier` meegegeven als deel D
+
+- [ ] **Stap 1: Test dat elke toolaanroep in de runlog staat**
+
+```python
+def test_elke_toolaanroep_komt_in_de_runlog():
+    """Een stap die niet gelogd wordt, is een stap die onder water gebeurt."""
+    crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
+    crew.draai({"vestiging": VESTIGING_FIXTURE}, runlog=log)
+    aangeroepen = {s["tool"] for s in log.als_gegeven() if s["tool"]}
+    assert aangeroepen == crew.verwachte_tools(), \
+        "de runlog en de configuratie lopen uiteen"
+```
+
+- [ ] **Stap 2: Test dat de runlog de LLM-grens van §4.4 aantoonbaar maakt**
+
+```python
+def test_tijdens_de_signaalbepaling_komt_er_geen_taalmodel_aan_te_pas():
+    """De belofte uit §4.4, per run bewezen in plaats van in proza beloofd.
+
+    Dit is de test die de hele transparantieclaim draagt: wie hem weghaalt, houdt een
+    configuratie over die iets zegt wat niemand meer narekent.
+    """
+    log = runlog.Runlog()
+    runner.laad(AGENTS, TASKS).draai({"vestiging": VESTIGING_FIXTURE}, runlog=log)
+    for s in log.als_gegeven():
+        if s["agent"] in ("vergunninglezer", "signaalsteller"):
+            assert s["llm"] is False, f"{s['agent']} gebruikte een taalmodel in stap {s['nr']}"
+```
+
+- [ ] **Stap 3: Test dat een uitgezette agent zichtbaar is in plaats van stil weg te vallen**
+      — eis (d) van §4.2
+
+```python
+def test_een_uitgezette_agent_staat_als_uitgezet_in_het_dossier():
+    d = dossier.dossier(VESTIGING_FIXTURE, CONTEXT, uit={"uitlegger"})
+    assert d["runlog"]["uitgezet"] == ["uitlegger"]
+    assert all(not s.get("waarom") for s in d["signalen"])
+    assert "uitlegger stond uit" in d["voorbehouden"][0]
+```
+
+- [ ] **Stap 4: Falen, implementeren, slagen**
 - [ ] **Stap 5: Commit**
 
 ### Task 7: De uitlegger en de terugkoppeling
@@ -666,7 +797,23 @@ def test_zonder_bron_zegt_de_uitlegger_dat_hij_het_niet_weet():
 - [ ] **Stap 1: Test dat de pagina de open-data-banner draagt** — zonder die banner suggereert
       zij een bevoegdheid die dit lab niet heeft
 - [ ] **Stap 2: Test dat de pagina de taalregel haalt op de echte HTML**
-- [ ] **Stap 3: Route toevoegen, hub-lid toevoegen, pagina bouwen**
+- [ ] **Stap 3: Test dat de pagina de pijplijn uit de YAML rendert en niet uit een tweede lijst**
+      — eis (c) van §4.2
+
+```python
+def test_de_pijplijn_op_de_pagina_komt_uit_dezelfde_configuratie_als_de_runner():
+    """Een getekende keten naast een draaiende keten gaat uiteenlopen; dan toont de pagina
+    een proces dat niet meer bestaat. Daarom één bron voor beide."""
+    uit_api = _client(monkeypatch).get("/api/toezicht/pijplijn").json()
+    uit_runner = runner.laad(AGENTS_PAD, TASKS_PAD).als_gegeven()
+    assert [a["naam"] for a in uit_api["agents"]] == [a["naam"] for a in uit_runner["agents"]]
+    assert uit_api["bron"].endswith("agents.yaml")
+```
+
+- [ ] **Stap 4: Test dat de pagina per agent toont of er een taalmodel in zit** — dat is wat een
+      lezer het eerst wil weten en wat in code onzichtbaar is
+- [ ] **Stap 5: Route toevoegen, hub-lid toevoegen, pagina bouwen** — met de pijplijn en de
+      runlog van het laatst opgevraagde dossier zichtbaar, niet weggestopt achter een knop
 - [ ] **Stap 4: Draai de hele suite** — `919 passed` plus de nieuwe
 - [ ] **Stap 5: Herstart en verifieer live én publiek, op inhoud en niet op statuscode**
 - [ ] **Stap 6: Commit**
@@ -694,7 +841,7 @@ export OTEL_SDK_DISABLED=true CREWAI_DISABLE_TELEMETRY=true CREWAI_DISABLE_TRACK
 
 ## 10. Wat dit plan uitdrukkelijk niet doet
 
-- **Geen agent die code genereert en uitvoert.** Zie §4.3. Dit wijkt af van Klaas' opzet en de
+- **Geen agent die code genereert en uitvoert.** Zie §4.4. Dit wijkt af van Klaas' opzet en de
   reden staat op de pagina.
 - **Geen federatieve graaf.** De graaf is lokaal en afgeleid. Waar je een linked-data-laag bouwt
   als de data niet bij jou staat, is een open vraag uit het gesprek die dit plan niet beslecht.
@@ -704,6 +851,14 @@ export OTEL_SDK_DISABLED=true CREWAI_DISABLE_TELEMETRY=true CREWAI_DISABLE_TRACK
   een test.
 - **Geen rangschikking tussen vestigingen.** Signalen worden binnen één dossier gerangschikt. Een
   risicoranking over 69 vestigingen is een handhavingsinstrument en vergt een mandaat.
+- **Geen transparantie over het redeneren van het model.** Dit is de belangrijkste grens van de
+  hele opzet en hij hoort op de pagina. De configuratie en de runlog maken de **bedrading**
+  zichtbaar: welke stap, welke bron, welk gereedschap, met of zonder taalmodel. Zij maken niet
+  zichtbaar *waarom* het model een bepaalde uitleg gaf. Voor de signalen is dat geen probleem — die
+  komen uit geteste functies, niet uit een model. Voor de uitleg en de vraagfunctie is het dat wel,
+  en de enige verdediging daar is de harde eis dat elk antwoord een benoemde vindplaats draagt en
+  anders zwijgt (§5.4). Wie na deze opzet zegt "de agents zijn transparant", moet erbij zeggen
+  waarover.
 
 ## 11. Risico's en open punten
 
@@ -720,6 +875,12 @@ export OTEL_SDK_DISABLED=true CREWAI_DISABLE_TELEMETRY=true CREWAI_DISABLE_TRACK
    vergelijking vermeldt de datum.
 5. **Een signaal dat altijd vuurt, is geen signaal.** Regel 10 geldt voor alle 782 voorschriften.
    Daarom staat hij één keer per dossier als voorbehoud en niet per voorschrift. Taak 4 bewaakt dat.
-6. **De cirkel is niet te sluiten met open data.** Of een signaal klopte, weet alleen de
+6. **Een configuratie die niemand narekent, is erger dan geen configuratie.** Zij wekt vertrouwen
+   dat zij niet verdient. De drie tests uit taak 6, 6b en 8 zijn daarom geen bijkomstigheid: zij
+   zijn wat het verschil maakt tussen besturende en decoratieve configuratie. Dit lab heeft eerder
+   precies deze fout gemaakt — een documentatieregel die beweerde dat `Zwevende stof` op een
+   Aquo-code koppelde, terwijl die code was ingetrokken. Een `agents.yaml` die niet afgedwongen
+   wordt, is dezelfde fout op procesniveau.
+7. **De cirkel is niet te sluiten met open data.** Of een signaal klopte, weet alleen de
    inspecteur. De terugkoppelplek is er; dat zij leeg is, is zelf de bevinding voor het gesprek
    over welke data erbij moet.
