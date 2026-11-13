@@ -161,9 +161,11 @@ rond `(170000, 390000)`:
 - eenheden: 386 `milligram per liter`, 90 `dimensieloos`, 76 `kilogram per dag`,
   64 `kilogram per jaar`, 59 `microgram per liter`, 21 `kubieke meter per uur`,
   21 `kubieke meter per dag`, 18 `megajoule per seconde`
-- **13 bemonsteringsregimes**, waarvan `Verzamelmonster gedurende 24 uur` (341) en `Steekmonster`
-  (316) samen 84% dekken
-- **165 gevallen** waarin binnen één vestiging dezelfde parameter meer dan één grenswaarde heeft
+- **12 bemonsteringsregimes**, waarvan `Verzamelmonster gedurende 24 uur` (341) en `Steekmonster`
+  (316) samen 84% dekken — plus **2 voorschriften die er helemaal geen melden**
+- **164 gevallen** waarin binnen één vestiging dezelfde parameter meer dan één grenswaarde heeft
+- **3 voorschriften zonder `waarde`**, waarvan één zonder `parameter` en één dat letterlijk
+  "geen lozingseisen" heet
 
 **Aquo-domeintabel Parameter** (`aquo_parameters.json`, 5760 namen): van de 782 voorschriften
 koppelen **677 op een geldige Aquo-code** (56 verschillende stoffen); **105 voorschriften over 13
@@ -387,7 +389,7 @@ geverifieerd waar aangegeven, en anders in taak 3 vast te stellen.
 | 1 | **geen onafhankelijke meting** | het voorschrift noemt een stof die op geen RWS-meetpunt in de set voorkomt | hoog bij een stof met een KRW-norm, anders midden | **274 voorschriften, 18 stoffen** (geverifieerd) |
 | 2 | **grenswaarde op een ingetrokken code** | de Aquo-code van de parameter is `Vervallen` | hoog — er is geen geldige referentie om tegen te toetsen | **90 voorschriften**, waarvan 83 "Zwevende stof" (eerder geverifieerd via `/kennisgraaf`) |
 | 3 | **parameter niet in de referentie** | de naam koppelt niet aan Aquo | midden | **105 voorschriften over 13 namen** (geverifieerd) |
-| 4 | **welke grenswaarde geldt?** | dezelfde parameter heeft binnen één vestiging meer dan één grenswaarde | hoog als ze meer dan een factor 2 verschillen | **165 gevallen** (geverifieerd) |
+| 4 | **welke grenswaarde geldt?** | dezelfde parameter heeft binnen één vestiging meer dan één grenswaarde | hoog als ze meer dan een factor 2 verschillen | **164 gevallen** (geverifieerd) |
 | 5 | **vracht niet te bepalen** | concentratievoorschrift zonder debietvoorschrift, dus niet naar een vracht om te rekenen | midden | af te leiden uit `atlas_register`, dat dit al in drie lagen doet |
 | 6 | **meting boven de norm, lozer bovenstrooms** | op een benedenstrooms meetpunt is de KRW-norm overschreden en deze vestiging ligt bovenstrooms volgens `toerekening.STROOMVOLGORDE` | hoog | te berekenen; `/kmg` levert de bouwstenen |
 | 7 | **gemeten stof die in geen vergunning staat** | een stof die de norm nadert of overschrijdt komt in het hele register niet voor | hoog | PFOA is het bekende geval |
@@ -910,6 +912,28 @@ vastgelegde versie zegt over een half jaar niets.
   en de enige verdediging daar is de harde eis dat elk antwoord een benoemde vindplaats draagt en
   anders zwijgt (§5.4). Wie na deze opzet zegt "de agents zijn transparant", moet erbij zeggen
   waarover.
+
+## 10a. Twee getallen in §3 waren fout, en hoe dat bleek
+
+Taak 3 — de live controle, die in dit plan bewust vóór de pagina staat — weerlegde twee cijfers
+die in §3 stonden. Beide waren van mij, niet van de bron:
+
+- **"165 gevallen"** van meerdere grenswaarden was **164**. Mijn telling rekende een paar mee
+  waarvan één van de twee waarden leeg was, en een ontbrekende waarde is geen concurrerende
+  grenswaarde. De regel in `signalen.py` deed het al goed (zij filtert lege waarden weg voor zij
+  telt), dus hier was de plantekst fout en de code juist — precies omgekeerd aan wat je verwacht.
+- **"13 bemonsteringsregimes"** waren **12**. De dertiende sleutel was de lege waarde: er zijn
+  2 voorschriften die geen enkel bemonsteringsregime melden.
+
+Daarbij viel nog iets op dat §3 helemaal niet noemde: **3 voorschriften hebben geen `waarde`**,
+één daarvan heeft zelfs geen `parameter`, en één heet letterlijk "geen lozingseisen". Een
+grenswaarde zonder waarde is het scherpste geval van "niet te controleren" dat dit register kent.
+Dat is géén elfde signaal in deze bouw — de tien staan vast — maar het staat hier zodat het niet
+verdwijnt.
+
+De les is de les van het hele plan, nu op het plan zelf toegepast: de getallen die ik met de hand
+uit een bron haalde, hielden geen stand tegen een test die ze opnieuw ophaalde. Daarom staan ze
+nu in `tests/test_toezicht_live.py` en niet alleen in dit document.
 
 ## 11. Risico's en open punten
 
