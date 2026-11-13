@@ -1,26 +1,36 @@
 """De tien signaalregels op het vergunningenregister van de Atlas voor een Schone Maas.
 
 Elke regel is een gewone functie `(vestiging, context) -> list[dict]`: geen netwerk, geen
-taalmodel, alleen wat er in `vestiging` (en voor de drie regels uit taak 2: `context`) binnenkomt.
-Dat maakt een signaal auditeerbaar -- het is terug te herleiden tot een regel en een bronrij, niet
-tot een taalmodel dat "iets zag".
+taalmodel, alleen wat er in `vestiging` en `context` binnenkomt. Dat maakt een signaal
+auditeerbaar -- het is terug te herleiden tot een regel en een bronrij, niet tot een taalmodel
+dat "iets zag".
 
-Dit bestand bouwt de zeven regels die aan de vergunning zelf genoeg hebben:
+Zeven regels hebben aan de vergunning zelf genoeg:
 
 - `vervallen_code` (2), `niet_in_referentie` (3), `meerdere_grenswaarden` (4),
   `vracht_onbepaald` (5), `vergunning_niet_te_vinden` (8), `niet_regime_zuiver` (9),
   `geen_geldigheidsduur` (10).
 
-De drie regels die meetdata en stroomrichting nodig hebben (`geen_onafhankelijke_meting`,
-`norm_overschreden_bovenstrooms`, `stof_buiten_register`) komen er in een volgende taak bij --
-`DREMPELS` heeft hun drempel al klaarstaan en `REGELS` is de plek waar hun `Regel` bij komt.
+De overige drie hebben meetdata en stroomrichting nodig, en krijgen die via `context` aangeleverd
+-- deze module blijft zelf vrij van connectors en netwerk, ook voor deze drie:
+
+- `geen_onafhankelijke_meting` (1) -- `context["gemeten_codes"]`.
+- `norm_overschreden_bovenstrooms` (6) -- `context["overschrijdingen"]`,
+  `context["waterlichaam"]` (van deze vestiging) en `context["is_bovenstrooms"]`
+  (standaard `kmg.toerekening.is_bovenstrooms`, zelf ook pure logica, geen I/O).
+- `stof_buiten_register` (7) -- `context["register_codes"]` en dezelfde `overschrijdingen`.
 
 **Een signaal is nooit een vaststelling.** De woorden "overtreding", "veroorzaakt door" en "in
 strijd met" komen in geen signaaltekst voor -- een regel vraagt aandacht, constateert geen
 schending. Dat is dezelfde taalregel als `/kmg` (`usecases/kmg/proclaimer.py`), hier toegepast op
-een vergunning in plaats van een meting.
+een vergunning in plaats van een meting. Voor `norm_overschreden_bovenstrooms` geldt die regel
+extra scherp: het signaal zegt dat deze vestiging bovenstrooms ligt van een overschrijding, niet
+dat zij haar veroorzaakt -- precies het voorbehoud dat `kmg.toerekening` voor dezelfde
+toerekening al voert (`VOORBEHOUD`, `is_bovenstrooms`).
 """
 from typing import Callable, NamedTuple
+
+from leefomgevinglab.usecases.kmg import toerekening
 
 # Een voorschrift met een van deze eenheden is een concentratiegrens. Zonder een debietvoorschrift
 # (zie DEBIET_EENHEDEN) ergens in dezelfde vestiging is zo'n grens niet naar een vracht om te
@@ -80,6 +90,12 @@ DREMPELS = {
 }
 
 
+# Regels waarvan de zwaarte afhangt van het bestaan van een norm: zonder norm is er niets om de
+# grenswaarde tegen te houden, en dan weegt het signaal lichter. Alleen `geen_onafhankelijke_meting`
+# -- de rest van de regels weegt `hoog` zodra de drempel gehaald is, norm of geen norm (zie §6).
+NORM_BEPAALT_ZWAARTE = {"geen_onafhankelijke_meting"}
+
+
 def zwaarte(regel_id: str, omvang: float, norm_aanwezig: bool = False) -> str:
     """Afgeleid, nooit getypt.
 
@@ -93,12 +109,20 @@ def zwaarte(regel_id: str, omvang: float, norm_aanwezig: bool = False) -> str:
     wat de werkelijke omvang ook is. Die garantie zit daarom hier, in de afleiding zelf, en niet
     in een nep-omvang die een aanroeper verzint om er toevallig op uit te komen -- anders stopt
     de garantie onopgemerkt zodra de rest van deze functie verandert.
+
+    `norm_aanwezig` doet alleen iets voor de regels in `NORM_BEPAALT_ZWAARTE`: is de drempel
+    gehaald maar bestaat er geen KRW-norm voor de stof, dan blijft het signaal op `midden` staan
+    in plaats van door te schieten naar `hoog` -- er is dan niets om de grenswaarde tegen te
+    houden. Voor elke andere regel is `hoog` het antwoord zodra de drempel gehaald is, los van
+    `norm_aanwezig`.
     """
     drempel, _ = DREMPELS[regel_id]
     if drempel >= 99:
         return "laag"
     if omvang >= drempel:
-        return "hoog" if norm_aanwezig or drempel < 99 else "midden"
+        if regel_id in NORM_BEPAALT_ZWAARTE and not norm_aanwezig:
+            return "midden"
+        return "hoog"
     return "midden" if omvang > 0 else "laag"
 
 
@@ -166,6 +190,81 @@ def regel_vracht_onbepaald(vestiging: dict, context: dict) -> list[dict]:
     return [_signaal("vracht_onbepaald", "vracht niet te bepalen", len(getroffen), getroffen)]
 
 
+def regel_geen_onafhankelijke_meting(vestiging: dict, context: dict) -> list[dict]:
+    """Geen onafhankelijke meting -- het voorschrift noemt een stof die op geen enkel meetpunt in
+    `context["gemeten_codes"]` voorkomt, dus er is geen onafhankelijke meting in het watersysteem
+    waartegen de grenswaarde te houden valt. Wie wil controleren, is dan afhankelijk van de
+    zelfrapportage van de lozer. Eén signaal per vestiging, net als `vervallen_code`: `omvang` is
+    het totaal aantal voorschriften zonder meting (zie `DREMPELS`), niet per stof.
+
+    `aquo` moet aanwezig en niet-`None` zijn om mee te tellen -- een voorschrift zonder geldige
+    code hoort bij `niet_in_referentie` of `vervallen_code`, niet hier: zonder code is er geen
+    stof om tegen `gemeten_codes` te vergelijken.
+
+    Ontbreekt `gemeten_codes` zelf (de sleutel staat niet in `context`), dan zwijgt de regel --
+    dat is "geen meetset aangeleverd", niet "geen enkele stof wordt gemeten". Een lege
+    `set()` die wél is aangeleverd, blijft wel gelden: dan is bewust vastgesteld dat er niets
+    gemeten is, en telt elke vergunde stof als onafhankelijk ongetoetst."""
+    gemeten_codes = context.get("gemeten_codes")
+    if gemeten_codes is None:
+        return []
+    getroffen = [v for v in (vestiging.get("voorschriften") or [])
+                 if v.get("aquo") and v["aquo"] not in gemeten_codes]
+    if not getroffen:
+        return []
+    return [_signaal("geen_onafhankelijke_meting", "geen onafhankelijke meting", len(getroffen),
+                      getroffen)]
+
+
+def regel_norm_overschreden_bovenstrooms(vestiging: dict, context: dict) -> list[dict]:
+    """Meting boven de norm, lozer bovenstrooms -- op een meetpunt benedenstrooms (of op dezelfde
+    plek) is een KRW-norm overschreden, en deze vestiging ligt daar bovenstrooms van.
+
+    Dit stelt niet vast dat deze vestiging de overschrijding veroorzaakt -- alleen dat haar
+    positie aandacht verdient als het toezicht nagaat waar een overschrijding vandaan kan komen.
+    Hetzelfde voorbehoud als `kmg.toerekening` voert over de toerekening van een vracht.
+
+    `context["overschrijdingen"]` is de kant-en-klare lijst reeds-geconstateerde overschrijdingen
+    (elk met minstens `meetpunt`, `waterlichaam`, `stof`, `gemeten`, `norm`, `eenheid`) -- deze
+    regel toetst zelf geen norm, dat is al gedaan. `context["waterlichaam"]` is het waterlichaam
+    van déze vestiging; zonder dat gegeven is de richting niet te bepalen en zwijgt de regel.
+    `context["is_bovenstrooms"]` is injecteerbaar voor de tests en valt terug op
+    `kmg.toerekening.is_bovenstrooms` -- pure logica, geen bron, dus veilig te importeren."""
+    waterlichaam = context.get("waterlichaam")
+    if not waterlichaam:
+        return []
+    is_bovenstrooms = context.get("is_bovenstrooms") or toerekening.is_bovenstrooms
+    getroffen = [o for o in (context.get("overschrijdingen") or [])
+                 if is_bovenstrooms(waterlichaam, o.get("waterlichaam"))]
+    if not getroffen:
+        return []
+    return [_signaal("norm_overschreden_bovenstrooms",
+                      "meting boven de norm, lozer bovenstrooms", len(getroffen), getroffen)]
+
+
+def regel_stof_buiten_register(vestiging: dict, context: dict) -> list[dict]:
+    """Gemeten stof die in geen vergunning staat -- een stof die de norm nadert of overschrijdt
+    (`context["overschrijdingen"]`) komt in het hele register (`context["register_codes"]`)
+    helemaal niet voor, dus geen enkele vergunning begrenst haar. PFOA is het bekende geval.
+
+    Dit is een bevinding over het register als geheel, niet over het papier van déze vestiging --
+    zelfde patroon als `geen_geldigheidsduur`: precies één signaal per dossier, nooit één per
+    voorschrift, met alle betrokken stoffen samen als bewijs.
+
+    Ontbreekt `register_codes` zelf, dan zwijgt de regel -- net als bij `gemeten_codes` in
+    `regel_geen_onafhankelijke_meting` is "geen register aangeleverd" iets anders dan "het
+    register is leeg"."""
+    register_codes = context.get("register_codes")
+    if register_codes is None:
+        return []
+    getroffen = [o for o in (context.get("overschrijdingen") or [])
+                 if o.get("stof") not in register_codes]
+    if not getroffen:
+        return []
+    return [_signaal("stof_buiten_register", "gemeten stof die in geen vergunning staat",
+                      len(getroffen), getroffen)]
+
+
 def regel_vergunning_niet_te_vinden(vestiging: dict, context: dict) -> list[dict]:
     """Vergunning niet te vinden -- `url`, `kenmerk` of `besluitdatum` ontbreekt. `omvang` is
     hoeveel van de drie het zijn; pas als alle drie ontbreken is de vestiging niet meer te
@@ -204,6 +303,8 @@ def regel_geen_geldigheidsduur(vestiging: dict, context: dict) -> list[dict]:
 
 
 REGELS: list[Regel] = [
+    Regel("geen_onafhankelijke_meting", "geen onafhankelijke meting", "geen_onafhankelijke_meting",
+          regel_geen_onafhankelijke_meting),
     Regel("vervallen_code", "grenswaarde op een ingetrokken code", "vervallen_code",
           regel_vervallen_code),
     Regel("niet_in_referentie", "parameter niet in de referentie", "niet_in_referentie",
@@ -212,6 +313,10 @@ REGELS: list[Regel] = [
           regel_meerdere_grenswaarden),
     Regel("vracht_onbepaald", "vracht niet te bepalen", "vracht_onbepaald",
           regel_vracht_onbepaald),
+    Regel("norm_overschreden_bovenstrooms", "meting boven de norm, lozer bovenstrooms",
+          "norm_overschreden_bovenstrooms", regel_norm_overschreden_bovenstrooms),
+    Regel("stof_buiten_register", "gemeten stof die in geen vergunning staat",
+          "stof_buiten_register", regel_stof_buiten_register),
     Regel("vergunning_niet_te_vinden", "vergunning niet te vinden", "vergunning_niet_te_vinden",
           regel_vergunning_niet_te_vinden),
     Regel("niet_regime_zuiver", "toets niet regime-zuiver", "niet_regime_zuiver",

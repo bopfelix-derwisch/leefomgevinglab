@@ -1,12 +1,61 @@
 """De tien signaalregels: elk een gewone functie op één vestiging, zonder bron en zonder LLM.
 
-Deze module test de zeven regels die aan de vergunning zelf genoeg hebben (taak 1). De drie
-regels die meetdata en stroomrichting nodig hebben (`geen_onafhankelijke_meting`,
-`norm_overschreden_bovenstrooms`, `stof_buiten_register`) komen in taak 2 erbij.
+Deze module test alle tien regels: de zeven die aan de vergunning zelf genoeg hebben (taak 1) en
+de drie die meetdata en stroomrichting nodig hebben, via `context` aangeleverd (taak 2):
+`geen_onafhankelijke_meting`, `norm_overschreden_bovenstrooms`, `stof_buiten_register`.
 """
 import pytest
 
 from leefomgevinglab.usecases.toezicht import signalen
+
+# De plan-tekst noemt deze twee fixtures (stap 4 van taak 2) zonder ze te definiëren -- dat is
+# met opzet aan de uitvoerder gelaten. Ze staan hier, aan de kop van het bestand, en zijn zo
+# samengesteld dat `signalen.signalen(...)` alle tien regels tegelijk laat vuren: dat is het punt
+# van de taalregel-test hieronder, die anders ongemerkt een subset zou kunnen dekken.
+#
+# Welke regel waarop in deze vestiging/context vuurt:
+# - geen_onafhankelijke_meting: "Zwevende stof" (ZS) en "Zuurgraad" (pH) zijn vergund maar staan
+#   niet in `gemeten_codes` (alleen Zn is "gemeten").
+# - vervallen_code: "Zwevende stof" draagt `aquo_status: "Vervallen"`.
+# - niet_in_referentie: "Onbekend sulfiet-mengsel" heeft `aquo: None`.
+# - meerdere_grenswaarden: Zink heeft twee grenswaarden (0.5 en 2.0 mg/l).
+# - vracht_onbepaald: alle concentratievoorschriften zijn in mg/l, geen enkel debietvoorschrift.
+# - norm_overschreden_bovenstrooms: de geïnjecteerde `is_bovenstrooms` geeft altijd `True`, en er
+#   staan overschrijdingen in de context.
+# - stof_buiten_register: PFOA staat in `overschrijdingen` maar niet in `register_codes`.
+# - vergunning_niet_te_vinden: `kenmerk` ontbreekt.
+# - niet_regime_zuiver: de twee Zink-voorschriften dragen een `bemonstering`.
+# - geen_geldigheidsduur: er zijn voorschriften, en de Atlas kent nergens een geldigheidsperiode.
+VESTIGING_MET_ALLES = {
+    "naam": "Volledig signaaldossier (test)",
+    "url": "https://example.org/vergunning",
+    "kenmerk": None,
+    "besluitdatum": "2020-01-01",
+    "voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn",
+         "bemonstering": "Steekmonster"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter", "aquo": "Zn",
+         "bemonstering": "Steekmonster"},
+        {"parameter": "Zwevende stof", "waarde": 30.0, "eenheid": "milligram per liter",
+         "aquo": "ZS", "aquo_status": "Vervallen"},
+        {"parameter": "Onbekend sulfiet-mengsel", "waarde": 1.0, "eenheid": "milligram per liter",
+         "aquo": None},
+        {"parameter": "Zuurgraad", "waarde": 7.0, "eenheid": "dimensieloos", "aquo": "pH"},
+    ],
+}
+
+CONTEXT_MET_ALLES = {
+    "gemeten_codes": {"Zn"},
+    "waterlichaam": "NL91ZM",
+    "is_bovenstrooms": lambda waterlichaam, meetpunt_waterlichaam: True,
+    "overschrijdingen": [
+        {"meetpunt": "NL91_TESTPUNT", "waterlichaam": "NL91BM", "stof": "Zn",
+         "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"},
+        {"meetpunt": "NL91_TESTPUNT2", "waterlichaam": "NL91BM", "stof": "PFOA",
+         "gemeten": 5.0, "norm": 3.0, "eenheid": "ug/l"},
+    ],
+    "register_codes": {"Zn", "ZS"},
+}
 
 
 def test_dezelfde_parameter_met_twee_grenswaarden_geeft_een_signaal():
@@ -252,3 +301,154 @@ def test_signalen_geeft_alleen_het_geldigheidsvoorbehoud_voor_een_schone_vestigi
     assert len(uit) == 1
     assert uit[0]["signaal"] == "geen geldigheidsduur"
     assert uit[0]["zwaarte"] == "laag"
+
+
+# -- Taak 2: de drie regels die meetdata en stroomrichting nodig hebben ----------------------
+
+def test_vergunde_stof_die_nergens_gemeten_wordt_geeft_een_signaal():
+    v = {"voorschriften": [{"parameter": "Zuurgraad", "waarde": 7.0, "eenheid": "dimensieloos",
+                            "aquo": "pH"},
+                           {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                            "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": {"Zn", "Ntot"}})
+    assert [s["bewijs"][0]["aquo"] for s in uit] == ["pH"]
+    assert "geen onafhankelijke meting" in uit[0]["signaal"]
+
+
+def test_geen_onafhankelijke_meting_verzamelt_alle_niet_gemeten_codes_in_een_signaal():
+    """Eén signaal per vestiging, net als `vervallen_code` -- `omvang` is het totaal aantal
+    voorschriften zonder meting, niet per stof."""
+    v = {"voorschriften": [
+        {"parameter": "Zuurgraad", "waarde": 7.0, "eenheid": "dimensieloos", "aquo": "pH"},
+        {"parameter": "Debiet", "waarde": 10.0, "eenheid": "kubieke meter per uur", "aquo": "Q"},
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"}]}
+    uit = signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": {"Zn"}})
+    assert len(uit) == 1
+    assert {b["aquo"] for b in uit[0]["bewijs"]} == {"pH", "Q"}
+
+
+def test_geen_onafhankelijke_meting_telt_een_ontbrekende_code_niet_mee():
+    """Een voorschrift zonder (of met een mislukte) aquo-koppeling is een zaak van
+    `niet_in_referentie`, niet van deze regel -- zonder code is er niets om tegen de meetset te
+    vergelijken."""
+    v = {"voorschriften": [{"parameter": "Onbekend", "waarde": 1.0,
+                             "eenheid": "milligram per liter", "aquo": None}]}
+    assert signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": set()}) == []
+
+
+def test_alle_vergunde_stoffen_gemeten_geeft_geen_signaal():
+    v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                             "aquo": "Zn"}]}
+    assert signalen.regel_geen_onafhankelijke_meting(v, {"gemeten_codes": {"Zn"}}) == []
+
+
+def test_geen_onafhankelijke_meting_zwijgt_zonder_een_meetset_in_de_context():
+    """`context` zonder `gemeten_codes` is "geen meetset aangeleverd", niet "niets wordt
+    gemeten" -- anders zou `signalen(v, {})` (zoals taak 1 al test) voor elke stof met een
+    aquo-code dit signaal laten afgaan."""
+    v = {"voorschriften": [{"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
+                             "aquo": "Zn"}]}
+    assert signalen.regel_geen_onafhankelijke_meting(v, {}) == []
+
+
+def test_norm_overschreden_bovenstrooms_signaleert_bij_een_overschrijding_benedenstrooms():
+    context = {
+        "waterlichaam": "NL91ZM",
+        "is_bovenstrooms": lambda waterlichaam, meetpunt_waterlichaam: True,
+        "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "Zn",
+                               "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"}],
+    }
+    uit = signalen.regel_norm_overschreden_bovenstrooms({}, context)
+    assert len(uit) == 1
+    assert uit[0]["zwaarte"] == "hoog"
+    assert uit[0]["bewijs"][0]["stof"] == "Zn"
+
+
+def test_norm_overschreden_bovenstrooms_zwijgt_als_vestiging_benedenstrooms_ligt():
+    context = {
+        "waterlichaam": "NL91ZM",
+        "is_bovenstrooms": lambda waterlichaam, meetpunt_waterlichaam: False,
+        "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "Zn"}],
+    }
+    assert signalen.regel_norm_overschreden_bovenstrooms({}, context) == []
+
+
+def test_norm_overschreden_bovenstrooms_zwijgt_zonder_waterlichaam_van_de_vestiging():
+    """Zonder het waterlichaam van deze vestiging is de richting niet te bepalen -- dan liever
+    zwijgen dan gokken."""
+    context = {"overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "Zn"}]}
+    assert signalen.regel_norm_overschreden_bovenstrooms({}, context) == []
+
+
+def test_norm_overschreden_bovenstrooms_valt_terug_op_kmg_toerekening():
+    """Zonder geïnjecteerde `is_bovenstrooms` gebruikt de regel de echte stroomvolgorde uit
+    `kmg.toerekening` -- geen netwerk, wel de echte logica (Bovenmaas ligt bovenstrooms van de
+    Zandmaas in `STROOMVOLGORDE`)."""
+    context = {"waterlichaam": "NL91BOM",
+               "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91ZM", "stof": "Zn"}]}
+    assert len(signalen.regel_norm_overschreden_bovenstrooms({}, context)) == 1
+
+
+def test_stof_buiten_register_signaleert_een_stof_die_in_geen_voorschrift_voorkomt():
+    context = {"register_codes": {"Zn"},
+               "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA",
+                                      "gemeten": 5.0, "norm": 3.0, "eenheid": "ug/l"}]}
+    uit = signalen.regel_stof_buiten_register({}, context)
+    assert len(uit) == 1
+    assert uit[0]["bewijs"][0]["stof"] == "PFOA"
+    assert uit[0]["zwaarte"] == "hoog"
+
+
+def test_stof_buiten_register_zwijgt_als_de_stof_wel_een_voorschrift_heeft():
+    context = {"register_codes": {"PFOA"},
+               "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA"}]}
+    assert signalen.regel_stof_buiten_register({}, context) == []
+
+
+def test_stof_buiten_register_zwijgt_zonder_een_register_in_de_context():
+    """Zelfde reden als bij `gemeten_codes`: "geen register aangeleverd" is iets anders dan "het
+    register is leeg", en mag dus niet elke overschrijding als "buiten register" markeren."""
+    context = {"overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA"}]}
+    assert signalen.regel_stof_buiten_register({}, context) == []
+
+
+def test_stof_buiten_register_is_een_bevinding_over_het_register_niet_over_de_vestiging():
+    """Zelfde patroon als `geen_geldigheidsduur`: precies één signaal per dossier, en dezelfde
+    bevinding voor elke vestiging -- het gaat over het register als geheel."""
+    context = {"register_codes": set(),
+               "overschrijdingen": [{"meetpunt": "P1", "waterlichaam": "NL91BM", "stof": "PFOA"}]}
+    a = signalen.regel_stof_buiten_register({"voorschriften": []}, context)
+    b = signalen.regel_stof_buiten_register({"voorschriften": [{"parameter": "X"}]}, context)
+    assert a == b
+    assert len(a) == 1
+
+
+def test_de_fixture_met_alles_laat_alle_tien_regels_vuren():
+    """Voorwaarde voor de taalregel-test hieronder: zonder dit zou die test een subset van de
+    regels kunnen dekken zonder dat iemand het merkt."""
+    regel_ids = {s["regel"] for s in signalen.signalen(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES)}
+    assert regel_ids == set(signalen.DREMPELS)
+
+
+def test_een_signaal_is_nooit_een_vaststelling():
+    """Dezelfde taalregel als /kmg, hier op de gegenereerde signaaltekst."""
+    for s in signalen.signalen(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES):
+        tekst = (s["signaal"] + s.get("waarom", "") + s.get("wat_te_doen", "")).lower()
+        for verboden in ("overtreding", "veroorzaakt door", "in strijd met"):
+            assert verboden not in tekst, f"{s['signaal']}: {verboden}"
+
+
+# -- Taak 2, ruling R10: `zwaarte()` repareren zodat `norm_aanwezig` effect heeft -------------
+
+def test_geen_onafhankelijke_meting_is_hoog_met_norm_midden_zonder():
+    """§6: signaal 1 weegt hoog bij een stof met een KRW-norm, anders midden -- vóór de reparatie
+    was die tweede uitkomst onbereikbaar."""
+    assert signalen.zwaarte("geen_onafhankelijke_meting", 1, norm_aanwezig=True) == "hoog"
+    assert signalen.zwaarte("geen_onafhankelijke_meting", 1, norm_aanwezig=False) == "midden"
+
+
+def test_norm_aanwezig_raakt_alleen_regels_in_norm_bepaalt_zwaarte():
+    """Een regel buiten `NORM_BEPAALT_ZWAARTE` blijft `hoog` zodra de drempel gehaald is, met of
+    zonder norm -- `vervallen_code` staat niet in die set."""
+    assert signalen.zwaarte("vervallen_code", 1, norm_aanwezig=False) == "hoog"
+    assert signalen.zwaarte("vervallen_code", 1, norm_aanwezig=True) == "hoog"
