@@ -25,12 +25,17 @@ op `localhost:8080` (OpenAI-compatibel), bge-m3 op `localhost:8082`, openpyxl vo
 inspectiebijlage. Agentconfiguratie in **CrewAI-compatibele YAML**, uitgevoerd door een eigen
 dunne runner — zie §4 voor waarom.
 
-**Spec:** dit document is spec én plan. Aanleiding is het gesprek met Klaas (verslag en transcript
-in de opdracht), waarin hij een CrewAI-opzet met gespecialiseerde agents op afvalvergunningen en
-ontvangstmeldingen demonstreerde en vastliep op één ding: zijn brondata is bedrijfsgevoelig en mag
-niet naar de cloud. Dit plan bouwt hetzelfde patroon op **open** data, zodat het patroon publiek
-aantoonbaar wordt en de discussie over infrastructuur en standaardisatie met iets concreets gevoerd
-kan worden.
+**Spec:** dit document is spec én plan. Het doel is dat **dit lab** een agentische toepassing
+opzet: een eigen, configureerbare agentopstelling op een casus die het al goed kent. Die casus is
+de **Atlas voor een Schone Maas** — 69 vestigingen en 782 vergunde lozingsvoorschriften, publiek
+en live bevraagbaar, waar dit lab via `/kmg`, `/waterruimte`, `/maaskaart` en `/kennisgraaf` al
+connectoren, een informatiemodel en een kwaliteitscontrole op heeft staan. De agentlaag is dus geen
+nieuw fundament maar een nieuwe manier om op een bestaand fundament te werken.
+
+Dat de doelgroep de **toezichthouder** is, komt uit een gesprek over de vraag wat een
+informatieproduct moet zijn: het waterdossier beantwoordt tot nu toe de vraag van de
+vergunningverlener, en toezicht heeft een andere behoefte (§1). Dat gesprek is de aanleiding; het
+plan is verder op deze casus en deze omgeving gericht.
 
 ---
 
@@ -69,7 +74,7 @@ kan worden.
 
 Dit lab heeft het waterdossier tot nu toe gebouwd rond de vraag van de **vergunningverlener**:
 *wat kan hier nog?* Dat is een vraag naar vrije ruimte — `/gebruiksruimte`, `/waterruimte` en het
-eindbeeld rekenen hem uit. Het gesprek met Klaas maakt expliciet wat in dat kader niet past:
+eindbeeld rekenen hem uit. Wat in dat kader niet past, werd in het gesprek precies benoemd:
 
 > "we hadden een soort business case vanuit de vergunningverlening, wat kunnen we nog toestaan
 > hier aan extra milieubelastende dingen, maar dat is voor een toezichthouder natuurlijk niet zo
@@ -89,7 +94,8 @@ Het verschil is niet cosmetisch, het verandert het product:
 Twee gevolgen die het hele ontwerp bepalen. **Een gat in de data is voor een toezichthouder zelf
 een signaal.** Waar de vergunningverlener een ontbrekend gegeven als beperking ziet, is "deze
 grenswaarde is niet te controleren" voor toezicht een bevinding die een bezoek kan rechtvaardigen.
-En: **een signaal zonder uitleg is onbruikbaar.** Klaas benoemt dat precies:
+En: **een signaal zonder uitleg is onbruikbaar** — niet iedere toezichthouder is even thuis in
+lozingsvoorschriften en Aquo-codes:
 
 > "Niet alle toezichthouder zijn even thuis in deze materie. Ja, dus dan krijgen ze signalen, maar
 > dan moet ze ook wel weten, welke vragen, waar moet je dan op letten (...) dan kan die een vraag
@@ -124,8 +130,9 @@ niet weggelaten. Van de 69 vestigingen mist er bij 8 een `url`, bij 6 een `kenme
   terug tot de bewerking die het maakte en niet alleen tot de bronrij.
 
 **Deel C — de inspectiebijlage.** Eén `.xlsx` met een blad per signaal en alle onderliggende rijen,
-zodat het dossier offline mee kan. Dit is letterlijk wat Klaas als bruikbaar beschreef: "dan maak
-ik daar een Excel rapportje van (...) en daarmee kan een handhaver op pad gaan."
+zodat het dossier offline mee kan. Een werkblad is wat er in de praktijk mee de deur uit gaat, en
+het is ook de vorm die een signaal navraagbaar houdt: elke regel in het dossier is terug te vinden
+als een rij met haar bron.
 
 **Deel D — de runlog.** Wat er deze keer is gebeurd, in de volgorde waarin het gebeurde: per stap
 de agent, de taak, de aangeroepen tools met hun argumenten, hoeveel rijen erin gingen en eruit
@@ -201,10 +208,10 @@ wegwerp-venv zodat de projectomgeving ongemoeid bleef:
 | telemetrie? | **standaard aan**, uit te zetten met één van `OTEL_SDK_DISABLED`, `CREWAI_DISABLE_TELEMETRY`, `CREWAI_DISABLE_TRACKING` (geverifieerd in `crewai_core/telemetry.py:354-359`) |
 | kerndependencies | 32, waaronder `chromadb`, `lancedb`, `mcp`, `openai`, `instructor`, drie `opentelemetry`-pakketten |
 
-Dat geeft een helder antwoord: **CrewAI werkt hier en kan volledig lokaal draaien** — dat is
-rechtstreeks relevant voor Klaas' probleem, want het betekent dat zijn crew niet naar de cloud
-hoeft. Maar het kan **niet in dezelfde venv** als dit lab, en het brengt een telemetriekanaal mee
-dat je in een toezichtomgeving expliciet moet dichtzetten.
+Dat geeft een helder antwoord: **CrewAI werkt hier en kan volledig lokaal draaien** — op de Jetson,
+tegen het model dat al op `:8080` staat, zonder enige externe aanroep. Maar het kan **niet in
+dezelfde venv** als dit lab, en het brengt een telemetriekanaal mee dat expliciet dicht moet. Die
+twee feiten bepalen de keuze hieronder.
 
 ### 4.2 De eerste reden voor configureerbare agents: transparantie
 
@@ -248,16 +255,15 @@ De agents worden beschreven in twee YAML-bestanden met exact de vorm die CrewAI 
 `description`/`expected_output`/`agent`/`context`). Die bestanden worden uitgevoerd door een eigen
 dunne runner van zo'n 150 regels in de projectvenv. Daarmee:
 
-- is de configuratie **overdraagbaar**: dezelfde YAML kan Klaas in zijn CrewAI-opzet laden, en wij
-  kunnen zijn agentdefinities bij ons draaien. Dat is het concrete samenwerkingsproduct uit het
-  gesprek, niet een vaag "laten we naast elkaar leggen".
+- lenen we een **bestaande, gedocumenteerde vorm** in plaats van een eigen configuratietaal te
+  verzinnen. Wie de YAML leest, leest iets wat buiten dit lab ook betekenis heeft, en wij hoeven
+  geen schema te ontwerpen en te verdedigen.
 - vermijden we de pydantic-botsing en 32 extra dependencies in een omgeving die 919 tests groen
   houdt.
 - houden we de eigenschap die dit lab onderscheidt: elke stap is te testen, elk getal is afgeleid,
   en een tussenresultaat is een Python-dict en geen vrije tekst.
-- blijft CrewAI een **optionele adapter**: `scripts/21_crew_adapter.py` draait dezelfde YAML in een
-  eigen venv tegen hetzelfde lokale model, zodat de twee uitkomsten te vergelijken zijn. Dat is een
-  nuttige test op zichzelf: geeft een echt agentframework hetzelfde antwoord als onze runner?
+- houden we de deur open: omdat de configuratie de vorm van een bekend framework heeft, is later
+  overstappen een kwestie van een andere runner en niet van herschrijven.
 
 **Let op wat hier de keuze bepaalt.** De eigen runner is te verdedigen omdat de eisen (a) tot (d)
 erin af te dwingen zijn en met een test te bewaken. Zou een framework dat beter doen, dan is dat
@@ -266,8 +272,9 @@ runner het vervangbare.
 
 ### 4.4 De scherpste ontwerpregel: agents bepalen geen signalen
 
-Klaas' opzet laat agents analyses doen en daarbij Python-scripts genereren voor het rekenwerk. Dat
-is slim, en het is precies op dat punt dat voor toezicht een grens hoort te liggen. Een signaal dat
+De verleiding bij een agentopstelling is om de agents het analysewerk te laten doen en voor het
+rekenwerk zelf Python te laten schrijven. Dat werkt verrassend goed, en precies daar hoort voor
+toezicht een grens te liggen. Een signaal dat
 een taalmodel heeft "gezien" is niet navolgbaar: hij kan de volgende keer anders uitvallen, en een
 toezichthouder kan er ter plaatse niet op terugvallen. Daarom:
 
@@ -275,24 +282,54 @@ toezichthouder kan er ter plaatse niet op terugvallen. Daarom:
   LLM, elk met een test die hem tegen de echte bron narekent;
 - **de agents doen het werk eromheen**: het dossier samenstellen, uitleggen, vertalen naar de vraag
   van de gebruiker, een rapport opmaken, een vervolgvraag beantwoorden;
-- **geen agent genereert code die wordt uitgevoerd.** Rekenwerk gebeurt in vastgelegde,
-  geteste functies die als tool worden aangeboden. Dit is een bewuste afwijking van Klaas' opzet en
-  hoort expliciet op de pagina, met de reden erbij.
+- **geen agent genereert code die wordt uitgevoerd.** Rekenwerk gebeurt in vastgelegde, geteste
+  functies die als tool worden aangeboden. Dat is een bewuste beperking ten opzichte van wat
+  agentframeworks aanbieden, en zij hoort met de reden erbij op de pagina.
 
 Dat maakt het product reproduceerbaar: twee keer hetzelfde dossier opvragen geeft dezelfde
 signalen, en alleen de formulering kan verschillen.
 
+### 4.5 Wat de agentlaag toevoegt — en waar niet
+
+Een eerlijke vraag bij dit plan: dit lab kan de tien signalen ook in één module berekenen en op een
+pagina zetten, zoals het `/kmg` en `/maaskaart` heeft gedaan. Wat voegt een agentopstelling dan toe?
+Het antwoord is per onderdeel verschillend, en voor één onderdeel is het "niets".
+
+**Niets voor het rekenwerk.** De signalen zijn tien functies. Een agent eromheen maakt ze niet
+beter, alleen langzamer. Dat is geen bezwaar tegen dit plan maar een grens erin: zie §4.4.
+
+**Wel voor de ingang.** Een pagina stelt de vragen die de bouwer heeft voorzien. Een
+toezichthouder komt met een vraag over één vestiging, en daarna met een vervolgvraag die niemand
+in een filter heeft gestopt — "en wat ging er bij die andere locatie van dezelfde houder mis?".
+Dat is wat de vraag- en uitlegagent oplossen, en wat een statische pagina principieel niet kan.
+
+**Wel voor het samenstellen.** Een dossier is per vestiging anders: welke signalen vuren, welke
+uitleg nodig is, welke bronnen erbij moeten. Dat is orkestratie, en dat is precies waar een
+agentopstelling voor bedoeld is.
+
+**Wel, en dat is de belangrijkste, voor de navraagbaarheid van het proces.** Zie §4.2. De tien
+functies op een pagina zijn net zo ondoorzichtig als de rest van dit lab: je ziet de uitkomst en
+de bron, niet de bewerking. De agentlaag dwingt die bewerking naar een leesbaar bestand en een
+runlog. Dat is hier niet de prijs van de opzet — het is de opbrengst.
+
+**En één onverwachte opbrengst om op te letten:** deze opzet maakt het goedkoop om een signaalregel
+toe te voegen. Een regel is een functie plus een test plus een regel YAML. Als dat inderdaad zo
+uitpakt, is de echte winst niet dit dossier maar het tempo waarin de volgende tien signalen erbij
+komen. Of dat klopt, is na taak 6 te zien en hoort in de evaluatie.
+
 ## 5. De agents
 
-Zes agents, alle zes geconfigureerd in YAML en los aan of uit te zetten. De namen volgen Klaas'
-indeling waar dat kan, zodat de twee opzetten te vergelijken zijn.
+Zes agents, alle zes geconfigureerd in YAML en los aan of uit te zetten. Elke agent doet één ding
+en zegt in zijn configuratie met welk gereedschap hij dat doet.
 
-### 5.1 `vergunninglezer` (zijn AA)
-Leest het register en dataficeert elk voorschrift volgens het bestaande `kmg/lozingsmodel.py`, dat
-al per veld een zekerheid meevoert. Tools: `atlas.vergunningen_bij_punt`,
-`lozingsmodel.dataficeer`, `aquo.zoek_code`. **Geen PDF-stap**: waar Klaas uit pdf's moet lezen,
-levert de Atlas de voorschriften al als velden. Dat verschil is zelf een bevinding voor de
-standaardisatiediscussie — dit is wat gestandaardiseerd publiceren oplevert.
+### 5.1 `vergunninglezer`
+Haalt het register live uit de Atlas en dataficeert elk voorschrift volgens het bestaande
+`kmg/lozingsmodel.py`, dat al per veld een zekerheid meevoert. Tools:
+`atlas.vergunningen_bij_punt`, `lozingsmodel.dataficeer`, `aquo.zoek_code`. **Geen PDF-stap
+nodig**, en dat is voor deze casus een pluspunt dat benoemd mag worden: de Atlas publiceert de
+voorschriften al als velden met parameter, waarde, eenheid en bemonstering. Waar een vergunning
+alleen als pdf bestaat, begint een agentopstelling met een extractiestap die zelf fouten
+introduceert; hier begint zij met gegevens.
 
 ### 5.2 `signaalsteller`
 Draait de tien regels uit §6 over één vestiging en levert de gerangschikte lijst met bewijs.
@@ -331,11 +368,13 @@ gesprek: het model schrijft de vraag, de store geeft het antwoord.
 ### 5.6 `terugkoppelaar`
 Slaat per antwoord een beoordeling op (bruikbaar / niet bruikbaar / signaal was juist / signaal was
 onjuist) met de vestiging, het signaal en de versie van de regel erbij. **Geen online leren**: de
-terugkoppeling is data, geen automatische aanpassing. Wat zij oplevert is een maandelijkse
-rangschikking "welke signaalregels blijken in de praktijk te kloppen" — en dát is de cirkel die in
-het gesprek werd genoemd: "vanuit de inspectieview (...) dat je kunt koppelen aan de signalen en
-dan weet je ook, dit zijn signalen waar echt iets meer aan de hand is." Met open data kunnen we die
-cirkel niet sluiten; we bouwen wel de plek waar hij ingeplugd wordt, en zeggen dat hij leeg is.
+terugkoppeling is data, geen automatische aanpassing. Wat zij oplevert is een rangschikking van de
+tien regels naar "bleek dit in de praktijk te kloppen?".
+
+Dat is de cirkel die het product pas af maakt, en hij is met open data **niet te sluiten**: of een
+signaal klopte, weet alleen wie is gaan kijken. Dit plan bouwt de plek waar die uitkomst
+ingeplugd wordt en laat op de pagina zien dat zij leeg is. Dat lege vak is zelf het nuttigste
+argument over welke data erbij moet.
 
 ## 6. De signaalcatalogus
 
@@ -383,9 +422,10 @@ op de pagina dat federatief een ander ontwerp vergt (§10).
 
 ## 8. Beveiliging en plaatsing — wat dit lab wel en niet aantoont
 
-Klaas' blokkade is niet technisch maar bestuurlijk: zijn data mag niet naar de cloud, en hij heeft
-geen omgeving waar hij een zwaarder model achter toegangsbeveiliging kan draaien. Wat dit plan
-daarover kan **aantonen**, en wat niet:
+Deze use-case staat of valt bij een toezichthouder niet op de techniek maar op de omgeving waarin
+zij draait. Daarom hoort bij een lab-opzet expliciet wat zij wél en níet aantoont. Dit plan draait
+volledig op open data, dus de vraag "mag deze data hier staan?" speelt hier niet — en precies
+daardoor kan het de rest van de keten wel aantoonbaar maken:
 
 **Wel aantoonbaar, op open data:**
 - de hele keten draait **lokaal**: Qwen2.5-32B op een Jetson AGX Orin, geen enkele externe
@@ -402,8 +442,10 @@ daarover kan **aantonen**, en wat niet:
 - de capaciteitsvraag. Wat wij meten op deze Jetson zegt iets over haalbaarheid, niet over een
   productieomgeving.
 
-Dat onderscheid is zelf het nuttigste resultaat voor het gesprek met het ministerie: het laat zien
-welke vragen *geen* technische vragen zijn.
+Dat onderscheid is zelf een resultaat: het scheidt wat in een lab op te lossen is van wat een
+omgeving met toegangsbeveiliging, mandaat en bewaartermijnen vergt. Een agentopstelling die op open
+data werkt, is daarmee niet "bijna productie" — zij is het bewijs dat de resterende vragen geen
+technische vragen zijn.
 
 ## 9. File Structure
 
@@ -818,31 +860,40 @@ def test_de_pijplijn_op_de_pagina_komt_uit_dezelfde_configuratie_als_de_runner()
 - [ ] **Stap 5: Herstart en verifieer live én publiek, op inhoud en niet op statuscode**
 - [ ] **Stap 6: Commit**
 
-### Task 9: De CrewAI-adapter als vergelijking
+### Task 9 (optioneel, pas na taak 8): CrewAI als controle op de eigen runner
+
+**Deze taak is geen onderdeel van het product.** Zij staat erin omdat de opdracht de keuze tussen
+CrewAI en zelf bouwen openliet, en omdat één vraag na taak 6 blijft hangen: doet onze runner iets
+eigenaardigs? Dezelfde YAML door een echt framework halen is de goedkoopste manier om dat te
+weten. Waarom ná taak 8: eerst moet het product werken, anders vergelijk je twee onvoltooide dingen.
+Levert zij niets op, dan wordt zij weggegooid en is dat ook een uitkomst.
 
 **Files:**
-- Create: `scripts/21_crew_adapter.py`
-- Create: `docs/toezicht-crewai-vergelijking.md`
+- Create: `scripts/21_crew_controle.py`
+- Create: `docs/toezicht-runner-vs-crewai.md`
 
-- [ ] **Stap 1: Zet een eigen venv op met `crewai` en de drie telemetrievlaggen uit**
+- [ ] **Stap 1: Zet een eigen venv op met `crewai`, mét de telemetrie uit**
 
 ```bash
 python3 -m venv /mnt/nvme/geluidsmeter/venvs/crew
-/mnt/nvme/geluidsmeter/venvs/crew/bin/pip install crewai
+/mnt/nvme/geluidsmeter/venvs/crew/bin/pip install 'crewai==1.15.41'
 export OTEL_SDK_DISABLED=true CREWAI_DISABLE_TELEMETRY=true CREWAI_DISABLE_TRACKING=true
 ```
 
-- [ ] **Stap 2: Laad dezelfde `agents.yaml`/`tasks.yaml` in CrewAI tegen het lokale model**
-- [ ] **Stap 3: Draai één vestiging door beide en leg de verschillen vast in het document** —
-      niet welke "beter" is, maar waar de uitkomsten uiteenlopen en waarom
+De versie wordt gepind: de pydantic-eis van CrewAI schuift op, en een vergelijking zonder
+vastgelegde versie zegt over een half jaar niets.
+
+- [ ] **Stap 2: Laad dezelfde `agents.yaml`/`tasks.yaml` in CrewAI tegen het model op `:8080`**
+- [ ] **Stap 3: Draai één vestiging door beide en leg de verschillen vast** — niet welke "beter"
+      is, maar of de deterministische signalen identiek zijn (dat moeten ze, en zo niet is dat een
+      bug in onze runner) en waar de geformuleerde delen uiteenlopen
 - [ ] **Stap 4: Commit**
 
 ---
 
 ## 10. Wat dit plan uitdrukkelijk niet doet
 
-- **Geen agent die code genereert en uitvoert.** Zie §4.4. Dit wijkt af van Klaas' opzet en de
-  reden staat op de pagina.
+- **Geen agent die code genereert en uitvoert.** Zie §4.4. De reden staat op de pagina.
 - **Geen federatieve graaf.** De graaf is lokaal en afgeleid. Waar je een linked-data-laag bouwt
   als de data niet bij jou staat, is een open vraag uit het gesprek die dit plan niet beslecht.
 - **Geen bedrijfsgevoelige data.** Alleen de Atlas, het WKP, de KRW-normen en Aquo — alle vier
@@ -868,9 +919,10 @@ export OTEL_SDK_DISABLED=true CREWAI_DISABLE_TELEMETRY=true CREWAI_DISABLE_TRACK
 2. **Signaal 1 vraagt om een zorgvuldige lezing.** "Wordt niet gemeten door RWS in het
    watersysteem" is niet "wordt niet gemeten". De formulering op de pagina is daarmee onderdeel van
    het product en wordt door een test bewaakt.
-3. **Qwen2.5-32B is traag voor interactief gebruik.** Klaas meldt hetzelfde over Qwen3. De
-   deterministische kern werkt zonder model; alleen de uitleg en de vraagfunctie wachten. Meet dat
-   in taak 7 en noem het op de pagina.
+3. **Qwen2.5-32B is traag voor interactief gebruik** op deze machine, en een agentopstelling doet
+   meerdere aanroepen per dossier. De deterministische kern werkt zonder model, dus signalen en
+   dossier zijn er meteen; alleen de uitleg en de vraagfunctie laten wachten. Meet de duur per
+   stap in taak 6b — de runlog houdt hem al bij — en noem hem op de pagina.
 4. **CrewAI's pydantic-eis kan opschuiven.** Vandaag `<2.13`. Taak 9 pint de versie en de
    vergelijking vermeldt de datum.
 5. **Een signaal dat altijd vuurt, is geen signaal.** Regel 10 geldt voor alle 782 voorschriften.
