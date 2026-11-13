@@ -19,3 +19,4 @@ httpx
 aiofiles
 rdflib
 python-pptx>=1.0
+openpyxl
