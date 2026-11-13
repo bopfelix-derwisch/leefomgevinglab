@@ -121,8 +121,8 @@ niet weggelaten. Van de 69 vestigingen mist er bij 8 een `url`, bij 6 een `kenme
 - `bewijs` — de concrete rijen: welk voorschrift, welke meting, welke code, met waarden
 - `grondslag` — waarop de koppeling berust: `code`, `ruimtelijk`, `heuristiek` of `geen`
   (hergebruikt uit `maaskaart.GRONDSLAG`)
-- `zekerheid` — `uit de bron`, `afgeleid`, `aangenomen` of `ontbrekend`
-  (hergebruikt uit `lozingsmodel`)
+- `zekerheid` — `uit de bron`, `afgeleid`, `aangenomen` of `ontbreekt`
+  (letterlijk hergebruikt uit `lozingsmodel.ZEKERHEDEN`, niet overgeschreven)
 - `waarom` — waarom dit aandacht vraagt, met benoemde vindplaats (§5.4)
 - `wat te doen` — de vraag die de inspecteur ter plaatse kan stellen
 - `stap` — welke agent dit signaal vaststelde, met welke tool en in welke stap van de runlog.
@@ -644,6 +644,11 @@ def test_het_register_heeft_de_omvang_die_de_pagina_noemt(tmp_path):
 - Create: `src/leefomgevinglab/usecases/toezicht/rapport.py`
 - Test: `tests/test_toezicht_dossier.py`
 
+De zekerheidswoorden komen uit `kmg/lozingsmodel.ZEKERHEDEN` — `"uit de bron"`, `"afgeleid"`,
+`"aangenomen"`, `"ontbreekt"` — en worden daar geïmporteerd in plaats van opnieuw opgeschreven.
+Deze paragraaf zei eerder `"ontbrekend"`; dat was een tweede woord voor hetzelfde begrip in een
+belendende module, en dat is precies de drift waartegen dit dossier elders al een test heeft.
+
 **Interfaces:**
 - Consumes: `signalen.signalen`
 - Produces: `dossier(vestiging, context) -> dict` met `kaart`, `signalen`, `telling`, `voorbehouden`;
@@ -654,7 +659,7 @@ def test_het_register_heeft_de_omvang_die_de_pagina_noemt(tmp_path):
 ```python
 def test_een_ontbrekend_veld_staat_in_de_kaart_als_ontbrekend():
     d = dossier.dossier({"naam": "X", "kenmerk": None, "url": None, "voorschriften": []}, {})
-    assert d["kaart"]["kenmerk"] == {"waarde": None, "zekerheid": "ontbrekend"}
+    assert d["kaart"]["kenmerk"] == {"waarde": None, "zekerheid": "ontbreekt"}
     assert "kenmerk" in d["kaart"], "weglaten verbergt juist wat voor toezicht het signaal is"
 ```
 
