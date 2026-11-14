@@ -732,3 +732,78 @@ def _agents_tasks():
     config_dir = os.path.join(os.path.dirname(runner.__file__), "config")
     return (os.path.join(config_dir, "agents.yaml"), os.path.join(config_dir, "tasks.yaml"))
 
+
+# == Fix-ronde (eindreview, bevinding 5): een afwezige verklaring was onzichtbaar ================
+#
+# `static/toezicht.html` toonde vóór deze fix niets zodra een signaal geen `waarom` droeg -- en
+# dat gold voor twee heel verschillende oorzaken (geen bron gevonden; een gevonden tekst die hier
+# bewust niet herhaald wordt omdat een eerder, zwaarder signaal hem al claimt). Beide moeten nu
+# een eigen, zichtbare `waarom_reden` krijgen, en de tweede ook `waarom_gedupliceerd=True`.
+
+def test_een_signaal_zonder_enige_treffer_draagt_waarom_reden_in_plaats_van_niets():
+    """Het letterlijke voorbeeld uit bevinding B (hierboven): `vracht_onbepaald` krijgt geen
+    `waarom`, want geen van de vier bronnen legt uit waarom een debietvoorschrift ontbreekt. Vóór
+    deze fix betekende dat: niets. Nu draagt het signaal `uitleg._GEEN_TREFFER` als `waarom_reden`,
+    en expliciet geen `waarom_gedupliceerd`."""
+    from leefomgevinglab.usecases.toezicht import runner
+
+    vestiging = {
+        "naam": "Reproductie bevinding 5", "kenmerk": "K1", "url": "https://x",
+        "besluitdatum": "2020-01-01",
+        "voorschriften": [
+            {"parameter": "Minerale olie", "waarde": 1.0, "eenheid": "milligram per liter"},
+        ],
+    }
+    aquo_ref = {"geldig": {"minerale olie": "MINROLE"}, "vervallen": {}, "vervangen_door": {}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": vestiging, "context": {}, "aquo_ref": aquo_ref})
+    vracht = next(s for s in uitkomst["dossier"]["signalen"] if s["regel"] == "vracht_onbepaald")
+    assert "waarom" not in vracht
+    assert vracht.get("waarom_reden") == uitleg._GEEN_TREFFER
+    assert not vracht.get("waarom_gedupliceerd")
+
+
+def test_een_onderdrukte_duplicaattekst_draagt_een_andere_reden_dan_geen_treffer():
+    """De tweede oorzaak: op de grote, alles-laat-vuren-fixture claimt een eerder, zwaarder
+    signaal dezelfde Aquo-treffer voor 'Zwevende stof' als een latere `geen_onafhankelijke_
+    meting`-instantie (zie `test_twee_verschillende_regels_krijgen_nooit_dezelfde_waarom_tekst_
+    op_de_echte_fixture` hierboven) -- die tweede instantie moet nu een eigen `waarom_reden`
+    dragen, onderscheiden van 'geen bron gevonden' via `waarom_gedupliceerd=True`."""
+    from leefomgevinglab.usecases.toezicht import runner
+    from tests.test_toezicht_signalen import CONTEXT_MET_ALLES, VESTIGING_MET_ALLES
+
+    aquo_ref = {"geldig": {"zink": "Zn"}, "vervallen": {"zwevende stof": "ZS"},
+                "vervangen_door": {}}
+    normenset = {"normen": {"NL91_X": [
+        {"meetpunt": "NL91_X", "parameter": "Zn", "hoedanigheid": "NVT",
+         "grondslag": "jaargemiddelde", "norm": 7.8, "eenheid": "ug/l"},
+    ]}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": VESTIGING_MET_ALLES, "context": CONTEXT_MET_ALLES,
+                           "aquo_ref": aquo_ref, "normenset": normenset})
+    gedupliceerd = [s for s in uitkomst["dossier"]["signalen"] if s.get("waarom_gedupliceerd")]
+    assert gedupliceerd, "deze fixture moet minstens één onderdrukte duplicaattekst opleveren"
+    for s in gedupliceerd:
+        assert "waarom" not in s
+        assert s.get("waarom_reden")
+        assert s["waarom_reden"] != uitleg._GEEN_TREFFER, (
+            "een onderdrukte duplicaattekst moet een andere reden dragen dan 'geen bron "
+            "gevonden' -- dat zijn twee verschillende oorzaken (bevinding 5)")
+
+
+def test_de_taalregel_geldt_ook_voor_waarom_reden():
+    """Dezelfde harde taalregel als op `waarom` zelf, nu ook op de nieuwe `waarom_reden` -- die
+    tekst landt sinds deze fix ook op de pagina."""
+    from leefomgevinglab.usecases.toezicht import runner
+    from tests.test_toezicht_signalen import CONTEXT_MET_ALLES, VESTIGING_MET_ALLES
+
+    aquo_ref = {"geldig": {"zink": "Zn"}, "vervallen": {"zwevende stof": "ZS"},
+                "vervangen_door": {}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": VESTIGING_MET_ALLES, "context": CONTEXT_MET_ALLES,
+                           "aquo_ref": aquo_ref})
+    redenen = [s.get("waarom_reden") for s in uitkomst["dossier"]["signalen"] if s.get("waarom_reden")]
+    assert redenen, "deze fixture moet minstens één waarom_reden opleveren om dit te kunnen toetsen"
+    tekst = " ".join(redenen).lower()
+    for verboden in _VERBODEN:
+        assert verboden not in tekst

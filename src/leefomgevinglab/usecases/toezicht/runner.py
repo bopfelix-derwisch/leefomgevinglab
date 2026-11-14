@@ -249,10 +249,19 @@ def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     is intrinsiek en vraagt geen `staat`-sleutel: zij kan dus ook zonder enige geïnjecteerde
     referentie een signaal als `niet_regime_zuiver` of `norm_overschreden_bovenstrooms` uitleggen.
 
-    `waarom` wordt alleen gezet als `uitleg.waarom()` `beschikbaar=True` teruggeeft -- anders
-    blijft de sleutel afwezig (zie `dossier._signaal_deel_b`, die `stap` op dezelfde manier
-    optioneel houdt): een afwezig veld is hier "geen bron gevonden", geen leeg maar aanwezig veld
-    dat een poging suggereert die niets opleverde.
+    `waarom` wordt alleen gezet als `uitleg.waarom()` `beschikbaar=True` teruggeeft én de tekst
+    nog niet door een eerder, zwaarder signaal geclaimd is -- anders blijft de sleutel afwezig
+    (zie `dossier._signaal_deel_b`, die `stap` op dezelfde manier optioneel houdt). Vóór de
+    eindreview betekende dat afwezige veld op de pagina altijd hetzelfde: niets te zien, alsof er
+    geen `waarom` bestond. **Fix-ronde (eindreview, bevinding 5):** dat verstopte zowel de eerlijke
+    "geen van de vier bronnen heeft hier een treffer" als de bewuste onderdrukking van een
+    gevonden-maar-dubbele tekst (bevinding B hieronder) achter hetzelfde niets, en het product se
+    eigen stelling is nu juist dat een gat zelf een signaal is (zie `dossier._voorbehouden`). Elk
+    signaal zonder `waarom` draagt daarom nu altijd een `waarom_reden` (de tekst die uitlegt
+    waaróm er niets staat) plus, waar van toepassing, `waarom_gedupliceerd=True` om de twee
+    oorzaken van elkaar te onderscheiden -- `uitleg.waarom()`'s eigen `_GEEN_TREFFER`-tekst noemt
+    bovendien zelf alle vier de bronnen (zie die module), dus deze tool verzint niets, zij geeft
+    alleen door wat `uitleg.waarom()` al zei maar eerder nergens landde.
 
     **Fix-ronde 2, bevinding A.** `waarom_vindplaatsen` gaat er sinds deze fix altijd naast
     `waarom` mee -- de harde regel ("elke uitleg draagt minstens één benoemde vindplaats") hield
@@ -279,7 +288,13 @@ def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     # gerangschikt op zwaarte en omvang (zie `signalen.signalen`), dus het eerste signaal dat een
     # tekst claimt (het zwaarst wegende) houdt hem; een latere, lichtere herhaling krijgt in plaats
     # daarvan geen verklaring -- de constante uit de taakbrief: geen verklaring is hier de juiste
-    # uitkomst, niet een herhaalde.
+    # uitkomst, niet een herhaalde. Fix-ronde (eindreview, bevinding 5): die herhaling krijgt nu
+    # wel een eigen `waarom_reden`, zodat zij niet hetzelfde "niets" oplevert als een signaal
+    # zonder enige bron.
+    _GEDUPLICEERDE_REDEN = (
+        "Deze verklaring is woordelijk gelijk aan die van een eerder, zwaarder wegend signaal in "
+        "dit dossier en wordt daarom hier niet herhaald -- niet omdat er geen bron voor is."
+    )
     bijgewerkt, aantal_beschikbaar, gebruikte_teksten = [], 0, set()
     for s in signalen_lijst:
         nieuw = dict(s)
@@ -289,6 +304,11 @@ def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
             nieuw["waarom_vindplaatsen"] = uit["vindplaatsen"]
             gebruikte_teksten.add(uit["tekst"])
             aantal_beschikbaar += 1
+        elif uit["beschikbaar"]:
+            nieuw["waarom_reden"] = _GEDUPLICEERDE_REDEN
+            nieuw["waarom_gedupliceerd"] = True
+        else:
+            nieuw["waarom_reden"] = uit["reden"]
         bijgewerkt.append(nieuw)
     nieuw_dossier = {**dossier, "signalen": bijgewerkt}
     return Uitkomst({"dossier": nieuw_dossier}, len(signalen_lijst), aantal_beschikbaar,

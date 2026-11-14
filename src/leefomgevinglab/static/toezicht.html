@@ -85,6 +85,8 @@
     .signaal .hoezeker b { color:var(--muted); font-weight:600; }
     .signaal .herkomst { margin-top:4px; font-size:11px; color:var(--dim); }
     .signaal .vindplaats { margin-top:2px; font-size:10.5px; color:var(--dim); font-style:italic; }
+    .signaal .herkomst.ontbreekt { font-style:italic; color:var(--weg); }
+    .signaal .herkomst.dupliceert { font-style:italic; }
 
     .bewijs { margin-top:9px; }
     .bewijs summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none;
@@ -244,6 +246,12 @@
         (s.waarom ? `<div class="herkomst">${esc(s.waarom)}</div>` +
           (s.waarom_vindplaatsen && s.waarom_vindplaatsen.length
             ? `<div class="vindplaats">bron: ${esc(s.waarom_vindplaatsen.join("; "))}</div>` : "")
+          : s.waarom_reden
+          // Eindreview, bevinding 5: een afwezige verklaring was onzichtbaar, en twee heel
+          // verschillende oorzaken (geen bron gevonden vs. een gevonden tekst die hier bewust
+          // niet herhaald wordt) zagen er zonder dit identiek uit -- namelijk: helemaal niets.
+          ? `<div class="herkomst ${esc(s.waarom_gedupliceerd ? "dupliceert" : "ontbreekt")}">` +
+            `${esc(s.waarom_reden)}</div>`
           : "") +
         (n ? `<details class="bewijs"><summary>${n} ${n === 1 ? "bewijsregel" : "bewijsregels"}</summary>` +
           `<div class="bewijsrijen">${(s.bewijs || []).map(bewijsrij).join("")}</div></details>` : "") +
