@@ -629,6 +629,112 @@ def test_een_signaal_zonder_waarom_schrijft_ook_geen_vindplaatsrij(tmp_path):
     assert not any("vindplaats" in c.lower() for c in cellen)
 
 
+# == Residu 1 (R30) ================================================================================
+#
+# De pagina onderscheidt een afwezige `waarom` al in twee oorzaken (`waarom_reden` plus, waar van
+# toepassing, `waarom_gedupliceerd`) -- het werkblad deed dat tot nu toe niet: zonder `waarom` kreeg
+# een signaal daar helemaal geen rij, dus de twee oorzaken waren op het blad allebei hetzelfde
+# "niets". Deze tests lezen het geschreven bestand terug met `load_workbook`, niet het dossier-dict.
+
+def test_rapport_schrijft_een_reden_als_waarom_ontbreekt(tmp_path):
+    """Geen van de vier bronnen had een treffer -- het blad moet die reden nu wél tonen."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    reden = "Geen van de vier bronnen (Aquo, normenset, stelselcatalogus, /kmg-proclaimer) " \
+            "noemt dit trefwoord."
+    d = {"signalen": [{
+        "regel": "vervallen_code", "signaal": "grenswaarde op een ingetrokken code",
+        "zwaarte": "hoog", "omvang": 1, "bewijs": [], "grondslag": "code", "zekerheid": "uit de bron",
+        "wat_te_doen": "Vraag welke code nu geldt.",
+        "waarom_reden": reden,
+    }]}
+    pad = tmp_path / "waarom_ontbreekt.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    cellen = [str(c) for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True) for c in rij
+              if c is not None]
+    assert any(reden in c for c in cellen)
+    assert any("ontbreekt" in c.lower() for c in cellen)
+
+
+def test_rapport_onderscheidt_een_dubbele_waarom_van_een_ontbrekende(tmp_path):
+    """De tweede oorzaak (een treffer die hier bewust niet herhaald wordt) moet op het blad van
+    de eerste (geen treffer) te onderscheiden zijn -- niet allebei als hetzelfde niets lezen."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    reden = "Deze verklaring is woordelijk gelijk aan die van een eerder, zwaarder wegend " \
+            "signaal in dit dossier en wordt daarom hier niet herhaald."
+    d = {"signalen": [{
+        "regel": "geen_onafhankelijke_meting", "signaal": "geen onafhankelijke meting",
+        "zwaarte": "midden", "omvang": 1, "bewijs": [], "grondslag": "code", "zekerheid": "uit de bron",
+        "wat_te_doen": "Vraag naar de meting.",
+        "waarom_reden": reden,
+        "waarom_gedupliceerd": True,
+    }]}
+    pad = tmp_path / "waarom_dupliceert.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    cellen = [str(c) for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True) for c in rij
+              if c is not None]
+    assert any(reden in c for c in cellen)
+    assert any("dupliceert" in c.lower() for c in cellen)
+    assert not any("ontbreekt" in c.lower() for c in cellen)
+
+
+def test_rapport_laat_een_echte_waarom_onveranderd_naast_de_nieuwe_redenrij(tmp_path):
+    """Een signaal met een echte `waarom` moet precies het bestaande pad volgen (de `waarom`- en
+    `vindplaats`-rijen), ook al draagt het geen `waarom_reden` -- de nieuwe tak mag de bestaande
+    niet raken."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    d = {"signalen": [{
+        "regel": "vervallen_code", "signaal": "grenswaarde op een ingetrokken code",
+        "zwaarte": "hoog", "omvang": 1, "bewijs": [], "grondslag": "code", "zekerheid": "uit de bron",
+        "wat_te_doen": "Vraag welke code nu geldt.",
+        "waarom": "'Zwevende stof' is ingetrokken (code ZS).",
+        "waarom_vindplaatsen": ["Aquo-domeintabel Parameter, code ZS, status Vervallen"],
+    }]}
+    pad = tmp_path / "waarom_echt.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    cellen = [str(c) for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True) for c in rij
+              if c is not None]
+    assert any("'Zwevende stof' is ingetrokken (code ZS)." in c for c in cellen)
+    assert any("Aquo-domeintabel Parameter, code ZS, status Vervallen" in c for c in cellen)
+    assert not any("ontbreekt" in c.lower() for c in cellen)
+    assert not any("dupliceert" in c.lower() for c in cellen)
+
+
+def test_rapport_schrijft_geen_redenrij_zonder_een_van_de_drie_velden(tmp_path):
+    """De keerzijde, net als bij de vindplaats hierboven: geen `waarom`, geen `waarom_reden` en
+    geen `waarom_gedupliceerd` -- dan blijft dit signaal zonder rij, een poging die niets
+    opleverde moet geen rij suggereren."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    d = {"signalen": [{
+        "regel": "geen_geldigheidsduur", "signaal": "geen geldigheidsduur", "zwaarte": "laag",
+        "omvang": 3, "bewijs": [], "grondslag": "geen", "zekerheid": "ontbreekt",
+        "wat_te_doen": "Vraag of de vergunning nog geldt.",
+    }]}
+    pad = tmp_path / "waarom_helemaal_niets.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    # Niet alle cellen (de "zekerheid"-rij draagt toevallig ook het woord "ontbreekt" als
+    # waarde) -- alleen de labels in de eerste kolom, want dáár zou een nieuwe "waarom"-rij
+    # moeten staan als deze tak onterecht vuurde.
+    labels = [str(rij[0]).lower() for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True)
+              if rij and rij[0] is not None]
+    assert not any(label.startswith("waarom") for label in labels)
+
+
 def test_uitleg_waarom_verwerpt_ook_een_verboden_vindplaats():
     """Fix-ronde 2 breidt de poort uit: niet alleen de tekst van een treffer, ook zijn vindplaats
     moet de taalregel halen -- nu die vindplaats voor het eerst zichtbaar is op de pagina en in

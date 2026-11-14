@@ -69,6 +69,16 @@ def _schrijf_blad(ws, signaal: dict) -> None:
         vindplaatsen = signaal.get("waarom_vindplaatsen") or []
         if vindplaatsen:
             ws.append(("vindplaats", "; ".join(vindplaatsen)))
+    elif signaal.get("waarom_reden"):
+        # Residu 1 (R30): een afwezige `waarom` was op dit blad onzichtbaar -- precies de
+        # eindreview-bevinding die de pagina al oploste (zie `toezicht.html`), hier één fix-ronde
+        # later herhaald. `runner.tool_uitleg_genereren` zet `waarom_reden` voor twee heel
+        # verschillende oorzaken (geen van de vier bronnen had een treffer, of een treffer werd
+        # bewust niet herhaald omdat een eerder, zwaarder signaal de tekst al claimde); het label
+        # draagt dat onderscheid, zoals de pagina het via haar CSS-klasse doet
+        # (`ontbreekt` / `dupliceert`).
+        label = "waarom (dupliceert)" if signaal.get("waarom_gedupliceerd") else "waarom (ontbreekt)"
+        ws.append((label, signaal["waarom_reden"]))
     ws.append([])
 
     bewijs = signaal.get("bewijs") or []
