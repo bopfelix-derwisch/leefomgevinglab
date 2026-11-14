@@ -73,3 +73,45 @@ def test_een_punt_opzoeken():
 def test_onbekend_punt_faalt_luid():
     with pytest.raises(KeyError):
         metingen.punt(SET, "NL80_BESTAATNIET")
+
+
+# -- laad_codes/codes_set: de verzameling Aquo-codes die ergens voorkomt, niet hun waarden -------
+
+CODES = {
+    "beschikbaar": True, "codes": ["Zn", "Ntot", "pH"], "aantal_codes": 3,
+    "aantal_meetpunten": 92, "meetjaar": "2025",
+    "bron": {"naam": "Waterkwaliteitsportaal", "houder": "Informatiehuis Water"},
+    "opgehaald_op": "2026-11-14",
+}
+
+
+def test_codes_laden_van_een_bestand(tmp_path):
+    p = tmp_path / "codes.json"
+    p.write_text(json.dumps(CODES), encoding="utf-8")
+    d = metingen.laad_codes(str(p))
+    assert d["beschikbaar"] is True
+    assert set(d["codes"]) == {"Zn", "Ntot", "pH"}
+
+
+def test_codes_ontbrekend_bestand_geeft_een_lege_set_met_reden(tmp_path):
+    d = metingen.laad_codes(str(tmp_path / "bestaat-niet.json"))
+    assert d["beschikbaar"] is False
+    assert d["codes"] == []
+    assert "scripts/21" in d["reden"]
+
+
+def test_codes_beschadigd_bestand_geeft_ook_een_lege_set(tmp_path):
+    p = tmp_path / "kapot.json"
+    p.write_text("{niet geldige json", encoding="utf-8")
+    d = metingen.laad_codes(str(p))
+    assert d["beschikbaar"] is False
+    assert d["codes"] == []
+    assert d["reden"]
+
+
+def test_codes_set_geeft_een_platte_set():
+    assert metingen.codes_set(CODES) == {"Zn", "Ntot", "pH"}
+
+
+def test_codes_set_zonder_codes_geeft_een_lege_set():
+    assert metingen.codes_set({"beschikbaar": False}) == set()

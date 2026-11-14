@@ -305,6 +305,11 @@ leefomgevinglab:
     # Delta API van RWS geeft 401 en de WKP-module die dit zou oplossen komt begin 2027.
     # Verversen: scripts/13_fetch_wkp_metingen.py op een nieuwe download.
     metingen_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json"
+    # De verzameling Aquo-codes die ergens op de bekende meetpunten voorkomt (niet hun waarden --
+    # die staan in metingen_pad, en dat bestand draagt maar drie stoffen). Voor
+    # `toezicht.signalen.regel_geen_onafhankelijke_meting` (`context["gemeten_codes"]` op
+    # /toezicht). Verversen: scripts/21_fetch_wkp_gemeten_codes.py.
+    gemeten_codes_pad: "/mnt/nvme/geluidsmeter/data/external/wkp/gemeten_codes.json"
     # Hoe ver wij de Atlas afzoeken. Dit is géén inhoudelijke keuze meer: de straal bepaalt
     # alleen nog wát er opgehaald wordt, en het stroomgebieddistrict bepaalt wat meetelt (zie
     # kmg/stroomgebied.py). Daarom ruim genoeg om het hele Maasdistrict in één greep te pakken

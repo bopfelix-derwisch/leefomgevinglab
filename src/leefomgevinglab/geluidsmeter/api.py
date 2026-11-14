@@ -51,12 +51,15 @@ from leefomgevinglab.usecases import maaskaart as maaskaart_mod
 from leefomgevinglab.usecases import modellen as modellen_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from leefomgevinglab.usecases.kmg import doelen as kmg_doelen
+from leefomgevinglab.usecases.kmg import metingen as kmg_metingen
 from leefomgevinglab.usecases.toezicht import aquo as toezicht_aquo
 from leefomgevinglab.usecases.toezicht import pijplijn as toezicht_pijplijn
 from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
 from leefomgevinglab.usecases.toezicht import runner as toezicht_runner
 from leefomgevinglab.usecases.toezicht import register as toezicht_register
 from leefomgevinglab.usecases.toezicht import graaf as toezicht_graaf
+from leefomgevinglab.usecases.toezicht import context as toezicht_context
+from leefomgevinglab.usecases.toezicht import weergave as toezicht_weergave
 from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -654,19 +657,44 @@ def _toezicht_normenset() -> dict:
     return kmg_doelen.laad_normen(normen_pad)
 
 
+def _toezicht_metingen() -> dict:
+    """De verdichte WKP-waardenset (drie labstoffen) -- zelfde bestand en functie als `/kmg`
+    (`kmg.metingen_pad`, `kmg_metingen.laad`)."""
+    return kmg_metingen.laad(_kmg_pad())
+
+
+def _toezicht_doelenset() -> dict:
+    """De KRW-doelen per waterlichaam (ecologisch/fysisch-chemisch, o.a. Ntot) -- zelfde bestand
+    als `/kmg` (`kmg.doelen_pad`), niet de chemische normen: die haalt `_toezicht_normenset`
+    hierboven al op uit een ander bestand (`waterpresentatie.normen_pad`, zink/PFOA)."""
+    kmg_cfg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    doelen_pad = kmg_cfg.get("doelen_pad", "")
+    if not doelen_pad:
+        return {"beschikbaar": False, "waterlichamen": {}, "reden": "geen doelen_pad geconfigureerd"}
+    return kmg_doelen.laad(doelen_pad)
+
+
+def _toezicht_gemeten_codes() -> set[str]:
+    """`context["gemeten_codes"]` voor `signalen.regel_geen_onafhankelijke_meting` -- de
+    Aquo-codes die ergens op de bekende meetpunten voorkomen (`scripts/
+    21_fetch_wkp_gemeten_codes.py`). Zie `toezicht.context` voor waarom dit niet uit
+    `_toezicht_metingen()` zelf komt (die draagt maar drie stoffen, zie die module)."""
+    kmg_cfg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    gemeten_codes_pad = kmg_cfg.get("gemeten_codes_pad", "")
+    if not gemeten_codes_pad:
+        return set()
+    return kmg_metingen.codes_set(kmg_metingen.laad_codes(gemeten_codes_pad))
+
+
 @app.get("/toezicht", response_class=HTMLResponse)
 def toezicht_page():
-    """Signaaldossier voor de toezichthouder op het Maas-lozingenregister: niet wat hier nog
-    mag, maar waar je moet gaan kijken."""
+    """Signaaldossier voor de toezichthouder op het Maas-lozingenregister: niet het papier (dat
+    is `/wasstraat`), maar waar in de werkelijkheid je moet gaan kijken -- de wasstraat-uitkomst
+    van deze vergunning, de metingen bij haar waterlichaam, en de drie signalen die meetdata of
+    stroomrichting nodig hebben. De configuratie (agents/taken) staat alleen nog op `/wasstraat`:
+    één pijplijn, en de lezer die het papier controleert is ook de lezer die hoort te zien hoe
+    dat proces zelf is opgebouwd."""
     return _waterpagina("toezicht.html", "toezicht")
-
-
-@app.get("/api/toezicht/pijplijn")
-def api_toezicht_pijplijn():
-    """De agents en taken zoals ze in de YAML staan -- geen crew gestart, geen validatie (R4):
-    de pagina moet de configuratie kunnen tonen zonder het proces uit te voeren."""
-    gegeven = toezicht_pijplijn.als_gegeven(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
-    return {**gegeven, "bron": TOEZICHT_AGENTS_PAD}
 
 
 @app.get("/api/toezicht/vestigingen")
@@ -695,26 +723,36 @@ def api_toezicht_vestigingen():
 @app.get("/api/toezicht/dossier")
 def api_toezicht_dossier(vestiging: str):
     """Draait de standaardpijplijn (`lees_vergunning` -> `bepaal_signalen` ->
-    `stel_dossier_samen` -> `leg_signalen_uit`) echt, met de drie bronnen voor de uitlegger
-    bekabeld (R20): `aquo_ref`, `normenset` en de Stelselcatalogus-connector. Geen taalmodel
-    hier (`llm=None`) -- de deterministische treffers uit die drie bronnen zijn al genoeg voor
-    een `waarom`, en de pagina mag niet wachten op een externe aanroep naar het lokale model om
-    die te tonen.
+    `stel_dossier_samen` -> `leg_signalen_uit`) echt, met alle vijf contextsleutels bekabeld die
+    de tien regels samen nodig hebben -- niet meer alleen `stoffen_met_norm`. Geen taalmodel hier
+    (`llm=None`), zelfde reden als altijd: de deterministische treffers zijn al genoeg, en de
+    pagina mag niet wachten op een externe aanroep naar het lokale model.
 
     `vestiging` is de `id` die `api_toezicht_vestigingen` teruggaf (`toezicht_register.
-    identiteiten`), niet de rauwe `locatiecode` -- zie de moduledocstring van `register.py` voor
-    waarom `locatiecode` alleen geen bruikbare sleutel is (eindreview, bevinding 1).
+    identiteiten`), niet de rauwe `locatiecode` -- zie de moduledocstring van `register.py`.
 
-    `context` draagt alleen `stoffen_met_norm` (eindreview, optionele eenregelfix): dit lab heeft
-    geen betrouwbare, snel te bevragen bron voor `gemeten_codes` (dat vraagt de 142 MB ruwe
-    WKP-CSV, zie `test_toezicht_live.py`) of een live waterlichaam-opzoeking per vestiging, maar
-    `graaf.stoffen_met_norm(normenset)` leest exact dezelfde `normenset` die hier al wordt
-    opgehaald voor de uitlegger, en is al getest (`test_toezicht_graaf.py`). Zonder deze sleutel
-    bleef signaal 1 (`geen_onafhankelijke_meting`) permanent op `midden` steken, ook voor een
-    stof met een echte KRW-norm -- de escalatie naar `hoog` bestond in `signalen.py` wel, maar was
-    vanaf dit eindpunt onbereikbaar. `dossier()` zet elke andere ontbrekende contextsleutel zelf
-    om in een expliciet voorbehoud (`d["voorbehouden"]`) in plaats van er iets bij te verzinnen --
-    een gat is hier een signaal, geen gebrek dat verstopt moet worden."""
+    **De drie werkelijkheidssignalen krijgen hier voor het eerst een echte context** (plan,
+    §"Wat je bouwt"), via `toezicht.context`:
+
+    - `gemeten_codes` -- uit `scripts/21_fetch_wkp_gemeten_codes.py` (`_toezicht_gemeten_codes`),
+      niet uit de drie-stoffen-waardenset: die zou bijna elke andere stof onterecht "nooit
+      gemeten" noemen.
+    - `waterlichaam` -- van déze vestiging, afgeleid uit haar eigen coördinaat
+      (`toezicht_context.waterlichaam_van_vestiging`, hergebruikt `kmg_service.
+      _waterlichaam_per_vergunning`).
+    - `overschrijdingen` -- elke gemeten stof op elk meetpunt getoetst tegen haar norm
+      (`toezicht_context.toetsing`/`overschrijdingen`, via `kmg.doelen.toets`); dezelfde tabel
+      levert ook de metingensectie van de pagina (`toezicht_context.metingen_bij_waterlichaam`).
+    - `register_codes` -- `toezicht_aquo.register_codes` over het **hele** register, elke
+      vestiging eerst zelf verrijkt met `aquo_ref` (`stof_buiten_register` gaat over het register
+      als geheel, niet over déze ene vestiging).
+    - `stoffen_met_norm` -- ongewijzigd, `graaf.stoffen_met_norm(normenset)`.
+
+    `dossier()` zet elke resterende ontbrekende contextsleutel zelf om in een expliciet
+    voorbehoud (`d["voorbehouden"]`) -- een gat is hier een signaal, geen gebrek dat verstopt
+    moet worden. Het antwoord wordt daarna door `toezicht_weergave.werkelijkheid_dossier`
+    gefilterd naar de drie werkelijkheidssignalen en aangevuld met de wasstraat-uitkomst en de
+    metingen (zie die module)."""
     try:
         register = _toezicht_register()
     except ConnectorError as exc:
@@ -724,29 +762,44 @@ def api_toezicht_dossier(vestiging: str):
     if v is None:
         raise HTTPException(status_code=404, detail=f"onbekende vestiging: {vestiging}")
 
+    aquo_ref = _toezicht_aquo_ref()
+    normenset = _toezicht_normenset()
+    doelenset = _toezicht_doelenset()
+
+    owl_id, wl_reden = toezicht_context.waterlichaam_van_vestiging(v, live=True)
+    register_codes = toezicht_aquo.register_codes(
+        [toezicht_aquo.verrijk(p, aquo_ref) for p in register])
+    punten = kmg_metingen.punten(_toezicht_metingen())
+    getoetst = toezicht_context.toetsing(punten, doelenset, normenset)
+
     crew = toezicht_runner.laad(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
     log = toezicht_runlog.Runlog()
-    normenset = _toezicht_normenset()
     invoer = {
         "vestiging": v,
-        "context": {"stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset)},
-        "aquo_ref": _toezicht_aquo_ref(),
+        "context": {
+            "stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset),
+            "gemeten_codes": _toezicht_gemeten_codes(),
+            "waterlichaam": owl_id,
+            "overschrijdingen": toezicht_context.overschrijdingen(getoetst),
+            "register_codes": register_codes,
+        },
+        "aquo_ref": aquo_ref,
         "normenset": normenset,
         "stelselcatalogus": _stelselcatalogus(),
     }
     staat = crew.draai(invoer, llm=None, runlog=log)
-    dossier = dict(staat["dossier"])
-    # `dossier()` zet zelf al een `runlog`-sleutel, maar dat is een foto vóór haar eigen stap en
-    # vóór de uitlegger erna (zie `dossier._signalen_stap`/`dossier.dossier`): op het moment dat
-    # `tool_dossier_samenstellen` haar aanroept, heeft de meegegeven `log` alleen de twee stappen
-    # ervóór. Hier is de hele run al klaar, dus vervang alleen `stappen` door de volledige, echte
-    # log -- `uitgezet` komt uit `dossier()` zelf (zij leest `uit` uit de staat), niet
-    # hardgecodeerd: zodra `invoer["uit"]` ooit gevuld wordt, moet die lijst meereizen in plaats
-    # van stil te verdwijnen.
-    bestaand_runlog = dossier.get("runlog") or {}
-    dossier["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
-                          "stappen": log.als_gegeven()}
-    return dossier
+    volledig = dict(staat["dossier"])
+    # Zelfde correctie als altijd: `dossier()` zet zelf al een `runlog`-sleutel, maar dat is een
+    # foto vóór haar eigen stap en vóór de uitlegger erna. Vervang `stappen` door de volledige,
+    # echte log; `uitgezet` komt uit `dossier()` zelf.
+    bestaand_runlog = volledig.get("runlog") or {}
+    volledig["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
+                           "stappen": log.als_gegeven()}
+
+    metingen_rijen = toezicht_context.metingen_bij_waterlichaam(getoetst, owl_id)
+    return toezicht_weergave.werkelijkheid_dossier(
+        volledig, waterlichaam=owl_id, waterlichaam_reden=wl_reden,
+        metingen_rijen=metingen_rijen)
 
 
 # -- /wasstraat: de papierbevindingen op het Maas-lozingenregister -------------------------------
@@ -769,8 +822,11 @@ def wasstraat_page():
 
 @app.get("/api/wasstraat/pijplijn")
 def api_wasstraat_pijplijn():
-    """Dezelfde configuratie als `/api/toezicht/pijplijn` -- één pijplijn, twee lezers, dus één
-    bron voor de pagina die toont hoe zij is opgebouwd (R4: geen crew gestart, geen validatie)."""
+    """De configuratie van de ene, gedeelde pijplijn die ook `/toezicht` draait -- sinds de
+    herbouw van `/toezicht` is dit de enige route die haar toont (die pagina liet haar eigen
+    `/api/toezicht/pijplijn` en agententabel vervallen, zie `geluidsmeter.api.toezicht_page`).
+    Geen crew gestart, geen validatie (R4): de pagina moet de configuratie kunnen tonen zonder
+    het proces uit te voeren."""
     gegeven = toezicht_pijplijn.als_gegeven(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
     return {**gegeven, "bron": TOEZICHT_AGENTS_PAD}
 

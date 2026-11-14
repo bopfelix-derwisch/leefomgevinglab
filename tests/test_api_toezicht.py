@@ -1,24 +1,20 @@
-"""`/toezicht` -- de pagina en de eindpunten (taak 8).
+"""`/toezicht` -- herbouwd als de tweede pagina van de wasstraat/toezicht-splitsing (plan:
+`docs/superpowers/plans/2026-11-14-wasstraat-en-toezicht-splitsen.md`). Drie delen: de uitkomst
+van de wasstraat voor deze vergunning, de metingen bij haar waterlichaam, en de drie
+werkelijkheidssignalen -- die laatste krijgen hier voor het eerst een echte context (`gemeten_
+codes`, `waterlichaam`, `overschrijdingen`, `register_codes`); vóór deze taak gaf de route
+`context: {}` op die vier sleutels na, en kon geen van de drie ooit vuren.
 
-Geen netwerk hier: `_toezicht_register`/`_toezicht_aquo_ref`/`_toezicht_normenset`/
-`_stelselcatalogus` worden per test gemonkeypatcht, net zoals `load_config` dat al overal in
-`test_api_water.py`/`test_api_kmg.py` is. De vier stappen uit de taakbrief staan hier letterlijk
-terug, met twee aanpassingen die de controller al als planfout had benoemd (R4/R19): de
-pijplijnvergelijking gebruikt `pijplijn.als_gegeven(...)`, niet `runner.laad(...).als_gegeven()`
-(dat bestaat niet -- `als_gegeven` hoort bij de module, niet bij `Crew`), en de `heeft_llm`-test
-toetst eligibility, niet gebruik (zie de correctie van de controller: het runlog-veld `llm`
-betekent vandaag "mocht een taalmodel krijgen", niet "heeft er een gebruikt").
+Geen netwerk hier: alle bronnen (`_toezicht_register`/`_toezicht_aquo_ref`/
+`_toezicht_normenset`/`_toezicht_doelenset`/`_toezicht_metingen`/`_toezicht_gemeten_codes`/
+`_stelselcatalogus`/`toezicht_context.waterlichaam_van_vestiging`) worden per test gemonkeypatcht,
+net zoals in `test_api_wasstraat.py`.
 """
 from fastapi.testclient import TestClient
 
 import leefomgevinglab.geluidsmeter.api as api
 from leefomgevinglab.usecases import water_hub as wh
-from leefomgevinglab.usecases.toezicht import pijplijn
-# Minor (R20-review): import uit een ander testbestand. Bewust zo gelaten -- `tests/
-# test_toezicht_pijplijn.py` doet exact hetzelfde (`from tests.test_toezicht_runner import
-# AGENTS, TASKS`), dus dit volgt het bestaande patroon van dit lab (één bron voor de paden naar
-# de echte configuratie) in plaats van een derde kopie van diezelfde twee regels te maken.
-from tests.test_toezicht_runner import AGENTS, TASKS
+from tests.test_kmg_doelen import NORMEN, SET as DOELEN, _stof, _zink
 
 
 def _client(monkeypatch):
@@ -32,25 +28,22 @@ FIXTURE_VESTIGING = {
     "kenmerk": None, "besluitdatum": "2020-01-01", "url": "https://example.org/vergunning",
     "voorschriften": [
         {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter",
-         "bemonstering": "Steekmonster"},
-        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter",
-         "bemonstering": "Steekmonster"},
+         "bemonstering": "Steekmonster", "rd": [190000.0, 350000.0]},
     ],
 }
 
 FIXTURE_AQUO_REF = {"beschikbaar": True, "geldig": {"zink": "Zn"}, "vervallen": {},
                      "vervangen_door": {}, "aantal": {}}
-FIXTURE_NORMENSET = {"beschikbaar": False, "normen": {}}
+FIXTURE_NORMENSET_LEEG = {"beschikbaar": False, "normen": {}}
+FIXTURE_DOELENSET_LEEG = {"beschikbaar": False, "waterlichamen": {}}
+FIXTURE_METINGEN_LEEG = {"beschikbaar": False, "punten": []}
 
-# Fix-ronde 1 (R20-review, finding "task 7 re-review"): `meerdere_grenswaarden` (de regel die
-# FIXTURE_VESTIGING triggert) heeft geen stofnaam nodig om een `waarom` te krijgen -- de
-# /kmg-proclaimer-bron kan op een heel ander trefwoord vuren en draagt zelf, in haar eigen
-# illustratieve zin, de tekst "opgelost zink". Een test die alleen controleert dat "zink"
-# ergens in de `waarom`-tekst staat, slaagt dus ook met nul bekabelde bronnen -- precies het
-# gat dat de review vond. Deze vestiging triggert in plaats daarvan `vervallen_code`, een regel
-# uit `_STOF_GEBONDEN_REGELS` (`runner._uitlegvraag`) die zonder een geïnjecteerde `aquo_ref`
-# niet eens kan vuren (`aquo.verrijk` zet `aquo_status` alleen als `ref["beschikbaar"]`), dus
-# "het signaal bestaat en draagt een waarom" is hier pas waar als de bron echt werkt.
+# Alias en twee fixtures die `test_api_wasstraat.py` hergebruikt (`/wasstraat` draait dezelfde
+# standaardpijplijn, niet een tweede). `FIXTURE_NORMENSET` is de oude naam, vóór deze taak de
+# normenset voor de uitlegger gaf; `/wasstraat` heeft geen van de nieuwe sleutels nodig (haar
+# zeven regels vragen geen context), dus de lege normenset is daar genoeg.
+FIXTURE_NORMENSET = FIXTURE_NORMENSET_LEEG
+
 FIXTURE_VESTIGING_VERVALLEN = {
     "naam": "Zwevende-stof BV", "plaats": "Venlo", "locatie": None,
     "locatiecode": "TEST02", "vestigingsnummer_kvk": "000098765432",
@@ -64,20 +57,36 @@ FIXTURE_VESTIGING_VERVALLEN = {
 FIXTURE_AQUO_REF_VERVALLEN = {"beschikbaar": True, "geldig": {},
                               "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
 
+# Eén meetpunt op het waterlichaam van FIXTURE_VESTIGING, met zowel zink als stikstof boven de
+# norm -- zink via de chemische norm (NORMEN, jaargemiddelde 7,8 ug/l), stikstof via het
+# ecologische doel (DOELEN, zomergemiddelde 2,5 mg/l). Beide waarden en fixtures komen letterlijk
+# uit `tests.test_kmg_doelen`, niet opnieuw verzonnen -- zie die module voor de rekensom.
+_PUNT_OVERSCHREDEN = {"code": "NL80_BELFBVN", "naam": "Belfeld boven", "waterlichaam": "NL91ZM",
+                      "stoffen": [_zink(jaargem=12.0), _stof(zomer=2.97)]}
+FIXTURE_METINGEN_OVERSCHREDEN = {"beschikbaar": True, "punten": [_PUNT_OVERSCHREDEN]}
 
-def _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING,)):
-    """De vier live bronnen van `/api/toezicht/dossier` vervangen door vaste data -- precies de
-    drie die R20 bekabelt (`aquo_ref`, `normenset`, `stelselcatalogus`) plus het register zelf."""
+
+def _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING,), aquo_ref=FIXTURE_AQUO_REF,
+                          normenset=FIXTURE_NORMENSET_LEEG, doelenset=FIXTURE_DOELENSET_LEEG,
+                          metingen=FIXTURE_METINGEN_LEEG, gemeten_codes=frozenset({"Zn"}),
+                          waterlichaam=(None, None)):
+    """Alle bronnen die `/api/toezicht/dossier` samen bekabelt. `gemeten_codes` bevat
+    standaard de eigen stof van `FIXTURE_VESTIGING` ("Zn") -- zonder expliciete tegenbewijzen
+    moet geen van de drie werkelijkheidsregels vuren, zie de negatieve controle hieronder."""
     monkeypatch.setattr(api, "_toezicht_register", lambda: list(register))
-    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF)
-    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: aquo_ref)
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: normenset)
+    monkeypatch.setattr(api, "_toezicht_doelenset", lambda: doelenset)
+    monkeypatch.setattr(api, "_toezicht_metingen", lambda: metingen)
+    monkeypatch.setattr(api, "_toezicht_gemeten_codes", lambda: set(gemeten_codes))
     monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+    monkeypatch.setattr(api.toezicht_context, "waterlichaam_van_vestiging",
+                         lambda v, live=True, **kw: waterlichaam)
 
 
-# -- Stap 1: de open-data-banner --------------------------------------------------------------
+# -- Banner en taalregel (ongewijzigd t.o.v. vóór de splitsing) --------------------------------
 
 def test_de_pagina_draagt_de_open_data_banner(monkeypatch):
-    """Zonder deze banner suggereert de pagina een bevoegdheid die dit lab niet heeft."""
     h = _client(monkeypatch).get("/toezicht").text.lower()
     assert "open data" in h
     assert "geen bevoegdheid" in h
@@ -86,8 +95,6 @@ def test_de_pagina_draagt_de_open_data_banner(monkeypatch):
     assert "zonder logging" in h
 
 
-# -- Stap 2: de taalregel op de echte HTML -----------------------------------------------------
-
 def test_de_pagina_haalt_de_taalregel_op_de_echte_html(monkeypatch):
     h = _client(monkeypatch).get("/toezicht").text.lower()
     assert "overtreding" not in h
@@ -95,45 +102,23 @@ def test_de_pagina_haalt_de_taalregel_op_de_echte_html(monkeypatch):
     assert "in strijd met" not in h
 
 
-# -- Stap 3: de pijplijn op de pagina komt uit dezelfde configuratie als de runner --------------
-
-def test_de_pijplijn_op_de_pagina_komt_uit_dezelfde_configuratie_als_de_runner(monkeypatch):
-    """Een getekende keten naast een draaiende keten gaat uiteenlopen; dan toont de pagina een
-    proces dat niet meer bestaat. Daarom één bron voor beide.
-
-    Aangepast t.o.v. de letterlijke testcode in de brief (R4): die riep
-    `runner.laad(AGENTS_PAD, TASKS_PAD).als_gegeven()` aan, en die methode bestaat niet op
-    `Crew` -- `als_gegeven` hoort bij `pijplijn.py` (zie de moduledocstring daar). Verder is het
-    veld `naam` in de brief in werkelijkheid `id` (zie `test_toezicht_pijplijn.py`)."""
-    uit_api = _client(monkeypatch).get("/api/toezicht/pijplijn").json()
-    uit_module = pijplijn.als_gegeven(AGENTS, TASKS)
-    assert [a["id"] for a in uit_api["agents"]] == [a["id"] for a in uit_module["agents"]]
-    assert uit_api["bron"].endswith("agents.yaml")
-
-
-# -- Stap 4: per agent zichtbaar of een taalmodel mag meedoen -----------------------------------
-
-def test_de_pijplijn_toont_per_agent_of_een_taalmodel_mag_meedoen(monkeypatch):
-    """Dat is wat een lezer het eerst wil weten en wat in code onzichtbaar is.
-
-    `heeft_llm` is hier eligibility (staat de `llm`-sleutel in de agentconfiguratie), niet "heeft
-    in deze run een taalmodel gebruikt" -- dat tweede kan de runlog alleen per stap zeggen (zie
-    `test_het_dossier_endpoint_draait_zonder_taalmodel_en_toont_dat_ook_zo` hieronder), en de
-    twee mogen op deze pagina niet door elkaar heen gelezen worden (correctie van de controller)."""
-    d = _client(monkeypatch).get("/api/toezicht/pijplijn").json()
-    heeft_llm = {a["id"]: a["heeft_llm"] for a in d["agents"]}
-    assert heeft_llm["signaalsteller"] is False
-    assert heeft_llm["vergunninglezer"] is False
-    assert heeft_llm["uitlegger"] is True
-    r = _client(monkeypatch).get("/toezicht")
-    assert "heeft_llm" in r.text, "de pagina rendert het veld niet"
-    assert "mag taalmodel" in r.text, "de pagina labelt het veld niet als eligibility"
+def test_een_echt_dossier_respecteert_ook_de_taalregel(monkeypatch):
+    """De taalregel geldt op de data, niet alleen op de statische HTML -- vooral belangrijk voor
+    `norm_overschreden_bovenstrooms`, die uitdrukkelijk niet mag zeggen dat deze vestiging de
+    overschrijding veroorzaakt."""
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL91ZM", None))
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    tekst = " ".join(s.get("bewering", "") + " " + (s.get("waarom") or "") for s in d["signalen"])
+    tekst_laag = tekst.lower()
+    assert "overtreding" not in tekst_laag
+    assert "veroorzaakt door" not in tekst_laag
+    assert "in strijd met" not in tekst_laag
 
 
 # -- Route, hub-lid, pagina ----------------------------------------------------------------------
 
 def test_toezicht_is_lid_van_het_waterdossier_en_krijgt_geen_eigen_kaart(monkeypatch):
-    """R6: géén apart lid op de homepagina -- de hub zegt wat erbij hoort."""
     assert wh.lid("toezicht")["pad"] == "/toezicht"
     r = _client(monkeypatch).get("/")
     assert 'href="/toezicht"' not in r.text
@@ -147,6 +132,15 @@ def test_toezichtpagina_geeft_200_met_de_subnav(monkeypatch):
     assert "__WATERNAV__" not in r.text
 
 
+def test_de_configuratie_staat_niet_meer_op_toezicht(monkeypatch):
+    """De pijplijn/agents-configuratie verhuisde naar `/wasstraat` (plan); `/api/toezicht/
+    pijplijn` bestaat niet meer en de pagina draagt geen agententabel."""
+    r = _client(monkeypatch).get("/api/toezicht/pijplijn")
+    assert r.status_code == 404
+    pagina = _client(monkeypatch).get("/toezicht").text.lower()
+    assert "mag taalmodel" not in pagina
+
+
 def test_vestigingen_endpoint_geeft_een_lijst(monkeypatch):
     _monkeypatch_bronnen(monkeypatch)
     r = _client(monkeypatch).get("/api/toezicht/vestigingen")
@@ -156,193 +150,111 @@ def test_vestigingen_endpoint_geeft_een_lijst(monkeypatch):
                   "plaats": "Venlo", "kenmerk": None}]
 
 
-# -- Eindreview, bevinding 1: `locatiecode` is geen unieke sleutel ------------------------------
-
-FIXTURE_VESTIGING_B = {
-    **FIXTURE_VESTIGING,
-    "naam": "Testvestiging BV", "kenmerk": "ANDER-KENMERK",
-    "voorschriften": [
-        {"parameter": "Lood", "waarde": 0.1, "eenheid": "milligram per liter"},
-    ],
-}
-
-
-def test_vestigingen_endpoint_geeft_elke_vestiging_een_unieke_id_ook_bij_een_dubbele_locatiecode(
-        monkeypatch):
-    """Twee vergunningen van dezelfde vestiging onder dezelfde `locatiecode` (zoals CORUSNB/Tata
-    Steel live) moeten twee verschillende `id`'s krijgen -- zonder dat is de tweede vanaf de
-    kiezer nooit te bereiken."""
-    _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING, FIXTURE_VESTIGING_B))
-    d = _client(monkeypatch).get("/api/toezicht/vestigingen").json()
-    ids = [v["id"] for v in d]
-    assert len(ids) == len(set(ids)) == 2, f"geen unieke id's: {ids}"
-    kenmerken = {v["kenmerk"] for v in d}
-    assert kenmerken == {None, "ANDER-KENMERK"}, "de kiezer kan de twee nu niet uit elkaar houden"
-
-
-def test_elke_id_van_de_vestigingen_endpoint_resolveert_naar_precies_een_dossier(monkeypatch):
-    """De tegenhanger: elke `id` die de kiezer aangeboden krijgt, moet via `/api/toezicht/dossier`
-    ook echt bij de bijbehorende vestiging uitkomen, niet bij allebei dezelfde (de bug: de eerste
-    van de twee werd altijd gevonden)."""
-    _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING, FIXTURE_VESTIGING_B))
-    client = _client(monkeypatch)
-    vestigingen = client.get("/api/toezicht/vestigingen").json()
-    assert len(vestigingen) == 2
-    gevonden_kenmerken = []
-    for v in vestigingen:
-        r = client.get(f"/api/toezicht/dossier?vestiging={v['id']}")
-        assert r.status_code == 200, f"id {v['id']!r} resolveert niet naar een dossier"
-        gevonden_kenmerken.append(r.json()["kaart"]["kenmerk"]["waarde"])
-    assert gevonden_kenmerken == [None, "ANDER-KENMERK"], (
-        "elke id moet naar haar eigen vergunning resolveren, niet twee keer naar dezelfde"
-    )
-
-
 def test_onbekende_vestiging_geeft_404(monkeypatch):
     _monkeypatch_bronnen(monkeypatch)
     r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=BESTAAT_NIET")
     assert r.status_code == 404
 
 
-# -- R20: de drie bronnen voor de uitlegger zijn echt bekabeld -----------------------------------
+# -- Alleen GET, nergens een schrijfpad -----------------------------------------------------------
 
-def test_het_dossier_endpoint_bekabelt_de_aquo_bron_en_vervallen_code_krijgt_een_waarom(monkeypatch):
-    """Vóór taak 8 zette `pijplijn`/de runner-aanroep geen van `aquo_ref`, `normenset` of
-    `stelselcatalogus` -- dus kreeg geen signaal in een echte run een `waarom` (R20). Deze test
-    draait de echte pijplijn (geen gemockte `dossier()`) met `aquo_ref` bekabeld en toont dat
-    `vervallen_code` -- een regel die zonder die bron niet eens kan vuren, zie de fixture-
-    toelichting hierboven -- een `waarom` krijgt die expliciet naar de Aquo-domeintabel
-    terugwijst, niet alleen toevallig het woord "zink" ergens bevat (de fout die de vorige
-    versie van deze test maakte, gevonden in de re-review van taak 7)."""
-    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING_VERVALLEN])
-    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF_VERVALLEN)
-    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
-    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
-    r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST02")
-    assert r.status_code == 200
-    d = r.json()
-    s = next((x for x in d["signalen"] if x["regel"] == "vervallen_code"), None)
-    assert s is not None, "vervallen_code vuurt niet -- de fixture of aquo.verrijk is gewijzigd"
-    assert s.get("waarom"), "vervallen_code draagt geen waarom -- de aquo_ref-bron is niet bekabeld"
-    assert "Aquo-domeintabel Parameter" in s["waarom"]
-    assert any("Aquo-domeintabel Parameter" in v for v in (s.get("waarom_vindplaatsen") or [])), (
-        "geen vindplaats naar de Aquo-domeintabel -- de harde regel vraagt een benoemde bron")
+def test_geen_post_op_vestigingen(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    r = _client(monkeypatch).post("/api/toezicht/vestigingen")
+    assert r.status_code in (404, 405)
 
 
-def test_zonder_de_aquo_bron_vuurt_vervallen_code_niet_en_dus_ook_geen_waarom(monkeypatch):
-    """De negatieve controle die bij de vorige test hoort: dezelfde vestiging, maar nu zonder
-    `aquo_ref` (`beschikbaar: False`, zoals een echte niet-gevonden referentie dat zelf al
-    teruggeeft). `aquo.verrijk()` laat de vestiging dan onaangeroerd, dus `vervallen_code` kan
-    niet vuren -- het signaal verdwijnt helemaal, niet alleen zijn `waarom`. Dat bewijst dat de
-    vorige test écht van de bekabeling afhangt, en niet van iets dat altijd waar is."""
-    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING_VERVALLEN])
-    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: {"beschikbaar": False})
-    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
-    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
-    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST02").json()
-    assert not any(s["regel"] == "vervallen_code" for s in d["signalen"]), (
-        "vervallen_code vuurt ook zonder aquo_ref -- dat zou de vorige test leeg laten slagen"
-    )
+def test_geen_post_op_dossier(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    r = _client(monkeypatch).post("/api/toezicht/dossier?vestiging=TEST01")
+    assert r.status_code in (404, 405)
 
 
-# -- Eindreview, optionele eenregelfix: `context["stoffen_met_norm"]` is nu bekabeld -----------
-
-def test_het_dossier_endpoint_vult_stoffen_met_norm_uit_de_normenset(monkeypatch):
-    """Vóór deze fix gaf de route `context: {}` door terwijl `normenset` (voor de uitlegger) twee
-    regels verderop al werd ingeladen -- `graaf.stoffen_met_norm(normenset)` bestond en was
-    getest, maar werd hier niet aangeroepen. Gevolg: signaal 1 (`geen_onafhankelijke_meting`) kon
-    via dit eindpunt nooit naar `hoog` escaleren, ook niet voor een stof met een echte KRW-norm,
-    en `voorbehouden` noemde dat gemis als vierde kanttekening. Deze test bewijst dat de sleutel nu
-    echt gevuld binnenkomt en dat die kanttekening verdwijnt."""
-    normenset = {"beschikbaar": True, "normen": {"NL91_X": [
-        {"meetpunt": "NL91_X", "parameter": "Zn", "hoedanigheid": "NVT",
-         "grondslag": "jaargemiddelde", "norm": 7.8, "eenheid": "ug/l"},
-    ]}}
-    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING])
-    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF)
-    monkeypatch.setattr(api, "_toezicht_normenset", lambda: normenset)
-    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
-    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
-    assert not any("stoffen_met_norm" in v for v in d["voorbehouden"]), (
-        "de kanttekening over een ontbrekende stoffen_met_norm staat er nog -- de sleutel is "
-        "niet bekabeld"
-    )
+def test_geen_put_nergens(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    client = _client(monkeypatch)
+    assert client.put("/api/toezicht/vestigingen").status_code in (404, 405)
+    assert client.put("/api/toezicht/dossier?vestiging=TEST01").status_code in (404, 405)
 
 
-def test_het_dossier_endpoint_draait_zonder_taalmodel_en_toont_dat_ook_zo(monkeypatch):
-    """De dossier-aanroep geeft `llm=None` mee (geen externe aanroep op de paginalading) --
-    elke stap in de echte runlog van deze run draagt dus `llm: False`, ook de stappen van
-    agents die wél een `llm`-sleutel in hun configuratie hebben (eligible, maar hier niet
-    gebruikt). Dat onderscheid is precies de correctie van de controller."""
+# -- Context werkelijk gevuld: de kern van deze taak ---------------------------------------------
+
+def test_zonder_context_vuurt_geen_van_de_drie_werkelijkheidsregels(monkeypatch):
+    """De negatieve controle: lege metingen/doelen/normen, geen waterlichaam gevonden, en de
+    eigen stof van de vestiging ("Zn") wél in `gemeten_codes` -- geen van de drie regels heeft
+    dan iets om op te vuren. Dit bewijst dat de volgende test's resultaat echt van de bekabeling
+    afhangt, en niet van regels die altijd vuren zodra er een vestiging is."""
     _monkeypatch_bronnen(monkeypatch)
     d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
-    stappen = d["runlog"]["stappen"]
-    assert stappen, "de runlog van deze run is leeg"
-    assert all(s["llm"] is False for s in stappen)
-    # De volledige run, niet het tussentijdse snapshot dat `dossier()` zelf nam vóór haar eigen
-    # stap en vóór de uitlegger erna.
-    agenten = [s["agent"] for s in stappen]
-    assert "uitlegger" in agenten, "de runlog mist de uitlegger-stap -- is het snapshot gebruikt?"
+    assert d["signalen"] == []
 
 
-# -- Fix-ronde 1 (R20-review, bevinding 3): `uitgezet` moet meereizen, niet hardgecodeerd [] ------
+def test_de_drie_werkelijkheidsregels_vuren_met_een_echte_context(monkeypatch):
+    """De hoofdtest van deze taak: met een echt waterlichaam, een echte toetsing en echte
+    registercodes vuren alle drie de werkelijkheidsregels voor dezelfde vestiging."""
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL91ZM", None),
+                          gemeten_codes={"Ntot"})  # "Zn" zit er niet in
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    regels = {s["regel"] for s in d["signalen"]}
+    assert regels == {"geen_onafhankelijke_meting", "norm_overschreden_bovenstrooms",
+                       "stof_buiten_register"}, f"niet alle drie vuren: {regels}"
 
-class _FakeCrew:
-    """Een crew die net genoeg doet om `api_toezicht_dossier` te laten denken dat `dossier()`
-    een niet-lege `uitgezet`-lijst had berekend -- zonder dat de route zelf al een `uit`-sleutel
-    in `invoer` moet zetten. Dat laatste gebeurt vandaag nergens (vandaar dat de bug onschadelijk
-    was), maar de route moet de lijst die `dossier()` teruggeeft wél doorgeven, niet overschrijven
-    met een hardgecodeerde `[]`."""
+    overschreden = next(s for s in d["signalen"] if s["regel"] == "norm_overschreden_bovenstrooms")
+    stoffen_in_bewijs = {b["stof"] for b in overschreden["bewijs"]}
+    assert stoffen_in_bewijs == {"Zn", "Ntot"}
 
-    def draai(self, invoer, llm=None, runlog=None):
-        if runlog is not None:
-            runlog.stap("vergunninglezer", "lees_vergunning", "atlas_vergunningen", 0, 0, False)
-        return {"dossier": {"kaart": {}, "signalen": [], "telling": {}, "voorbehouden": [],
-                             "runlog": {"uitgezet": ["uitlegger"], "stappen": []}}}
+    register_signaal = next(s for s in d["signalen"] if s["regel"] == "stof_buiten_register")
+    # "Zn" staat wél in het register (de vestiging heeft een zinkvoorschrift) -- alleen "Ntot"
+    # (stikstof) komt in geen enkele vergunning voor, dus alleen die hoort in dit bewijs.
+    assert {b["stof"] for b in register_signaal["bewijs"]} == {"Ntot"}
+
+    meting_signaal = next(s for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting")
+    assert all(b.get("aquo") == "Zn" or b.get("parameter") == "Zink"
+               for b in meting_signaal["bewijs"])
 
 
-def test_de_api_behoudt_de_uitgezette_agenten_die_dossier_teruggeeft(monkeypatch):
-    """`api_toezicht_dossier` zette `runlog["uitgezet"]` eerder altijd op `[]` in plaats van door
-    te geven wat `dossier()` zelf berekende uit `invoer["uit"]` -- harmless vandaag (de route
-    vult `uit` nergens), maar de lijst zou stilzwijgend verdwijnen zodra dat ooit wél gebeurt.
-    Deze test monkeypatcht de crew zelf, zodat hij bewijst dat de route doorgeeft wat `dossier()`
-    teruggeeft, los van of de route vandaag al een `uit`-sleutel vult."""
+def test_de_context_komt_niet_meer_terug_als_voorbehoud_als_zij_gevuld_is(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL91ZM", None),
+                          gemeten_codes={"Ntot"})
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    voorbehouden_tekst = " ".join(d["voorbehouden"])
+    assert "gemeten_codes" not in voorbehouden_tekst
+    assert "register_codes" not in voorbehouden_tekst
+    assert "lozer bovenstrooms' is niet getoetst" not in voorbehouden_tekst
+
+
+# -- De wasstraat-uitkomst: context, geen opdracht -----------------------------------------------
+
+def test_de_wasstraat_uitkomst_telt_de_papiersignalen_van_dezelfde_vestiging(monkeypatch):
+    """`FIXTURE_VESTIGING` mist `vestigingsnummer_kvk`? Nee -- maar zij draagt geen
+    geldigheidsduur (regel 10 vuurt altijd zodra er voorschriften zijn) en geen debietvoorschrift
+    bij een concentratiegrens (regel 5) -- dus de wasstraat-telling moet minstens 1 open
+    bevinding tonen, puur uit het papier, los van de context die deze route voor de drie
+    werkelijkheidsregels aanlevert."""
     _monkeypatch_bronnen(monkeypatch)
-    monkeypatch.setattr(api.toezicht_runner, "laad", lambda *a, **k: _FakeCrew())
-    r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01")
-    assert r.status_code == 200
-    assert r.json()["runlog"]["uitgezet"] == ["uitlegger"]
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert d["wasstraat"]["pad"] == "/wasstraat"
+    assert d["wasstraat"]["aantal_open"] >= 1
+    assert d["wasstraat"]["op_orde"] is False
 
 
-# -- Fix-ronde 3 (re-review): de regressiewacht moet onvoorwaardelijk draaien --------------------
+# -- De metingen bij het waterlichaam -------------------------------------------------------------
 
-def test_de_normenset_is_echt_bereikbaar_via_de_configuratie(monkeypatch):
-    """Fix-ronde 1 (R20-review, bevinding 1): elke andere test op `/api/toezicht/dossier`
-    monkeypatcht `_toezicht_normenset` rechtstreeks -- dat bewijst de bedrading stroomafwaarts
-    van de patch, niets over het configuratiepad zelf. Deze test roept de functie ongepatcht aan
-    tegen de echte `core/config.yaml` en bewijst dat het KRW-normenbestand daadwerkelijk wordt
-    gevonden. De oorspronkelijke fout las `leefomgevinglab.kmg.normen_pad` (bestaat niet); het
-    juiste pad staat onder `leefomgevinglab.waterpresentatie.normen_pad`.
+def test_metingen_zonder_waterlichaam_is_leeg_met_reden(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch, waterlichaam=(None, "geen coördinaat in de bron"))
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert d["metingen"]["waterlichaam"] is None
+    assert d["metingen"]["rijen"] == []
+    assert d["metingen"]["reden_geen_waterlichaam"] == "geen coördinaat in de bron"
 
-    **Fix-ronde 3 (re-review): waarom deze test hier staat en niet in een `*_live.py`-bestand.**
-    Hij stond eerst in `test_toezicht_live.py`, dat een module-brede
-    `pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"), ...)` draagt. Die
-    sleutel heeft deze test nooit nodig gehad: hij raakt geen netwerk, alleen een lokaal
-    JSON-bestand via `kmg_doelen.laad_normen`. Onder die skip-gate liep de regressiewacht voor
-    precies déze configuratiefout stilzwijgend niet mee in elke run zonder de sleutel (CI zonder
-    het secret, een bijdrager die `.env` niet source't, een geroteerde sleutel) -- terwijl de
-    suite toch "alles groen" rapporteerde. Dat is dezelfde blinde vlek als bevinding 1 zelf, één
-    laag verplaatst: verstopt achter een monkeypatch, toen verstopt achter een ongerelateerde
-    omgevingsvariabele. **Verplaats deze test niet terug naar een `*_live.py`-bestand** zonder
-    een even concrete, inhoudelijke reden waarom hij dan wél netwerk of een geheime sleutel nodig
-    zou hebben -- vandaag is dat niet het geval, en een skip-gate op een test die hem niet nodig
-    heeft is geen regressiewacht maar een gat dat op groen lijkt."""
-    from leefomgevinglab.geluidsmeter.config import load_config
 
-    monkeypatch.setattr(api, "_config", load_config())
-    normenset = api._toezicht_normenset()
-    assert normenset.get("beschikbaar") is True, (
-        f"de echte configuratie levert geen normenset: {normenset.get('reden')} -- "
-        "controleer leefomgevinglab.waterpresentatie.normen_pad in core/config.yaml"
-    )
-    assert normenset.get("normen"), "normenset is leeg -- het bestand bestaat maar draagt niets"
+def test_metingen_bij_een_bekend_waterlichaam_toont_de_rijen(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL91ZM", None))
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert d["metingen"]["waterlichaam"] == "NL91ZM"
+    codes = {r["stof"]["code"] for r in d["metingen"]["rijen"]}
+    assert codes == {"Zn", "Ntot"}
+    assert d["kaart"]["waterlichaam"] == {"waarde": "NL91ZM", "zekerheid": "afgeleid"}

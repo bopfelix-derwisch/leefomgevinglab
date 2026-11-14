@@ -72,15 +72,15 @@ def test_wasstraatpagina_geeft_200_met_de_subnav(monkeypatch):
 
 # -- De pijplijn komt uit dezelfde configuratie als /toezicht -----------------------------------
 
-def test_de_pijplijn_komt_uit_dezelfde_configuratie_als_toezicht(monkeypatch):
+def test_de_pijplijn_komt_uit_dezelfde_configuratie_als_de_runner(monkeypatch):
+    """`/api/toezicht/pijplijn` bestaat niet meer (de configuratie verhuisde volledig naar
+    `/wasstraat`, zie de taakbrief van `/toezicht`'s herbouw) -- deze test vergelijkt daarom
+    alleen nog tegen de module zelf, niet tegen een tweede route die dezelfde bron toonde."""
     uit_api = _client(monkeypatch).get("/api/wasstraat/pijplijn").json()
     uit_module = pijplijn.als_gegeven(AGENTS, TASKS)
     assert [a["id"] for a in uit_api["agents"]] == [a["id"] for a in uit_module["agents"]]
     assert [t["id"] for t in uit_api["tasks"]] == [t["id"] for t in uit_module["tasks"]]
     assert uit_api["bron"].endswith("agents.yaml")
-    # Zelfde bron als /api/toezicht/pijplijn -- één pijplijn, twee lezers.
-    uit_toezicht = _client(monkeypatch).get("/api/toezicht/pijplijn").json()
-    assert uit_api["bron"] == uit_toezicht["bron"]
 
 
 def test_de_pagina_rendert_de_takenorde(monkeypatch):
