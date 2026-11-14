@@ -251,6 +251,50 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt een
   **proclaimer** die uit de data zelf wordt opgebouwd, zodat tekst en getallen niet uit de pas
   kunnen lopen met wat de lezer ziet.
+- ✅ **Toezichtsignalen (`/toezicht`, `/api/toezicht/{vestigingen,dossier,pijplijn}`):** hetzelfde
+  Maas-register, maar met de vraag van de **toezichthouder** in plaats van die van de
+  vergunningverlener: niet "wat kan hier nog" maar **"waar moet ik gaan kijken"**. Een gat in de
+  data is hier zélf een signaal, geen beperking. Tien **deterministische** signaalregels
+  (`usecases/toezicht/signalen.py`), elk een gewone functie met een eigen test — **géén taalmodel
+  in de signaalbepaling**, want een signaal dat een model "zag" is niet navraagbaar. Het model legt
+  alleen uit, en **zwijgt zonder benoemde vindplaats**. Verder: `dossier.py` (de kaart met
+  ontbrekende velden zichtbaar, de gerangschikte signalen, de voorbehouden), `rapport.py` (een
+  `.xlsx`, een blad per signaal), `graaf.py`/`vraag.py` (lokale triple-store plus een
+  **AST-gebaseerde** SPARQL-validator — regex op SPARQL is te omzeilen; een ontbrekende `LIMIT`
+  wordt geweigerd en een te grote ook, zodat de uitgevoerde query nooit afwijkt van wat de lezer
+  ziet), `aquo.py` (geldige **én ingetrokken** codes uit de ruwe CSV — zonder die tweede
+  opzoektabel is signaal 2 dode code, want `lozingsmodel.laad_parameters()` levert alleen geldige
+  codes), `uitleg.py`, `terugkoppeling.py`, `runner.py`/`runlog.py`/`pijplijn.py`.
+  **De agents staan in CrewAI-vorm in `config/agents.yaml`**, en dat is het punt en geen
+  inrichtingsdetail: in dit lab is de gegevensherkomst zichtbaar en de **bewerking** niet. Drie van
+  de zes agents dragen géén `llm`-sleutel — de grens "agents bepalen geen signalen" staat er als
+  een *afwezig veld* in plaats van als een belofte in proza, en de runner geeft die agents nooit
+  een model door, ook niet als `draai()` er een meekrijgt. De runlog voert per stap mee wie, wat,
+  hoeveel rijen in en uit, hoe lang, en of er werkelijk een model is **aangeroepen** (een tellende
+  omhulling; "mocht er een krijgen" was de oude, te ruime lezing). Pijplijn en runlog staan op de
+  pagina, niet achter een knop. CrewAI zelf draait hier aantoonbaar (1.15.41, aarch64, tegen Qwen
+  op `:8080`) maar past **niet in deze venv**: het eist `pydantic<2.13` en dit project draait op
+  2.13.4. Telemetrie staat er standaard aan, uit met één van `OTEL_SDK_DISABLED`,
+  `CREWAI_DISABLE_TELEMETRY`, `CREWAI_DISABLE_TRACKING`.
+  **Vier valkuilen die deze use-case duur heeft betaald**, alle vier gevonden door de **draaiende
+  dienst** te bevragen en geen van de vier door code te lezen: (1) **`locatiecode` is géén
+  sleutel** — 69 registerregels, 61 distincte codes, en de 8 dubbele dekken twéé verschillende
+  vergunningen op dezelfde locatie (Tata Steel: `RWS-2015/19557` met 118 rijen én
+  `RWS/DNB-2012/5083` met 12), dus acht vergunningen waren onbereikbaar; de identiteit is nu
+  `locatiecode::kenmerk`. (2) **132 van de 782 voorschriften zijn identieke dubbele rijen** (17%) —
+  `gebruiksruimte/atlas_register._dedupe()` bestond al met precies die reden in zijn docstring;
+  `toezicht` ontdubbelt nu één keer, op de grens waar het register binnenkomt. (3) **grenswaarden
+  in verschillende eenheden vergelijken** gaf "factor 35.704.419×" op Warmte (MJ/dag tegen
+  MJ/seconde) — regel 4 groepeert nu op `(parameter, eenheid)` en sluit `Zuurgraad` uit, want een
+  pH-venster is een correcte vergunning en een pH-verhouding is sowieso betekenisloos; de telling
+  ging van 164 naar **114**, en 54% van die oude 164 was artefact. (4) **een bare Aquo-code matcht
+  een gewoon Nederlands woord** — `Te` (tellurium) in "vracht niet **te** bepalen" gaf twee
+  signalen een tellurium-norm mét bronvermelding. Codes matchen nu hoofdlettergevoelig op
+  woordgrens.
+  NB: een afwezige uitleg is zichtbaar als afwezig, mét de reden, en met onderscheid tussen "geen
+  bron had iets" en "al eerder gegeven". Deel C (de `.xlsx`) en de bevraagbare laag zijn gebouwd en
+  getest maar hebben nog géén route — eerlijk afwezig, niet beweerd. Plan en beslissingen:
+  `docs/superpowers/plans/2026-11-13-toezichtsignalen-agentic-maas.md`.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---
