@@ -2,9 +2,11 @@
 
 Conservatief contract (spiegelt usecases/datavraag). Read-only + SQL-guard.
 """
+import json
 import re
 from pathlib import Path
 
+import duckdb
 import httpx
 
 from leefomgevinglab.connectors.base import ConnectorError
@@ -24,6 +26,43 @@ class OngeldigeSQL(Exception):
     """De gegenereerde SQL is leeg, geen enkele SELECT, of bevat verboden constructies."""
 
 
+def _top_level_limit(sql: str):
+    """Zoekt de LIMIT-clausule van de buitenste SELECT/WITH/UNION-node via DuckDB's eigen parser
+    (`json_serialize_sql`), in plaats van een regex over de platte tekst.
+
+    Fix 1 (taakrapport): een eerdere versie zocht met `re.search(r"\\blimit\\s+\\d+\\b", ...)` over
+    de hele querytekst en herschreef die ook met een tekst-brede `re.sub` -- dat trof dus ook een
+    stringliteral die toevallig op "limit <getal>" lijkt (`WHERE naam = 'limit 99999'`). DuckDB's
+    parser kent, anders dan rdflib's SPARQL-parser (zie `usecases/toezicht/vraag.py`), wel een
+    `query_location` per node: de exacte tekenpositie van de limietwaarde in de oorspronkelijke
+    tekst. Daarmee kan een te grote LIMIT op zijn eigen plek verlaagd worden, zonder de tekst
+    ergens anders te raken -- de uitgevoerde query blijft dan letterlijk gelijk aan wat `/afval`
+    toont, wat met een tekst-brede substitutie nooit gegarandeerd was.
+
+    Geeft `None` als er geen LIMIT-modifier is, of `(locatie, lengte, waarde)` van de letterlijke
+    getalsconstante. Een LIMIT die geen letterlijk getal is (een expressie of parameter) kan niet
+    veilig verlaagd worden en levert een `OngeldigeSQL` op."""
+    con = duckdb.connect(":memory:")
+    try:
+        ruw = con.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0]
+    finally:
+        con.close()
+    geparsed = json.loads(ruw)
+    if geparsed.get("error"):
+        raise OngeldigeSQL(f"kan query niet parsen: {geparsed.get('error_message', '')}")
+    node = geparsed["statements"][0]["node"]
+    for mod in node.get("modifiers", []):
+        if mod.get("type") != "LIMIT_MODIFIER":
+            continue
+        limiet = mod.get("limit") or {}
+        if limiet.get("class") != "CONSTANT" or limiet.get("value", {}).get("is_null"):
+            raise OngeldigeSQL("LIMIT moet een letterlijk getal zijn")
+        waarde = limiet["value"]["value"]
+        tekst = str(waarde)
+        return limiet["query_location"], len(tekst), waarde
+    return None
+
+
 def valideer_sql(sql: str) -> str:
     s = (sql or "").strip()
     while s.endswith(";"):
@@ -38,12 +77,13 @@ def valideer_sql(sql: str) -> str:
     for kw in _VERBODEN:
         if re.search(rf"\b{kw}\b", low):
             raise OngeldigeSQL(f"verboden trefwoord: {kw}")
-    m = re.search(r"\blimit\s+(\d+)\b", low)
-    if m:
-        if int(m.group(1)) > _MAX_LIMIT:
-            s = re.sub(r"\blimit\s+\d+\b", f"LIMIT {_MAX_LIMIT}", s, flags=re.IGNORECASE)
-    else:
+    gevonden = _top_level_limit(s)
+    if gevonden is None:
         s = f"{s} LIMIT {_MAX_LIMIT}"
+    else:
+        locatie, lengte, waarde = gevonden
+        if waarde > _MAX_LIMIT:
+            s = s[:locatie] + str(_MAX_LIMIT) + s[locatie + lengte:]
     return s
 
 

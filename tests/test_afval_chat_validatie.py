@@ -12,6 +12,22 @@ def test_bestaande_limit_te_hoog_wordt_verlaagd():
     assert "200" in out and "9999" not in out
 
 
+def test_stringliteral_met_limit_blijft_ongemoeid_bij_verlagen():
+    """Fix 1 (taakrapport): een tekst-brede re.sub trof ook een stringliteral die toevallig op
+    "limit <getal>" lijkt, waardoor de query naar iets anders zocht dan wat ze liet zien. De
+    letterlijke waarde moet intact blijven; alleen de echte LIMIT-clausule wordt verlaagd."""
+    out = chat.valideer_sql(
+        "SELECT naam FROM afval_feit WHERE naam = 'limit 99999' LIMIT 999999")
+    assert out == "SELECT naam FROM afval_feit WHERE naam = 'limit 99999' LIMIT 200"
+
+
+def test_stringliteral_met_limit_en_geldige_limit_blijft_exact_gelijk():
+    """Een legitieme query met een stringliteral die "limit" bevat én een LIMIT binnen de cap
+    moet ongewijzigd doorgegeven worden -- geen enkele herschrijving, ook niet toevallig."""
+    sql = "SELECT naam FROM afval_feit WHERE naam LIKE '%limit 50%' LIMIT 50"
+    assert chat.valideer_sql(sql) == sql
+
+
 def test_with_is_toegestaan():
     out = chat.valideer_sql("WITH x AS (SELECT 1 AS n) SELECT n FROM x")
     assert out.lower().startswith("with")
