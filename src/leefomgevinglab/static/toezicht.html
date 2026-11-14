@@ -309,10 +309,10 @@
       }
     }
 
-    async function laadDossier(locatiecode) {
+    async function laadDossier(vestigingId) {
       $("status").textContent = "Dossier wordt samengesteld…";
       try {
-        const r = await fetch(`/api/toezicht/dossier?vestiging=${encodeURIComponent(locatiecode)}`);
+        const r = await fetch(`/api/toezicht/dossier?vestiging=${encodeURIComponent(vestigingId)}`);
         if (!r.ok) {
           const d = await r.json().catch(() => ({}));
           throw new Error(d.detail || `HTTP ${r.status}`);
@@ -340,11 +340,16 @@
           $("status").textContent = "Geen vestigingen beschikbaar.";
           return;
         }
+        // Eindreview, bevinding 1: `locatiecode` is geen unieke sleutel (8 van de 69 dekken
+        // live twee vergunningen van dezelfde vestiging) -- de kiezer gebruikt daarom `v.id`
+        // als waarde, en toont het kenmerk erbij zodat zo'n paar ook echt als twee dingen
+        // leesbaar is, niet als twee keer dezelfde regel.
         sel.innerHTML = vestigingen.map(v =>
-          `<option value="${esc(v.locatiecode)}">${esc(v.naam || v.locatiecode)}` +
-          (v.plaats ? ` — ${esc(v.plaats)}` : "") + `</option>`).join("");
-        sel.value = vestigingen[0].locatiecode;
-        await laadDossier(vestigingen[0].locatiecode);
+          `<option value="${esc(v.id)}">${esc(v.naam || v.locatiecode)}` +
+          (v.plaats ? ` — ${esc(v.plaats)}` : "") +
+          ` (${esc(v.kenmerk || "geen kenmerk")})` + `</option>`).join("");
+        sel.value = vestigingen[0].id;
+        await laadDossier(vestigingen[0].id);
       } catch (e) {
         $("status").textContent = `Vestigingen ophalen mislukt: ${esc(e.message)}`;
       }

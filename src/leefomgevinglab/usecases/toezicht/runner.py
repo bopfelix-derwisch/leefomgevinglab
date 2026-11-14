@@ -142,11 +142,22 @@ def _tel(waarde) -> int:
 
 
 def _vestiging_id(staat: dict) -> str | None:
-    """Het kleinste identificerende veld van de vestiging in `staat` -- `naam`, anders
-    `locatiecode`, anders `None`. Dit is wat elke `args`-samenvatting over de vestiging draagt in
-    plaats van de vestiging zelf (met al haar voorschriften)."""
+    """Het kleinste identificerende veld van de vestiging in `staat` -- `naam` (plus `kenmerk`
+    als dat er is), anders `locatiecode`, anders `None`. Dit is wat elke `args`-samenvatting over
+    de vestiging draagt in plaats van de vestiging zelf (met al haar voorschriften).
+
+    Eindreview, bevinding 1: twee vergunningen van dezelfde vestiging delen hun `naam` (bv.
+    CORUSNB/Tata Steel Nederland Tubes B.V., live twee kenmerken onder één locatiecode) -- zonder
+    `kenmerk` erbij zou de runlog van zo'n dossier niet laten zien welke van de twee draaide. Dit
+    is geen vervanging van de registerbrede identiteit uit `toezicht_register.identiteiten`
+    (die kent het hele register, deze functie ziet maar één `vestiging`-dict), maar wel genoeg om
+    de runlog van de andere te onderscheiden zodra `kenmerk` gevuld is."""
     vestiging = staat.get("vestiging") or {}
-    return vestiging.get("naam") or vestiging.get("locatiecode")
+    naam = vestiging.get("naam")
+    kenmerk = vestiging.get("kenmerk")
+    if naam and kenmerk:
+        return f"{naam} ({kenmerk})"
+    return naam or vestiging.get("locatiecode")
 
 
 def tool_atlas_vergunningen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:

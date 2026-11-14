@@ -342,6 +342,32 @@ def test_vervallen_code_raakt_de_aantallen_die_het_plan_noemt(register):
 # niet meelopen. Verplaatst naar `tests/test_api_toezicht.py`, dat geen skip-gate draagt.
 
 
+# == Eindreview, bevinding 1: elke vestiging heeft een unieke identiteit, ook live ================
+
+def test_elke_vestiging_in_het_live_register_krijgt_een_unieke_identiteit(register):
+    """8 van de 69 locatiecodes dekken live twee vergunningen van dezelfde vestiging (o.a.
+    CORUSNB/Tata Steel Nederland Tubes B.V.) -- `locatiecode` alleen is dus geen bruikbare
+    sleutel voor `/api/toezicht/dossier`. `register.identiteiten` moet het hele register, zoals
+    het vandaag uit de Atlas komt, nog steeds uniek kunnen identificeren."""
+    ids = register_mod.identiteiten(register)
+    assert len(ids) == len(register) == 69
+    assert len(set(ids)) == 69, (
+        f"{len(set(ids))} unieke identiteiten i.p.v. 69 -- een dubbele locatiecode wordt niet "
+        "meer uniek gemaakt, of het aantal vestigingen is gewijzigd (zie de verbatim-test hierboven)"
+    )
+
+
+def test_corusnb_krijgt_live_twee_verschillende_identiteiten_voor_twee_echte_vergunningen(register):
+    """Het concrete, gevonden geval: Tata Steel Nederland Tubes B.V. draagt onder locatiecode
+    CORUSNB twee vergunningen (RWS-2015/19557, 118 voorschriften; RWS/DNB-2012/5083, 12
+    voorschriften). Beide moeten een eigen, vindbare identiteit krijgen."""
+    corusnb = [v for v in register if v.get("locatiecode") == "CORUSNB"]
+    assert len(corusnb) == 2, f"{len(corusnb)} CORUSNB-entries i.p.v. 2 -- de Atlas is gewijzigd"
+    ids = register_mod.identiteiten(register)
+    corusnb_ids = [i for i, v in zip(ids, register) if v.get("locatiecode") == "CORUSNB"]
+    assert len(set(corusnb_ids)) == 2
+
+
 # == Eindreview, bevinding 3: ontdubbelen van letterlijk herhaalde voorschriften =================
 
 def test_het_live_register_draagt_132_letterlijke_duplicaatvoorschriften(register):

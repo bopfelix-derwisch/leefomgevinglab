@@ -152,7 +152,50 @@ def test_vestigingen_endpoint_geeft_een_lijst(monkeypatch):
     r = _client(monkeypatch).get("/api/toezicht/vestigingen")
     assert r.status_code == 200
     d = r.json()
-    assert d == [{"locatiecode": "TEST01", "naam": "Testvestiging BV", "plaats": "Venlo"}]
+    assert d == [{"id": "TEST01", "locatiecode": "TEST01", "naam": "Testvestiging BV",
+                  "plaats": "Venlo", "kenmerk": None}]
+
+
+# -- Eindreview, bevinding 1: `locatiecode` is geen unieke sleutel ------------------------------
+
+FIXTURE_VESTIGING_B = {
+    **FIXTURE_VESTIGING,
+    "naam": "Testvestiging BV", "kenmerk": "ANDER-KENMERK",
+    "voorschriften": [
+        {"parameter": "Lood", "waarde": 0.1, "eenheid": "milligram per liter"},
+    ],
+}
+
+
+def test_vestigingen_endpoint_geeft_elke_vestiging_een_unieke_id_ook_bij_een_dubbele_locatiecode(
+        monkeypatch):
+    """Twee vergunningen van dezelfde vestiging onder dezelfde `locatiecode` (zoals CORUSNB/Tata
+    Steel live) moeten twee verschillende `id`'s krijgen -- zonder dat is de tweede vanaf de
+    kiezer nooit te bereiken."""
+    _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING, FIXTURE_VESTIGING_B))
+    d = _client(monkeypatch).get("/api/toezicht/vestigingen").json()
+    ids = [v["id"] for v in d]
+    assert len(ids) == len(set(ids)) == 2, f"geen unieke id's: {ids}"
+    kenmerken = {v["kenmerk"] for v in d}
+    assert kenmerken == {None, "ANDER-KENMERK"}, "de kiezer kan de twee nu niet uit elkaar houden"
+
+
+def test_elke_id_van_de_vestigingen_endpoint_resolveert_naar_precies_een_dossier(monkeypatch):
+    """De tegenhanger: elke `id` die de kiezer aangeboden krijgt, moet via `/api/toezicht/dossier`
+    ook echt bij de bijbehorende vestiging uitkomen, niet bij allebei dezelfde (de bug: de eerste
+    van de twee werd altijd gevonden)."""
+    _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING, FIXTURE_VESTIGING_B))
+    client = _client(monkeypatch)
+    vestigingen = client.get("/api/toezicht/vestigingen").json()
+    assert len(vestigingen) == 2
+    gevonden_kenmerken = []
+    for v in vestigingen:
+        r = client.get(f"/api/toezicht/dossier?vestiging={v['id']}")
+        assert r.status_code == 200, f"id {v['id']!r} resolveert niet naar een dossier"
+        gevonden_kenmerken.append(r.json()["kaart"]["kenmerk"]["waarde"])
+    assert gevonden_kenmerken == [None, "ANDER-KENMERK"], (
+        "elke id moet naar haar eigen vergunning resolveren, niet twee keer naar dezelfde"
+    )
 
 
 def test_onbekende_vestiging_geeft_404(monkeypatch):
@@ -199,6 +242,30 @@ def test_zonder_de_aquo_bron_vuurt_vervallen_code_niet_en_dus_ook_geen_waarom(mo
     d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST02").json()
     assert not any(s["regel"] == "vervallen_code" for s in d["signalen"]), (
         "vervallen_code vuurt ook zonder aquo_ref -- dat zou de vorige test leeg laten slagen"
+    )
+
+
+# -- Eindreview, optionele eenregelfix: `context["stoffen_met_norm"]` is nu bekabeld -----------
+
+def test_het_dossier_endpoint_vult_stoffen_met_norm_uit_de_normenset(monkeypatch):
+    """Vóór deze fix gaf de route `context: {}` door terwijl `normenset` (voor de uitlegger) twee
+    regels verderop al werd ingeladen -- `graaf.stoffen_met_norm(normenset)` bestond en was
+    getest, maar werd hier niet aangeroepen. Gevolg: signaal 1 (`geen_onafhankelijke_meting`) kon
+    via dit eindpunt nooit naar `hoog` escaleren, ook niet voor een stof met een echte KRW-norm,
+    en `voorbehouden` noemde dat gemis als vierde kanttekening. Deze test bewijst dat de sleutel nu
+    echt gevuld binnenkomt en dat die kanttekening verdwijnt."""
+    normenset = {"beschikbaar": True, "normen": {"NL91_X": [
+        {"meetpunt": "NL91_X", "parameter": "Zn", "hoedanigheid": "NVT",
+         "grondslag": "jaargemiddelde", "norm": 7.8, "eenheid": "ug/l"},
+    ]}}
+    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING])
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF)
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: normenset)
+    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert not any("stoffen_met_norm" in v for v in d["voorbehouden"]), (
+        "de kanttekening over een ontbrekende stoffen_met_norm staat er nog -- de sleutel is "
+        "niet bekabeld"
     )
 
 

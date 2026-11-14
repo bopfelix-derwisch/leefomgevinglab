@@ -181,6 +181,11 @@ rond `(170000, 390000)`:
   **gevonden op 2026-11-14 (eindreview, bevinding 3)**, niet in de oorspronkelijke verificatie:
   CORUSNB's eerste vergunning draagt 118 rijen, waarvan maar 46 unieke. `toezicht_register.
   voorbereid` ontdubbelt dit nu bij de grens waarop het register `toezicht` binnenkomt.
+- **8 van de 69 locatiecodes dekken twee vergunningen van dezelfde vestiging**, niet één --
+  **gevonden op 2026-11-14 (eindreview, bevinding 1)**: `locatiecode` was tot die fix de sleutel
+  waarmee `/api/toezicht/dossier` een vestiging opzocht, en vond dan altijd de eerste van de
+  twee. `toezicht_register.identiteiten` geeft elke vestiging nu een gegarandeerd unieke
+  identiteit.
 
 **Aquo-domeintabel Parameter** (`aquo_parameters.json`, 5760 namen): van de 782 voorschriften
 koppelen **677 op een geldige Aquo-code** (56 verschillende stoffen); **105 voorschriften over 13

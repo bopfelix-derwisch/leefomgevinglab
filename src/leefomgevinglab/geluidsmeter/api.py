@@ -56,6 +56,7 @@ from leefomgevinglab.usecases.toezicht import pijplijn as toezicht_pijplijn
 from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
 from leefomgevinglab.usecases.toezicht import runner as toezicht_runner
 from leefomgevinglab.usecases.toezicht import register as toezicht_register
+from leefomgevinglab.usecases.toezicht import graaf as toezicht_graaf
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -671,13 +672,23 @@ def api_toezicht_pijplijn():
 def api_toezicht_vestigingen():
     """De vestigingen in het register, voor de kiezer op de pagina -- alleen de velden die een
     keuze tonen, niet het volledige dossier per vestiging (dat is een afzonderlijke, zwaardere
-    aanroep, zie `api_toezicht_dossier`)."""
+    aanroep, zie `api_toezicht_dossier`).
+
+    **Eindreview, bevinding 1.** `id` is niet `locatiecode`: 8 van de 69 locatiecodes dekken twee
+    vergunningen van dezelfde vestiging (zie `toezicht_register.identiteiten`), en vóór deze fix
+    loste `api_toezicht_dossier` zo'n dubbele code altijd naar de eerste op -- de andere, en elk
+    signaal dat zij zou opleveren, was onbereikbaar, zonder dat ergens zichtbaar werd dat hij
+    bestond. `id` is wat `api_toezicht_dossier` nu opzoekt; `kenmerk` staat erbij zodat de kiezer
+    de twee vergunningen van zo'n vestiging ook echt als twee dingen kan tonen, niet als twee keer
+    dezelfde regel."""
     try:
         register = _toezicht_register()
     except ConnectorError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
-    return [{"locatiecode": v.get("locatiecode"), "naam": v.get("naam"), "plaats": v.get("plaats")}
-            for v in register]
+    ids = toezicht_register.identiteiten(register)
+    return [{"id": i, "locatiecode": v.get("locatiecode"), "naam": v.get("naam"),
+             "plaats": v.get("plaats"), "kenmerk": v.get("kenmerk")}
+            for i, v in zip(ids, register)]
 
 
 @app.get("/api/toezicht/dossier")
@@ -689,26 +700,37 @@ def api_toezicht_dossier(vestiging: str):
     een `waarom`, en de pagina mag niet wachten op een externe aanroep naar het lokale model om
     die te tonen.
 
-    `context` blijft leeg: dit lab heeft geen betrouwbare, snel te bevragen bron voor
-    `gemeten_codes` (dat vraagt de 142 MB ruwe WKP-CSV, zie `test_toezicht_live.py`), een live
-    waterlichaam-opzoeking per vestiging of de normenlijst per stof. `dossier()` zet dat zelf om
-    in expliciete voorbehouden (`d["voorbehouden"]`) in plaats van er iets bij te verzinnen --
+    `vestiging` is de `id` die `api_toezicht_vestigingen` teruggaf (`toezicht_register.
+    identiteiten`), niet de rauwe `locatiecode` -- zie de moduledocstring van `register.py` voor
+    waarom `locatiecode` alleen geen bruikbare sleutel is (eindreview, bevinding 1).
+
+    `context` draagt alleen `stoffen_met_norm` (eindreview, optionele eenregelfix): dit lab heeft
+    geen betrouwbare, snel te bevragen bron voor `gemeten_codes` (dat vraagt de 142 MB ruwe
+    WKP-CSV, zie `test_toezicht_live.py`) of een live waterlichaam-opzoeking per vestiging, maar
+    `graaf.stoffen_met_norm(normenset)` leest exact dezelfde `normenset` die hier al wordt
+    opgehaald voor de uitlegger, en is al getest (`test_toezicht_graaf.py`). Zonder deze sleutel
+    bleef signaal 1 (`geen_onafhankelijke_meting`) permanent op `midden` steken, ook voor een
+    stof met een echte KRW-norm -- de escalatie naar `hoog` bestond in `signalen.py` wel, maar was
+    vanaf dit eindpunt onbereikbaar. `dossier()` zet elke andere ontbrekende contextsleutel zelf
+    om in een expliciet voorbehoud (`d["voorbehouden"]`) in plaats van er iets bij te verzinnen --
     een gat is hier een signaal, geen gebrek dat verstopt moet worden."""
     try:
         register = _toezicht_register()
     except ConnectorError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
-    v = next((p for p in register if p.get("locatiecode") == vestiging), None)
+    ids = toezicht_register.identiteiten(register)
+    v = next((p for i, p in zip(ids, register) if i == vestiging), None)
     if v is None:
         raise HTTPException(status_code=404, detail=f"onbekende vestiging: {vestiging}")
 
     crew = toezicht_runner.laad(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
     log = toezicht_runlog.Runlog()
+    normenset = _toezicht_normenset()
     invoer = {
         "vestiging": v,
-        "context": {},
+        "context": {"stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset)},
         "aquo_ref": _toezicht_aquo_ref(),
-        "normenset": _toezicht_normenset(),
+        "normenset": normenset,
         "stelselcatalogus": _stelselcatalogus(),
     }
     staat = crew.draai(invoer, llm=None, runlog=log)
