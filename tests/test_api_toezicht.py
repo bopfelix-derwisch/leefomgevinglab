@@ -245,3 +245,37 @@ def test_de_api_behoudt_de_uitgezette_agenten_die_dossier_teruggeeft(monkeypatch
     r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01")
     assert r.status_code == 200
     assert r.json()["runlog"]["uitgezet"] == ["uitlegger"]
+
+
+# -- Fix-ronde 3 (re-review): de regressiewacht moet onvoorwaardelijk draaien --------------------
+
+def test_de_normenset_is_echt_bereikbaar_via_de_configuratie(monkeypatch):
+    """Fix-ronde 1 (R20-review, bevinding 1): elke andere test op `/api/toezicht/dossier`
+    monkeypatcht `_toezicht_normenset` rechtstreeks -- dat bewijst de bedrading stroomafwaarts
+    van de patch, niets over het configuratiepad zelf. Deze test roept de functie ongepatcht aan
+    tegen de echte `core/config.yaml` en bewijst dat het KRW-normenbestand daadwerkelijk wordt
+    gevonden. De oorspronkelijke fout las `leefomgevinglab.kmg.normen_pad` (bestaat niet); het
+    juiste pad staat onder `leefomgevinglab.waterpresentatie.normen_pad`.
+
+    **Fix-ronde 3 (re-review): waarom deze test hier staat en niet in een `*_live.py`-bestand.**
+    Hij stond eerst in `test_toezicht_live.py`, dat een module-brede
+    `pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"), ...)` draagt. Die
+    sleutel heeft deze test nooit nodig gehad: hij raakt geen netwerk, alleen een lokaal
+    JSON-bestand via `kmg_doelen.laad_normen`. Onder die skip-gate liep de regressiewacht voor
+    precies déze configuratiefout stilzwijgend niet mee in elke run zonder de sleutel (CI zonder
+    het secret, een bijdrager die `.env` niet source't, een geroteerde sleutel) -- terwijl de
+    suite toch "alles groen" rapporteerde. Dat is dezelfde blinde vlek als bevinding 1 zelf, één
+    laag verplaatst: verstopt achter een monkeypatch, toen verstopt achter een ongerelateerde
+    omgevingsvariabele. **Verplaats deze test niet terug naar een `*_live.py`-bestand** zonder
+    een even concrete, inhoudelijke reden waarom hij dan wél netwerk of een geheime sleutel nodig
+    zou hebben -- vandaag is dat niet het geval, en een skip-gate op een test die hem niet nodig
+    heeft is geen regressiewacht maar een gat dat op groen lijkt."""
+    from leefomgevinglab.geluidsmeter.config import load_config
+
+    monkeypatch.setattr(api, "_config", load_config())
+    normenset = api._toezicht_normenset()
+    assert normenset.get("beschikbaar") is True, (
+        f"de echte configuratie levert geen normenset: {normenset.get('reden')} -- "
+        "controleer leefomgevinglab.waterpresentatie.normen_pad in core/config.yaml"
+    )
+    assert normenset.get("normen"), "normenset is leeg -- het bestand bestaat maar draagt niets"
