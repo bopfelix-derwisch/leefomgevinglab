@@ -329,3 +329,29 @@ def test_vervallen_code_raakt_de_aantallen_die_het_plan_noemt(register):
         f"'Zwevende stof' draagt {per_naam['Zwevende stof']} vervallen voorschriften i.p.v. 83 "
         "-- plan §6 bijwerken als dit klopt"
     )
+
+
+# -- Fix-ronde 1 (R20-review, bevinding 1): het échte configuratiepad, geen gepatchte functie ----
+
+def test_de_normenset_is_echt_bereikbaar_via_de_configuratie():
+    """Elke test op `/api/toezicht/dossier` (`tests/test_api_toezicht.py`) monkeypatcht
+    `api._toezicht_normenset` rechtstreeks -- dat bewijst de bedrading stroomafwaarts van de
+    patch, niets over het pad zelf. Deze test roept de functie ongepatcht aan, tegen de echte
+    `core/config.yaml`, en bewijst dat het KRW-normenbestand daadwerkelijk gevonden wordt.
+
+    De oorspronkelijke versie las `leefomgevinglab.kmg.normen_pad` -- die sleutel bestaat niet
+    (de `kmg`-sectie draagt alleen `aquo_csv_pad`/`doelen_pad`/`maaskaart_pad`/`metingen_pad`/
+    `overzicht_pad`/`parameters_pad`/`straal_m`/`waterlichamen_pad`), dus `_toezicht_normenset()`
+    gaf in de echte deployment altijd `beschikbaar: False` terug: de KRW-norm-poot van R20 deed
+    in de praktijk niets, terwijl elke gemonkeypatchte test erom groen bleef. Het juiste pad
+    staat onder `leefomgevinglab.waterpresentatie.normen_pad`."""
+    import leefomgevinglab.geluidsmeter.api as api
+    from leefomgevinglab.geluidsmeter.config import load_config
+
+    api._config = load_config()
+    normenset = api._toezicht_normenset()
+    assert normenset.get("beschikbaar") is True, (
+        f"de echte configuratie levert geen normenset: {normenset.get('reden')} -- "
+        "controleer leefomgevinglab.waterpresentatie.normen_pad in core/config.yaml"
+    )
+    assert normenset.get("normen"), "normenset is leeg -- het bestand bestaat maar draagt niets"

@@ -82,6 +82,44 @@ def test_elk_signaal_draagt_de_zes_velden_van_deel_b():
         assert "stap" not in s
 
 
+# -- Deel B, fix-ronde 1 (R20-review, bevinding 2): de bewering als volzin met het getal erin ----
+
+def test_elk_signaal_draagt_een_bewering_met_het_getal_erin_voor_een_telling():
+    """Plan §2, beslissing 2: geen los cijfer in een tegel, maar een zin waar het getal in zit.
+    `vervallen_code` is hier een regel waarvan `omvang` een telling is (geen verhouding) --
+    precies het geval dat de review vroeg te bewijzen."""
+    d = dossier.dossier(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES)
+    s = next(x for x in d["signalen"] if x["regel"] == "vervallen_code")
+    assert str(round(s["omvang"])) in s["bewering"]
+    assert s["bewering"].endswith(".")
+    for verboden in _VERBODEN:
+        assert verboden not in s["bewering"].lower()
+
+
+def test_de_bewering_bij_een_verhouding_toont_geen_tellingstekst():
+    """`meerdere_grenswaarden` draagt een verhouding (hoogste/laagste grenswaarde), geen
+    telling -- "4,0 verhouding hoogste / laagste grenswaarde." zou onzin zijn, dus deze regel
+    krijgt een eigen vorm (factor ...×) in plaats van het tellingssjabloon."""
+    d = dossier.dossier(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES)
+    s = next(x for x in d["signalen"] if x["regel"] == "meerdere_grenswaarden")
+    assert "×" in s["bewering"]
+    assert "4,0" in s["bewering"]
+    assert "verhouding" not in s["bewering"]
+
+
+def test_elke_regel_in_de_catalogus_levert_een_niet_lege_bewering_met_het_getal_erin():
+    """Alle tien regels, niet alleen de twee die de vorige twee tests noemen -- een regel zonder
+    bewering zou de pagina terugzetten naar de kale kop die de review afkeurde. Het getal zelf
+    (hier 3, zodat het niet toevallig met iets anders in de kop-tekst samenvalt) moet in elke
+    bewering terugkomen, ook bij de verhouding (als "3,0" of "3.0")."""
+    for regel_id in signalen.DREMPELS:
+        zin = dossier._bewering(f"test {regel_id}", 3, regel_id)
+        assert zin and zin.strip()
+        assert "3" in zin, f"{regel_id}: het getal staat niet in de bewering: {zin!r}"
+        for verboden in _VERBODEN:
+            assert verboden not in zin.lower()
+
+
 def test_grondslag_en_zekerheid_komen_uit_de_bestaande_vocabulaires():
     """Geen tweede vocabulaire: elke `grondslag` moet in `maaskaart.GRONDSLAG` staan en elke
     `zekerheid` in `lozingsmodel.ZEKERHEDEN`."""

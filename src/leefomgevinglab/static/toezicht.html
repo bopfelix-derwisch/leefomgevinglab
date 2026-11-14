@@ -239,7 +239,7 @@
       return `<div class="signaal ${esc(s.zwaarte)}">` +
         `<div class="rail"></div>` +
         `<div class="inhoud">` +
-        `<div class="bewering">${esc(s.signaal)}</div>` +
+        `<div class="bewering">${esc(s.bewering || s.signaal)}</div>` +
         `<div class="hoezeker">hoe zeker is dit? <b>${hoeZeker(s)}</b></div>` +
         (s.waarom ? `<div class="herkomst">${esc(s.waarom)}</div>` +
           (s.waarom_vindplaatsen && s.waarom_vindplaatsen.length

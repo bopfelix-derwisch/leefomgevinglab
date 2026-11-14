@@ -14,6 +14,10 @@ from fastapi.testclient import TestClient
 import leefomgevinglab.geluidsmeter.api as api
 from leefomgevinglab.usecases import water_hub as wh
 from leefomgevinglab.usecases.toezicht import pijplijn
+# Minor (R20-review): import uit een ander testbestand. Bewust zo gelaten -- `tests/
+# test_toezicht_pijplijn.py` doet exact hetzelfde (`from tests.test_toezicht_runner import
+# AGENTS, TASKS`), dus dit volgt het bestaande patroon van dit lab (één bron voor de paden naar
+# de echte configuratie) in plaats van een derde kopie van diezelfde twee regels te maken.
 from tests.test_toezicht_runner import AGENTS, TASKS
 
 
@@ -37,6 +41,28 @@ FIXTURE_VESTIGING = {
 FIXTURE_AQUO_REF = {"beschikbaar": True, "geldig": {"zink": "Zn"}, "vervallen": {},
                      "vervangen_door": {}, "aantal": {}}
 FIXTURE_NORMENSET = {"beschikbaar": False, "normen": {}}
+
+# Fix-ronde 1 (R20-review, finding "task 7 re-review"): `meerdere_grenswaarden` (de regel die
+# FIXTURE_VESTIGING triggert) heeft geen stofnaam nodig om een `waarom` te krijgen -- de
+# /kmg-proclaimer-bron kan op een heel ander trefwoord vuren en draagt zelf, in haar eigen
+# illustratieve zin, de tekst "opgelost zink". Een test die alleen controleert dat "zink"
+# ergens in de `waarom`-tekst staat, slaagt dus ook met nul bekabelde bronnen -- precies het
+# gat dat de review vond. Deze vestiging triggert in plaats daarvan `vervallen_code`, een regel
+# uit `_STOF_GEBONDEN_REGELS` (`runner._uitlegvraag`) die zonder een geïnjecteerde `aquo_ref`
+# niet eens kan vuren (`aquo.verrijk` zet `aquo_status` alleen als `ref["beschikbaar"]`), dus
+# "het signaal bestaat en draagt een waarom" is hier pas waar als de bron echt werkt.
+FIXTURE_VESTIGING_VERVALLEN = {
+    "naam": "Zwevende-stof BV", "plaats": "Venlo", "locatie": None,
+    "locatiecode": "TEST02", "vestigingsnummer_kvk": "000098765432",
+    "kenmerk": "ABC/123", "besluitdatum": "2019-01-01", "url": "https://example.org/zwevend",
+    "voorschriften": [
+        {"parameter": "Zwevende stof", "waarde": 30.0, "eenheid": "milligram per liter"},
+    ],
+}
+# Dezelfde naam ("zwevende stof") staat zowel in `vervallen` als -- in de echte bron -- soms in
+# `geldig`; hier bewust alléén `vervallen`, zodat `aquo.verrijk` geen andere tak kan kiezen.
+FIXTURE_AQUO_REF_VERVALLEN = {"beschikbaar": True, "geldig": {},
+                              "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
 
 
 def _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING,)):
@@ -137,21 +163,43 @@ def test_onbekende_vestiging_geeft_404(monkeypatch):
 
 # -- R20: de drie bronnen voor de uitlegger zijn echt bekabeld -----------------------------------
 
-def test_het_dossier_endpoint_bekabelt_de_drie_bronnen_en_een_signaal_krijgt_een_waarom(monkeypatch):
+def test_het_dossier_endpoint_bekabelt_de_aquo_bron_en_vervallen_code_krijgt_een_waarom(monkeypatch):
     """Vóór taak 8 zette `pijplijn`/de runner-aanroep geen van `aquo_ref`, `normenset` of
     `stelselcatalogus` -- dus kreeg geen signaal in een echte run een `waarom` (R20). Deze test
-    draait de echte pijplijn (geen gemockte `dossier()`) met de drie bronnen bekabeld en toont
-    dat het wél gebeurt."""
-    _monkeypatch_bronnen(monkeypatch)
-    r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01")
+    draait de echte pijplijn (geen gemockte `dossier()`) met `aquo_ref` bekabeld en toont dat
+    `vervallen_code` -- een regel die zonder die bron niet eens kan vuren, zie de fixture-
+    toelichting hierboven -- een `waarom` krijgt die expliciet naar de Aquo-domeintabel
+    terugwijst, niet alleen toevallig het woord "zink" ergens bevat (de fout die de vorige
+    versie van deze test maakte, gevonden in de re-review van taak 7)."""
+    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING_VERVALLEN])
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF_VERVALLEN)
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
+    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+    r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST02")
     assert r.status_code == 200
     d = r.json()
-    signalen = d["signalen"]
-    assert signalen, "geen signalen -- de fixture triggert geen regel"
-    assert any(s.get("waarom") for s in signalen), (
-        "geen signaal draagt een waarom -- de drie bronnen zijn niet bekabeld")
-    gevonden = next(s for s in signalen if s.get("waarom"))
-    assert "Zn" in gevonden["waarom"] or "zink" in gevonden["waarom"].lower()
+    s = next((x for x in d["signalen"] if x["regel"] == "vervallen_code"), None)
+    assert s is not None, "vervallen_code vuurt niet -- de fixture of aquo.verrijk is gewijzigd"
+    assert s.get("waarom"), "vervallen_code draagt geen waarom -- de aquo_ref-bron is niet bekabeld"
+    assert "Aquo-domeintabel Parameter" in s["waarom"]
+    assert any("Aquo-domeintabel Parameter" in v for v in (s.get("waarom_vindplaatsen") or [])), (
+        "geen vindplaats naar de Aquo-domeintabel -- de harde regel vraagt een benoemde bron")
+
+
+def test_zonder_de_aquo_bron_vuurt_vervallen_code_niet_en_dus_ook_geen_waarom(monkeypatch):
+    """De negatieve controle die bij de vorige test hoort: dezelfde vestiging, maar nu zonder
+    `aquo_ref` (`beschikbaar: False`, zoals een echte niet-gevonden referentie dat zelf al
+    teruggeeft). `aquo.verrijk()` laat de vestiging dan onaangeroerd, dus `vervallen_code` kan
+    niet vuren -- het signaal verdwijnt helemaal, niet alleen zijn `waarom`. Dat bewijst dat de
+    vorige test écht van de bekabeling afhangt, en niet van iets dat altijd waar is."""
+    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING_VERVALLEN])
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: {"beschikbaar": False})
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
+    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST02").json()
+    assert not any(s["regel"] == "vervallen_code" for s in d["signalen"]), (
+        "vervallen_code vuurt ook zonder aquo_ref -- dat zou de vorige test leeg laten slagen"
+    )
 
 
 def test_het_dossier_endpoint_draait_zonder_taalmodel_en_toont_dat_ook_zo(monkeypatch):
@@ -168,3 +216,32 @@ def test_het_dossier_endpoint_draait_zonder_taalmodel_en_toont_dat_ook_zo(monkey
     # stap en vóór de uitlegger erna.
     agenten = [s["agent"] for s in stappen]
     assert "uitlegger" in agenten, "de runlog mist de uitlegger-stap -- is het snapshot gebruikt?"
+
+
+# -- Fix-ronde 1 (R20-review, bevinding 3): `uitgezet` moet meereizen, niet hardgecodeerd [] ------
+
+class _FakeCrew:
+    """Een crew die net genoeg doet om `api_toezicht_dossier` te laten denken dat `dossier()`
+    een niet-lege `uitgezet`-lijst had berekend -- zonder dat de route zelf al een `uit`-sleutel
+    in `invoer` moet zetten. Dat laatste gebeurt vandaag nergens (vandaar dat de bug onschadelijk
+    was), maar de route moet de lijst die `dossier()` teruggeeft wél doorgeven, niet overschrijven
+    met een hardgecodeerde `[]`."""
+
+    def draai(self, invoer, llm=None, runlog=None):
+        if runlog is not None:
+            runlog.stap("vergunninglezer", "lees_vergunning", "atlas_vergunningen", 0, 0, False)
+        return {"dossier": {"kaart": {}, "signalen": [], "telling": {}, "voorbehouden": [],
+                             "runlog": {"uitgezet": ["uitlegger"], "stappen": []}}}
+
+
+def test_de_api_behoudt_de_uitgezette_agenten_die_dossier_teruggeeft(monkeypatch):
+    """`api_toezicht_dossier` zette `runlog["uitgezet"]` eerder altijd op `[]` in plaats van door
+    te geven wat `dossier()` zelf berekende uit `invoer["uit"]` -- harmless vandaag (de route
+    vult `uit` nergens), maar de lijst zou stilzwijgend verdwijnen zodra dat ooit wél gebeurt.
+    Deze test monkeypatcht de crew zelf, zodat hij bewijst dat de route doorgeeft wat `dossier()`
+    teruggeeft, los van of de route vandaag al een `uit`-sleutel vult."""
+    _monkeypatch_bronnen(monkeypatch)
+    monkeypatch.setattr(api.toezicht_runner, "laad", lambda *a, **k: _FakeCrew())
+    r = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01")
+    assert r.status_code == 200
+    assert r.json()["runlog"]["uitgezet"] == ["uitlegger"]

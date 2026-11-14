@@ -216,12 +216,55 @@ def _signalen_stap(runlog) -> dict | None:
     return None
 
 
+# Fix-ronde 1 (R20-review, bevinding 2): het ontwerpplan vraagt de bewering als volzin met het
+# getal erin -- "Voor 88 voorschriften bestaat geen onafhankelijke meting in het watersysteem."
+# -- niet de kale `kop` uit `signalen.py` die de pagina tot nu toe rechtstreeks toonde. Tien
+# losse, met de hand geschreven zinnen zou precies het probleem zijn dat deze module elders
+# vermijdt (zie `_HERKOMST_PER_REGEL`/`_WAT_TE_DOEN_PER_REGEL`: een tabel die uit de pas kan lopen
+# met een regel die zelf verandert). Daarom wordt de zin hier *afgeleid* uit twee dingen die al
+# bestaan: `signalen.DREMPELS[regel_id][1]` (wat `omvang` telt) en `omvang` zelf.
+#
+# Die omvang_is-tekst betekent niet voor elke regel hetzelfde (vandaar geen enkel generiek
+# sjabloon, zie onder):
+#   - Acht regels beginnen met "aantal " -- de rest van de tekst is een kant-en-klare
+#     naamwoordgroep die, met het getal ervoor, al een complete bewering is: "aantal voorschriften
+#     zonder meting" -> "88 voorschriften zonder meting."
+#   - `meerdere_grenswaarden` draagt een **verhouding**, geen telling ("verhouding hoogste /
+#     laagste grenswaarde") -- die krijgt een eigen vorm met een vermenigvuldigingsteken, want
+#     "4,0 verhouding hoogste / laagste grenswaarde." zou onzin zijn.
+#   - `niet_regime_zuiver` en `geen_geldigheidsduur` dragen in dat tweede tekstslot géén
+#     omvang-omschrijving maar een toelichting op de zwaarte ("altijd laag; dit is een
+#     voorbehoud/...geldt voor het hele register") -- hun `omvang` is wél een echte telling (zie
+#     hun eigen functie in `signalen.py`: "omvang draagt hier gewoon de echte telling, hoeveel
+#     voorschriften het betreft"), dus die twee vallen terug op de kop zelf plus het aantal
+#     voorschriften.
+_RATIO_REGELS = {"meerdere_grenswaarden"}
+
+
+def _hoofdletter(tekst: str) -> str:
+    return tekst[:1].upper() + tekst[1:] if tekst else tekst
+
+
+def _bewering(signaal: str, omvang: float, regel_id: str) -> str:
+    """De bewering als volzin, met het getal erin afgeleid -- niet tien keer met de hand
+    geschreven (zie de toelichting hierboven)."""
+    if regel_id in _RATIO_REGELS:
+        return f"{_hoofdletter(signaal)} — factor {omvang:.1f}× verschil.".replace(".", ",", 1)
+    _, omvang_is = signalen_mod.DREMPELS[regel_id]
+    n = round(omvang)
+    if omvang_is.startswith("aantal "):
+        onderwerp = omvang_is[len("aantal "):]
+        return f"{n} {onderwerp}."
+    return f"{_hoofdletter(signaal)}: {n} voorschriften."
+
+
 def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
     regel_id = ruw["regel"]
     grondslag, _ = _HERKOMST_PER_REGEL[regel_id]
     uit = {
         "regel": regel_id,
         "signaal": ruw["signaal"],
+        "bewering": _bewering(ruw["signaal"], ruw["omvang"], regel_id),
         "zwaarte": ruw["zwaarte"],
         "omvang": ruw["omvang"],
         "bewijs": ruw["bewijs"],

@@ -589,7 +589,15 @@ def _toezicht_register() -> list[dict]:
     """Het hele Maas-lozingenregister, live via de Atlas voor een Schone Maas. Gecachet door de
     connector zelf (`smwk_atlas.cache_ttl_s`, zie `kmg_service._atlas_standaard`), dus niet bij
     elke pageview opnieuw over het netwerk. Een eigen, kleine functie (niet rechtstreeks
-    `kmg_service._atlas_standaard` in de routes) zodat een test hem in één regel kan vervangen."""
+    `kmg_service._atlas_standaard` in de routes) zodat een test hem in één regel kan vervangen.
+
+    Minor (R20-review): dit hergebruikt een functie van `kmg_service` met een voorloop-underscore
+    -- een privé-functie van een andere module. Bewust zo gelaten: `maaskaart.py` doet exact
+    hetzelfde (`_haal_atlas` → `kmg_service._atlas_standaard`), dus dit volgt een bestaand
+    patroon in dit lab in plaats van er een eigen, derde manier naast te zetten om dezelfde
+    connector (cache_dir, cache_ttl, base_url) op te bouwen. `_atlas_standaard` publiek maken zou
+    verder dan deze taak reiken: dat is een keuze over de publieke interface van `kmg_service`,
+    niet over `/toezicht`."""
     return kmg_service._atlas_standaard(*_TOEZICHT_PUNT, _TOEZICHT_STRAAL_M)
 
 
@@ -601,10 +609,19 @@ def _toezicht_aquo_ref() -> dict:
 
 
 def _toezicht_normenset() -> dict:
-    """De KRW-normen (`kmg.normen_pad`), via `kmg.doelen.laad_normen` -- dezelfde functie en
-    hetzelfde bestand als `/kmg` gebruikt voor de chemische norm per stof en meetpunt."""
-    kmg_cfg = _config.get("leefomgevinglab", {}).get("kmg", {})
-    normen_pad = kmg_cfg.get("normen_pad")
+    """De KRW-normen, via `kmg.doelen.laad_normen` -- dezelfde functie en hetzelfde bestand als
+    de /kmg-pagina gebruikt voor de chemische norm per stof en meetpunt.
+
+    Fix-ronde 1 (R20-review): het pad staat NIET onder `leefomgevinglab.kmg.normen_pad` (die
+    sectie draagt alleen `aquo_csv_pad`/`doelen_pad`/`maaskaart_pad`/`metingen_pad`/
+    `overzicht_pad`/`parameters_pad`/`straal_m`/`waterlichamen_pad` -- geen `normen_pad`), maar
+    onder `leefomgevinglab.waterpresentatie.normen_pad` (zie `core/config.yaml`). De eerdere
+    lezing haalde dus altijd een lege sectie op en gaf permanent `beschikbaar: False` terug --
+    precies de KRW-norm-poot van R20 deed in de praktijk niets. Dezelfde foute sleutel staat nog
+    op de bestaande `/api/kmg`-route (`api_kmg`, regel ~553); die blijft met opzet ongewijzigd --
+    dat is een ander dossier, buiten deze taak, en al bij Bob gemeld."""
+    wp_cfg = _config.get("leefomgevinglab", {}).get("waterpresentatie", {})
+    normen_pad = wp_cfg.get("normen_pad")
     if not normen_pad:
         return {"beschikbaar": False, "normen": {}, "reden": "geen normen_pad geconfigureerd"}
     return kmg_doelen.laad_normen(normen_pad)
@@ -674,8 +691,13 @@ def api_toezicht_dossier(vestiging: str):
     # `dossier()` zet zelf al een `runlog`-sleutel, maar dat is een foto vóór haar eigen stap en
     # vóór de uitlegger erna (zie `dossier._signalen_stap`/`dossier.dossier`): op het moment dat
     # `tool_dossier_samenstellen` haar aanroept, heeft de meegegeven `log` alleen de twee stappen
-    # ervóór. Hier is de hele run al klaar, dus vervang het door de volledige, echte log.
-    dossier["runlog"] = {"uitgezet": [], "stappen": log.als_gegeven()}
+    # ervóór. Hier is de hele run al klaar, dus vervang alleen `stappen` door de volledige, echte
+    # log -- `uitgezet` komt uit `dossier()` zelf (zij leest `uit` uit de staat), niet
+    # hardgecodeerd: zodra `invoer["uit"]` ooit gevuld wordt, moet die lijst meereizen in plaats
+    # van stil te verdwijnen.
+    bestaand_runlog = dossier.get("runlog") or {}
+    dossier["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
+                          "stappen": log.als_gegeven()}
     return dossier
 
 
