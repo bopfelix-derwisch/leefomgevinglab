@@ -181,6 +181,33 @@ def test_een_falende_catalogus_laat_de_andere_bronnen_in_stand():
     assert "Aquo" in treffers[0]["vindplaats"]
 
 
+def test_een_kale_code_die_ook_een_gewoon_woord_is_matcht_niet_op_dat_woord():
+    """Eindreview, bevinding 4: 'Te' (tellurium) is ook het Nederlandse woord 'te', en zonder
+    naam-resolutie viel de oude matcher terug op een hoofdletter-ongevoelige vergelijking van de
+    kale code tegen de vraagtekst. Een realistische normenset (zoals `krw_normen.json` die
+    draagt) plus een niet-stof-signaalkop ('vracht niet te bepalen', 'vergunning niet te vinden')
+    mag dan geen treffer meer geven -- geen `aquo_ref` hier, want dat is precies het pad waarin
+    de code nooit aan een naam koppelt en dus kaal blijft."""
+    normenset = {"normen": {"NL80_X": [
+        {"meetpunt": "NL80_X", "parameter": "Te", "hoedanigheid": "nf",
+         "grondslag": "jaargemiddelde", "norm": 100.0, "eenheid": "ug/l"},
+    ]}}
+    assert uitleg.zoek_bronnen("vracht niet te bepalen", 3, normenset=normenset) == []
+    assert uitleg.zoek_bronnen("vergunning niet te vinden", 3, normenset=normenset) == []
+
+
+def test_een_kale_code_matcht_nog_altijd_hoofdlettergevoelig_als_los_woord():
+    """De positieve controle bij de vorige test: dezelfde kale code matcht nog steeds, als zij
+    wél met haar eigen hoofdletter in de vraagtekst staat."""
+    normenset = {"normen": {"NL80_X": [
+        {"meetpunt": "NL80_X", "parameter": "Te", "hoedanigheid": "nf",
+         "grondslag": "jaargemiddelde", "norm": 100.0, "eenheid": "ug/l"},
+    ]}}
+    treffers = uitleg.zoek_bronnen("Te zit in het voorschrift", 3, normenset=normenset)
+    assert len(treffers) == 1
+    assert "Te" in treffers[0]["tekst"]
+
+
 def test_zoek_bronnen_knipt_af_op_n():
     aquo_ref = {"geldig": {"zink": "Zn", "zuurgraad": "pH"}, "vervallen": {}, "vervangen_door": {}}
     treffers = uitleg.zoek_bronnen("zink en zuurgraad in het voorschrift", 1, aquo_ref=aquo_ref)
@@ -704,3 +731,4 @@ def _agents_tasks():
     from leefomgevinglab.usecases.toezicht import runner
     config_dir = os.path.join(os.path.dirname(runner.__file__), "config")
     return (os.path.join(config_dir, "agents.yaml"), os.path.join(config_dir, "tasks.yaml"))
+

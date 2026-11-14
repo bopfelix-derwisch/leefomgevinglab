@@ -151,11 +151,37 @@ def _naam_bij_code(aquo_ref: dict) -> dict:
     return {code: naam for naam, code in (aquo_ref.get("geldig") or {}).items()}
 
 
-def _krw_treffers(vraag_lower: str, normenset: dict, aquo_ref: dict) -> list[dict]:
+def _bevat_code_hoofdlettergevoelig(vraag: str, code: str) -> bool:
+    """Dezelfde woordgrens als `_bevat_stofnaam`, maar hoofdlettergevoelig en zonder de term zelf
+    te lowercasen -- voor een **kale Aquo-code zonder bekende naam**.
+
+    Eindreview, bevinding 4. Een handvol Aquo-codes is toevallig ook een gewoon Nederlands woord
+    ("Te" (tellurium), "As", "Al", "U", "B", "V"). `_bevat_stofnaam` lowercast zowel de hooiberg
+    als de term, dus die matchte "Te" zonder meer op het woord "te" in een zin als "vracht niet
+    *te* bepalen" of "vergunning niet *te* vinden" -- met een KRW-norm en een vindplaats als
+    bewijs voor een stof die nergens in de vraag aan de orde was. Een Aquo-code wordt altijd in
+    zijn eigen schrijfwijze genoteerd (hoofdletter voorop); een gewoon Nederlands woord midden in
+    een zin draagt die hoofdletter nooit. Hoofdlettergevoelig matchen tegen de *ongewijzigde*
+    vraagtekst (niet tegen `vraag_lower`) sluit deze klasse fouten daarom uit zonder een
+    woordenlijst met "gewone woorden" te moeten bijhouden."""
+    code = (code or "").strip()
+    if not code:
+        return False
+    patroon = r"(?<![\w-])" + re.escape(code) + r"(?![\w-])"
+    return re.search(patroon, vraag) is not None
+
+
+def _krw_treffers(vraag: str, normenset: dict, aquo_ref: dict) -> list[dict]:
     """Treffers uit de KRW-normen -- alleen de **chemische norm per stof/meetpunt**
     (`kmg.doelen`'s onderscheid met een doel per waterlichaam, zie de moduledocstring). Eén
     treffer per unieke (code, hoedanigheid, grondslag): dezelfde norm staat op meerdere
-    meetpunten, en dat is geen tien keer dezelfde vindplaats waard."""
+    meetpunten, en dat is geen tien keer dezelfde vindplaats waard.
+
+    `vraag` is hier de **ongewijzigde** vraagtekst, niet `vraag_lower` (fix-ronde, eindreview
+    bevinding 4, zie `_bevat_code_hoofdlettergevoelig`): een bekende stofnaam matcht nog altijd
+    hoofdletter-ongevoelig (`_bevat_stofnaam`, net als voorheen), maar een kale code zonder naam
+    matcht alleen nog hoofdlettergevoelig tegen de originele tekst."""
+    vraag_lower = (vraag or "").lower()
     naam_bij_code = _naam_bij_code(aquo_ref)
     gezien = set()
     uit = []
@@ -165,13 +191,18 @@ def _krw_treffers(vraag_lower: str, normenset: dict, aquo_ref: dict) -> list[dic
             sleutel = (code, n.get("hoedanigheid"), n.get("grondslag"))
             if sleutel in gezien:
                 continue
-            naam = naam_bij_code.get(code, code)
-            if not (_bevat_stofnaam(vraag_lower, naam) or _bevat_stofnaam(vraag_lower, code or "")):
+            naam = naam_bij_code.get(code)
+            treft = bool(naam) and _bevat_stofnaam(vraag_lower, naam)
+            if not treft and code:
+                treft = _bevat_code_hoofdlettergevoelig(vraag, code)
+            if not treft:
                 continue
+            weergavenaam = naam or code
             gezien.add(sleutel)
             uit.append({
-                "tekst": f"Voor {naam} geldt een KRW-norm van {n.get('norm')} {n.get('eenheid')} "
-                         f"({n.get('grondslag')}, hoedanigheid {n.get('hoedanigheid') or 'NVT'}).",
+                "tekst": f"Voor {weergavenaam} geldt een KRW-norm van {n.get('norm')} "
+                         f"{n.get('eenheid')} ({n.get('grondslag')}, hoedanigheid "
+                         f"{n.get('hoedanigheid') or 'NVT'}).",
                 "vindplaats": f"KRW-toetsresultaten (krw_normen.json), parameter {code}, "
                                f"meetpunt {n.get('meetpunt')}",
             })
@@ -274,7 +305,9 @@ def zoek_bronnen(vraag: str, n: int, *, aquo_ref: dict | None = None,
     laatste. `n` knipt simpelweg af."""
     vraag_lower = (vraag or "").lower()
     treffers = _aquo_treffers(vraag_lower, aquo_ref or {})
-    treffers += _krw_treffers(vraag_lower, normenset or {}, aquo_ref or {})
+    # De ongewijzigde `vraag`, niet `vraag_lower` -- `_krw_treffers` heeft de originele hoofdletters
+    # zelf nodig voor haar hoofdlettergevoelige kale-code-fallback (zie die functie).
+    treffers += _krw_treffers(vraag or "", normenset or {}, aquo_ref or {})
     treffers += _proclaimer_treffers(vraag_lower)
     treffers += _catalogus_treffers(vraag, catalogus)
     return treffers[:n] if n else treffers
