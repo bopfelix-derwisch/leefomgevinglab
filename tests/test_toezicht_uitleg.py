@@ -187,6 +187,118 @@ def test_zoek_bronnen_knipt_af_op_n():
     assert len(treffers) == 1
 
 
+# == Fix-ronde 1, bevinding 1: de vierde bron, de /kmg-proclaimer ================================
+
+def test_de_proclaimer_bron_vuurt_op_het_regime_trefwoord():
+    """Precies de signaalkop van `niet_regime_zuiver` ('toets niet regime-zuiver') moet de
+    hoedanigheid/grootheden-kanttekening opleveren -- de enige van de vier bronnen die geen
+    stofnaam nodig heeft."""
+    treffers = uitleg.zoek_bronnen("toets niet regime-zuiver", 3)
+    assert len(treffers) == 1
+    assert "grootheden" in treffers[0]["tekst"]
+    assert "usecases/kmg/proclaimer.py" in treffers[0]["vindplaats"]
+    assert "/kmg" in treffers[0]["vindplaats"]
+
+
+def test_de_proclaimer_bron_vuurt_op_het_bovenstrooms_trefwoord():
+    treffers = uitleg.zoek_bronnen("meting boven de norm, lozer bovenstrooms", 3)
+    assert len(treffers) == 1
+    assert "kan bijdragen" in treffers[0]["tekst"]
+
+
+def test_de_proclaimer_bron_zwijgt_zonder_trefwoord():
+    assert uitleg.zoek_bronnen("vracht niet te bepalen", 3) == []
+
+
+def test_de_proclaimer_bron_heeft_geen_injectie_nodig_en_doet_geen_netwerk():
+    """`zoek_bronnen()` zonder enig argument behalve de vraag -- de proclaimer is intrinsiek,
+    anders dan de drie andere bronnen (zie `test_zonder_injectie_valt_waarom_terug_...`)."""
+    uit = uitleg.waarom("toets niet regime-zuiver")
+    assert uit["beschikbaar"] is True
+    assert "usecases/kmg/proclaimer.py" in uit["vindplaatsen"][0]
+
+
+def test_proclaimer_notities_vinden_vandaag_hun_fragment_in_de_echte_tekst():
+    """Drift-wacht: beide kanttekeningen citeren een letterlijk fragment uit de live
+    `proclaimer.bouw()`-tekst, geen parafrase. Verdwijnt dat fragment ooit uit `/kmg` (een
+    herformulering daar), dan moet dát hier luid blijken in plaats van dat deze bron stilletjes
+    niets meer teruggeeft."""
+    kopjes = uitleg._proclaimer_kopjes()
+    for notitie in uitleg._PROCLAIMER_NOTITIES:
+        zin = uitleg._zin_met_fragment(kopjes, notitie["kop"], notitie["fragment"])
+        assert zin is not None, (
+            f"fragment '{notitie['fragment']}' niet meer gevonden in kopje '{notitie['kop']}' "
+            "van usecases/kmg/proclaimer.py -- de notitie in uitleg.py moet bijgewerkt worden")
+
+
+def test_de_vier_bronnen_staan_genoemd_in_de_reden_zonder_treffer():
+    uit = uitleg.waarom("iets willekeurigs zonder enige trefwoord", _zoek=lambda q, n: [])
+    for naam in ("Aquo-domeintabel", "KRW-normen", "Stelselcatalogus", "proclaimer"):
+        assert naam in uit["reden"]
+
+
+# == Fix-ronde 1, bevinding 2: precedentie en een strengere grens voor stofnamen ==================
+
+def test_aquo_treffers_geeft_voorrang_aan_de_geldige_code_bij_een_dubbele_naam():
+    """748 namen in de echte bron staan zowel in `geldig` als in `vervallen` (bv. 'minerale
+    olie'). Zonder voorrang gaf dit twee treffers die elkaar tegenspreken (geldig + ingetrokken
+    over dezelfde naam, in één tekst geplakt) -- nu geldt dezelfde voorrang als `aquo.verrijk()`."""
+    aquo_ref = {"geldig": {"minerale olie": "MINOL"}, "vervallen": {"minerale olie": "MINOL_OUD"},
+                "vervangen_door": {}}
+    treffers = uitleg.zoek_bronnen("minerale olie zit in het voorschrift", 5, aquo_ref=aquo_ref)
+    assert len(treffers) == 1
+    assert "Geldig" in treffers[0]["vindplaats"]
+    assert "MINOL_OUD" not in treffers[0]["vindplaats"]
+    assert "ingetrokken" not in treffers[0]["tekst"].lower()
+
+
+def test_zonder_een_geldige_tegenhanger_blijft_de_ingetrokken_naam_een_treffer():
+    """De voorrang mag de ingetrokken naam niet onderdrukken als er geen geldige tegenhanger is
+    (het echte 'Zwevende stof'-geval): dan is de ingetrokken code zelf nog steeds het signaal."""
+    aquo_ref = {"geldig": {}, "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
+    treffers = uitleg.zoek_bronnen("Zwevende stof", 3, aquo_ref=aquo_ref)
+    assert len(treffers) == 1
+    assert "Vervallen" in treffers[0]["vindplaats"]
+
+
+def test_een_dubbele_naam_levert_geen_zelf_tegensprekende_tekst_meer_op():
+    """De letterlijke herhaling van de bevinding: vóór de fix plakte `waarom()` een 'geldig' en
+    een 'ingetrokken' bewering over dezelfde naam aan elkaar. Na de fix mag die tegenspraak niet
+    meer in de uiteindelijke tekst staan."""
+    aquo_ref = {"geldig": {"minerale olie": "MINOL"}, "vervallen": {"minerale olie": "MINOL_OUD"},
+                "vervangen_door": {}}
+    uit = uitleg.waarom("minerale olie", _zoek=lambda q, n: uitleg.zoek_bronnen(q, n, aquo_ref=aquo_ref))
+    assert uit["beschikbaar"] is True
+    assert "geldige" in uit["tekst"].lower()
+    assert "ingetrokken" not in uit["tekst"].lower()
+
+
+def test_stofnaam_matcht_niet_als_staart_van_een_samengestelde_naam():
+    """Fix-ronde 1, bevinding 2 (het meegeleverde voorbeeld): '(1-butyloctyl)-benzeen' bevat
+    'benzeen' als woord met een koppelteken ervoor -- de strenge matcher mag dat niet als een
+    treffer op de stof 'Benzeen' lezen, want dat citeert feiten over de verkeerde stof."""
+    aquo_ref = {"geldig": {"benzeen": "C6H6"}, "vervallen": {}, "vervangen_door": {}}
+    treffers = uitleg.zoek_bronnen("(1-butyloctyl)-benzeen is vergund", 3, aquo_ref=aquo_ref)
+    assert treffers == []
+
+
+def test_stofnaam_matcht_nog_altijd_als_los_woord():
+    """De positieve controle bij de vorige test: 'benzeen' als eigen woord, niet als staart van
+    een samenstelling, moet wél blijven vuren."""
+    aquo_ref = {"geldig": {"benzeen": "C6H6"}, "vervallen": {}, "vervangen_door": {}}
+    treffers = uitleg.zoek_bronnen("er is benzeen aangetroffen", 3, aquo_ref=aquo_ref)
+    assert len(treffers) == 1
+
+
+def test_stofnaam_matcht_nog_altijd_tussen_haakjes():
+    """'(Zn)' is de normale manier waarop een code in de praktijk naast een naam staat -- de
+    haakjes mogen de strenge matcher niet blokkeren, alleen een koppelteken/woordteken ertegenaan
+    moet dat doen."""
+    aquo_ref = {"geldig": {"zn": "Zn"}}
+    treffers = uitleg.zoek_bronnen("zink (zn) in het register", 3, aquo_ref=aquo_ref)
+    assert len(treffers) == 1
+
+
 # -- Met de echte Aquo-loader, tegen een kleine tmp-CSV (geen echte 7000-rijige bron) ------------
 
 def test_uitleg_over_een_echt_ingetrokken_signaalvoorschrift(tmp_path):
@@ -275,6 +387,30 @@ def test_regelversie_is_stabiel_voor_twee_aanroepen_zonder_wijziging():
 def test_een_onbekende_regel_geeft_een_fout_geen_lege_versie():
     with pytest.raises(terugkoppeling.OnbekendeRegel):
         terugkoppeling.regelversie("regel_die_niet_bestaat")
+
+
+# -- Fix-ronde 1, bevinding 4: onleesbare brontekst valt luid om, niet stil terug op een zwakkere
+# hash ------------------------------------------------------------------------------------------
+
+def test_regelversie_faalt_luid_als_de_brontekst_niet_op_te_halen_is(monkeypatch):
+    """Geen kale `OSError` laten ontsnappen, en zeker geen stille terugval op een hash zonder
+    brontekst -- dat zou precies de onder-invalidatie reintroduceren die de moduledocstring
+    afwijst (twee verschillende regels die een versie delen zodra hun bron onleesbaar is)."""
+    def kapotte_getsource(_fn):
+        raise OSError("geen brontekst beschikbaar (bevroren deployment)")
+
+    monkeypatch.setattr(terugkoppeling.inspect, "getsource", kapotte_getsource)
+    with pytest.raises(terugkoppeling.RegelversieNietTeBepalen):
+        terugkoppeling.regelversie("vervallen_code")
+
+
+def test_registreer_geeft_de_fout_door_in_plaats_van_zwijgend_te_versimpelen(monkeypatch):
+    def kapotte_getsource(_fn):
+        raise TypeError("geen brontekst voor een dynamisch gebouwde functie")
+
+    monkeypatch.setattr(terugkoppeling.inspect, "getsource", kapotte_getsource)
+    with pytest.raises(terugkoppeling.RegelversieNietTeBepalen):
+        terugkoppeling.registreer("Vestiging X", "vervallen_code", "signaal_was_juist")
 
 
 def test_een_onbekend_oordeel_wordt_geweigerd():

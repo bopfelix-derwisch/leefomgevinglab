@@ -66,14 +66,34 @@ class OnbekendeRegel(Exception):
     te berekenen, en zwijgend een lege versie teruggeven zou een oordeel aan niets vastmaken."""
 
 
+class RegelversieNietTeBepalen(Exception):
+    """De brontekst van de regelfunctie is niet op te halen (`inspect.getsource` faalt met een
+    `OSError` of `TypeError`) -- bijvoorbeeld een bevroren of verpakte deployment zonder
+    `.py`-bestanden, of een dynamisch gebouwde functie zonder brontekst. Fix-ronde 1, bevinding 4:
+    stil terugvallen op een hash zonder brontekst (bv. alleen regel-id + kop + drempel) zou precies
+    de onder-invalidatie reintroduceren die de moduledocstring afwijst -- twee inhoudelijk
+    verschillende regels zouden dan een gelijke versie kunnen delen zodra hun brontekst allebei
+    onleesbaar is. Beter luid falen, net als `OnbekendeTool`/`OnbekendeRegel` elders in dit lab,
+    dan een onbetrouwbare versie aan een beoordeling vastmaken."""
+
+
 def regelversie(regel_id: str) -> str:
     """De versie van deze regel, nu -- zie de moduledocstring voor wat dat betekent en welk
-    nadeel die keuze bewust accepteert."""
+    nadeel die keuze bewust accepteert. Werpt `RegelversieNietTeBepalen` in plaats van een kale
+    `OSError`/`TypeError` als `inspect.getsource` faalt (fix-ronde 1, bevinding 4) -- een
+    genoemde fout, zoals de rest van dit lab die ook geeft, in plaats van een toevallige
+    Python-uitzondering die een aanroeper niet op naam kan opvangen."""
     if regel_id not in _REGEL_BIJ_ID:
         raise OnbekendeRegel(f"onbekende regel '{regel_id}' (niet in signalen.REGELS)")
     regel = _REGEL_BIJ_ID[regel_id]
     drempel = signalen_mod.DREMPELS.get(regel_id)
-    bron = inspect.getsource(regel.functie)
+    try:
+        bron = inspect.getsource(regel.functie)
+    except (OSError, TypeError) as exc:
+        raise RegelversieNietTeBepalen(
+            f"de brontekst van regel '{regel_id}' is niet op te halen ({type(exc).__name__}); "
+            "zonder brontekst is er geen betrouwbare versie te berekenen"
+        ) from exc
     payload = "|".join((regel.id, regel.kop, repr(drempel), bron))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 

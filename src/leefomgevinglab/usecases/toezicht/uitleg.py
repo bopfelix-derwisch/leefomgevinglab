@@ -3,7 +3,8 @@
 Een signaal zonder uitleg is voor een toezichthouder die niet thuis is in lozingsnormen en
 Aquo-codes onbruikbaar. Maar een uitleg zonder benoemde bron is **erger dan geen uitleg**: zij
 draagt een gezag dat zij niet heeft verdiend. Daarom antwoordt deze module uitsluitend uit een
-afgebakende bronnenset, en zegt zij het eerlijk als zij er niets in vindt (brief, stap 1/2):
+afgebakende bronnenset, en zegt zij het eerlijk als zij er niets in vindt (brief, stap 1/2). Vier
+bronnen, precies de vier uit het plan (§5.4):
 
 - de Aquo-domeintabel Parameter, inclusief de status van een code en haar `Vervangen door`
   (`toezicht.aquo.laad`, sinds taak 7 uitgebreid met die laatste kolom -- zie `aquo.py`);
@@ -13,16 +14,29 @@ afgebakende bronnenset, en zegt zij het eerlijk als zij er niets in vindt (brief
   `toets()`), en deze module behoudt het door alleen de chemische kant te lezen;
 - de Stelselcatalogus Omgevingswet (`connectors.stelselcatalogus.StelselcatalogusConnector`),
   voor de juridische vindplaats van een begrip -- "waarom is zwevende stof hier relevant" komt
-  dan met een verwijzing naar de regeling, niet uit het model zelf.
+  dan met een verwijzing naar de regeling, niet uit het model zelf;
+- de proclaimerteksten van `/kmg` (`kmg.proclaimer`) -- **sinds fix-ronde 1**, en niet decoratief:
+  dit is de enige bron die geen stofnaam nodig heeft. De drie bronnen hierboven matchen allemaal
+  op een stof- of codenaam, en een aantal signalen draagt geen enkele in hun bewijs
+  (`niet_regime_zuiver`, `norm_overschreden_bovenstrooms` noemt er wel een, maar de vraag "waarom
+  is bovenstrooms-liggen relevant" is geen stof-vraag). `proclaimer.bouw()` is een zuivere functie
+  van haar argumenten (geen bestand, geen netwerk) en draagt precies het soort niet-sleutel-waarde
+  kanttekening dat deze signalen nodig hebben: dat een vergunning een vracht begrenst en dus niet
+  tegen een andere grootheid (bv. de opgeloste fractie) gelegd mag worden, en dat het register
+  nooit een oorzaak vaststelt, alleen een bovengrens. Zie `_PROCLAIMER_NOTITIES` voor de twee
+  kanttekeningen die vandaag zo ontsloten zijn, en hun eigen drift-bewakende test
+  (`test_proclaimer_notities_vinden_vandaag_hun_fragment_in_de_echte_tekst`).
 
 **Waarom geen vectorindex (de open vraag uit de opdracht).** `/chatbot` gebruikt bge-m3 +
 `VectorStore` omdat haar bron (IPLO) ongestructureerd proza is: duizenden documentpassages
 zonder sleutel, waar alleen semantische gelijkenis een passage bij een vraag kan vinden. Geen van
-de drie bronnen hier is dat. De Aquo-tabel en de KRW-normen zijn allebei al **sleutel-waarde**
+de vier bronnen hier is dat. De Aquo-tabel en de KRW-normen zijn allebei al **sleutel-waarde**
 (naam/code -> status, code/meetpunt -> norm) -- een vectorindex zou daar een onzekere, niet-
-reproduceerbare gok over leggen op iets dat exact is na te slaan. De Stelselcatalogus doet haar
-eigen woordzoekopdracht al op de bron zelf (`zoekTerm`), dus een tweede, eigen index zou die
-verdubbelen zonder iets toe te voegen. Voor een paar duizend korte, structurele feiten is
+reproduceerbare gok over leggen op iets dat exact is na te slaan (en zou de precedentie-regel van
+`_aquo_treffers` hieronder evengoed zelf moeten implementeren, dus geen vrijstelling van die
+plicht). De Stelselcatalogus doet haar eigen woordzoekopdracht al op de bron zelf (`zoekTerm`),
+dus een tweede, eigen index zou die verdubbelen zonder iets toe te voegen. De proclaimerteksten
+zijn een handvol vaste alinea's, geen corpus. Voor een paar duizend korte, structurele feiten is
 letterlijke/woordgrens-matching dus niet de armere keuze maar de **juistere**: zij kan nooit een
 stof vinden die er niet letterlijk staat, en dat is precies de garantie die de harde regel
 hieronder vraagt. Embeddings winnen pas als de vraagstelling en de brontekst niet dezelfde woorden
@@ -34,15 +48,28 @@ drie verboden woorden bevat ("overtreding", "veroorzaakt door", "in strijd met")
 die toevallig uit een treffer komt. Zie `_toegestaan()`: een treffer die de taalregel breekt
 wordt genegeerd, niet opgeschoond, want een bron die zulke taal gebruikt is hier niet te
 vertrouwen in plaats van te herschrijven.
+
+**Twee woordgrensmatchers, met opzet (fix-ronde 1, bevinding 2).** `_bevat()` (los, `\\b...\\b`)
+is voor de eigen, gecontroleerde triggerwoorden van de proclaimer-kanttekeningen -- "regime" moet
+bijvoorbeeld vuren op de signaalkop "toets niet *regime*-zuiver", een samengesteld woord met een
+koppelteken. `_bevat_stofnaam()` (strenger, geen koppelteken of woordteken aan weerszijden) is
+voor Aquo- en KRW-stofnamen: een live proef op `(1-butyloctyl)-benzeen` leverde met de losse
+matcher een treffer op *Benzeen* op -- een andere stof die alleen als staart van een samengestelde
+naam voorkomt. Scheikundige namen zijn vaak met een koppelteken samengesteld, en precies daar moet
+de hardere garantie van de harde regel gelden: een treffer die een andere stof citeert dan er
+feitelijk staat, draagt zelf een onterecht gezag. Dat risico speelt niet bij de eigen
+triggerwoorden, want die komen niet uit chemische nomenclatuur maar uit dit lab zelf.
 """
 import re
+
+from leefomgevinglab.usecases.kmg import proclaimer as proclaimer_mod
 
 _VERBODEN = ("overtreding", "veroorzaakt door", "in strijd met")
 
 _GEEN_TREFFER = (
-    "Geen van de bronnen (Aquo-domeintabel Parameter, KRW-normen, Stelselcatalogus Omgevingswet) "
-    "bevat een treffer voor deze vraag. Daarom legt de uitlegger hier niets uit -- hij weet het "
-    "niet, en zegt dat liever dan te gokken."
+    "Geen van de bronnen (Aquo-domeintabel Parameter, KRW-normen, Stelselcatalogus Omgevingswet, "
+    "de /kmg-proclaimer) bevat een treffer voor deze vraag. Daarom legt de uitlegger hier niets "
+    "uit -- hij weet het niet, en zegt dat liever dan te gokken."
 )
 
 
@@ -54,29 +81,58 @@ def _toegestaan(tekst: str) -> bool:
 
 
 def _bevat(haystack_lower: str, term: str) -> bool:
-    """Of `term` als los woord (of woordgroep) in `haystack_lower` voorkomt -- woordgrensmatching,
-    geen losse substring: "Zn" mag niet toevallig binnen een ander woord opduiken."""
+    """Of `term` als los woord (of woordgroep) in `haystack_lower` voorkomt -- gewone
+    woordgrensmatching (`\\b`), waarbij een koppelteken wél als grens telt ("regime" vuurt dus op
+    "regime-zuiver"). Voor de eigen, gecontroleerde triggerwoorden van de proclaimer-
+    kanttekeningen (zie de moduledocstring) -- niet voor stofnamen, zie `_bevat_stofnaam`."""
     term = (term or "").strip().lower()
     if not term:
         return False
     return re.search(r"\b" + re.escape(term) + r"\b", haystack_lower) is not None
 
 
+def _bevat_stofnaam(haystack_lower: str, term: str) -> bool:
+    """Strengere grensmatching voor Aquo- en KRW-stofnamen: de term mag aan weerszijden geen
+    woordteken *en* geen koppelteken hebben. Fix-ronde 1, bevinding 2: met de losse `_bevat` gaf
+    de query '(1-butyloctyl)-benzeen' een treffer op 'Benzeen' -- een andere stof die hier alleen
+    als staart van een samengestelde naam voorkomt. Zie de moduledocstring voor de volledige
+    afweging."""
+    term = (term or "").strip().lower()
+    if not term:
+        return False
+    patroon = r"(?<![\w-])" + re.escape(term) + r"(?![\w-])"
+    return re.search(patroon, haystack_lower) is not None
+
+
 def _aquo_treffers(vraag_lower: str, aquo_ref: dict) -> list[dict]:
     """Treffers uit de Aquo-domeintabel: een geldige naam, of een ingetrokken naam met (indien
-    aanwezig) haar opvolger. `aquo_ref` is de vorm die `aquo.laad()` teruggeeft."""
+    aanwezig) haar opvolger. `aquo_ref` is de vorm die `aquo.laad()` teruggeeft.
+
+    **Precedentie, fix-ronde 1, bevinding 2.** 748 namen in de echte bron staan zowel in `geldig`
+    als in `vervallen` (bv. "minerale olie": een oude, ingetrokken code naast een nieuwe, geldige).
+    Zonder voorrang leverde dit voor zo'n naam *twee* treffers op die elkaar tegenspreken --
+    "geldig" en "ingetrokken" over precies dezelfde naam, in één `waarom`-tekst geplakt. `aquo.
+    verrijk()` kent dit geval al en laat de geldige code winnen (zie haar eigen test
+    `test_een_naam_met_zowel_een_geldige_als_een_ingetrokken_rij_telt_als_geldig`); deze functie
+    past nu dezelfde regel toe, in plaats van er een eigen, afwijkende voorrang naast te zetten."""
     uit = []
+    geldig = aquo_ref.get("geldig") or {}
+    vervallen = aquo_ref.get("vervallen") or {}
     vervangen_door = aquo_ref.get("vervangen_door") or {}
-    for naam, code in (aquo_ref.get("geldig") or {}).items():
-        if not _bevat(vraag_lower, naam):
+    for naam, code in geldig.items():
+        if not _bevat_stofnaam(vraag_lower, naam):
             continue
         uit.append({
             "tekst": f"'{naam.capitalize()}' is in de Aquo-domeintabel Parameter een geldige "
                      f"parameter (code {code}).",
             "vindplaats": f"Aquo-domeintabel Parameter, code {code}, status Geldig",
         })
-    for naam, code in (aquo_ref.get("vervallen") or {}).items():
-        if not _bevat(vraag_lower, naam):
+    for naam, code in vervallen.items():
+        if naam in geldig:
+            # Zelfde voorrang als `aquo.verrijk()`: voor déze naam bestaat een geldige referentie,
+            # dus de ingetrokken code is geen signaal meer waard (zie de docstring hierboven).
+            continue
+        if not _bevat_stofnaam(vraag_lower, naam):
             continue
         vervanger = vervangen_door.get(naam)
         vervolg = (f" Vervangen door code {vervanger}." if vervanger
@@ -110,7 +166,7 @@ def _krw_treffers(vraag_lower: str, normenset: dict, aquo_ref: dict) -> list[dic
             if sleutel in gezien:
                 continue
             naam = naam_bij_code.get(code, code)
-            if not (_bevat(vraag_lower, naam) or _bevat(vraag_lower, code or "")):
+            if not (_bevat_stofnaam(vraag_lower, naam) or _bevat_stofnaam(vraag_lower, code or "")):
                 continue
             gezien.add(sleutel)
             uit.append({
@@ -145,21 +201,81 @@ def _catalogus_treffers(vraag: str, catalogus) -> list[dict]:
     return uit
 
 
+def _proclaimer_kopjes() -> list[dict]:
+    """De vier kopjes van de /kmg-proclaimer, als bron -- `proclaimer.bouw()` is een zuivere
+    functie van haar argumenten (geen bestand, geen netwerk, zie `kmg/proclaimer.py`), dus met
+    neutrale invoer (lege dicts, geen doelen) liggen de kopteksten gewoon vast. Lege invoer is hier
+    bewust: deze module citeert specifieke, los van de Maas-cijfers staande zinnen uit die tekst
+    (zie `_PROCLAIMER_NOTITIES`), niet de hele paragraaf -- die is vol Maas-specifieke getallen
+    (afstanden, afvoercijfers) die in een uitleg over een willekeurig signaal niet thuishoren.
+    `meetset={"beschikbaar": True}` kiest de kortere, onvoorwaardelijke formulering van het
+    "kan bijdragen"-kopje (zonder de "zodra er wel metingen zijn"-inleiding) -- de inhoud van het
+    citaat verandert niet, alleen de inleidende bijzin eromheen."""
+    return proclaimer_mod.bouw({"beschikbaar": True}, {}, "het DSO", False)["kopjes"]
+
+
+def _zin_met_fragment(kopjes: list[dict], kop_titel: str, fragment: str) -> str | None:
+    """De zin uit kopje `kop_titel` die `fragment` bevat, letterlijk uit de live tekst -- geen
+    eigen parafrase (die zou kunnen uiteenlopen van wat `/kmg` zelf zegt). `None` als het kopje of
+    het fragment er niet (meer) in staat; `test_proclaimer_notities_vinden_vandaag_hun_fragment_
+    in_de_echte_tekst` is de drift-wacht die zou falen zodra dat gebeurt."""
+    tekst = next((k.get("tekst") or "" for k in kopjes if k.get("kop") == kop_titel), "")
+    for zin in re.split(r"(?<=[.!?])\s+", tekst):
+        if fragment.lower() in zin.lower():
+            return zin.strip()
+    return None
+
+
+# Elke notitie: welke (eigen, gecontroleerde) triggerwoorden haar activeren, uit welk kopje zij
+# komt en welk fragment de zin identificeert. Bewust niet stof-gebonden -- dat doen de andere drie
+# bronnen al -- maar gekoppeld aan de signaalkop zelf, want precies de signalen zonder stofnaam in
+# hun bewijs (`niet_regime_zuiver`, `norm_overschreden_bovenstrooms`) hebben hier iets aan.
+_PROCLAIMER_NOTITIES = (
+    {"sleutels": ("regime", "bemonstering"), "kop": "Wat van ons is",
+     "fragment": "twee verschillende grootheden"},
+    {"sleutels": ("bovenstrooms", "overschreden"), "kop": "Wat u hier niet uit kunt afleiden",
+     "fragment": "kan bijdragen"},
+)
+
+
+def _proclaimer_treffers(vraag_lower: str) -> list[dict]:
+    """Treffers uit de /kmg-proclaimer -- de vierde bron (fix-ronde 1, bevinding 1), en de enige
+    die geen stofnaam nodig heeft. Altijd actief, ook zonder enige geïnjecteerde referentie: zij
+    leest geen bestand en doet geen netwerk (`proclaimer.bouw()` is zuiver), dus dit raakt de
+    belofte "geen netwerk, geen bestand zonder injectie" niet -- zie `zoek_bronnen`."""
+    kopjes = _proclaimer_kopjes()
+    uit = []
+    for notitie in _PROCLAIMER_NOTITIES:
+        if not any(_bevat(vraag_lower, sleutel) for sleutel in notitie["sleutels"]):
+            continue
+        zin = _zin_met_fragment(kopjes, notitie["kop"], notitie["fragment"])
+        if not zin:
+            continue
+        uit.append({"tekst": zin,
+                    "vindplaats": f"usecases/kmg/proclaimer.py (/kmg), kopje '{notitie['kop']}'"})
+    return uit
+
+
 def zoek_bronnen(vraag: str, n: int, *, aquo_ref: dict | None = None,
                   normenset: dict | None = None, catalogus=None) -> list[dict]:
-    """De standaard-retrieval: woordgrensmatching over drie bronnen, geïnjecteerd als
-    al-geladen referenties (`aquo_ref`, `normenset`) of een connector (`catalogus`) -- zelfde
-    stijl als `aquo.verrijk(vestiging, ref)` en `doelen.toets(doelenset, ...)`: deze functie laadt
-    zelf niets van schijf en doet zelf geen netwerk, dat is aan de aanroeper (de runner-tool,
-    `runner.tool_uitleg_genereren`). Zonder enige bron geeft zij dus terecht niets terug -- dat is
-    niet een fout van deze functie, maar het eerlijke antwoord op "geen bron aangeleverd".
+    """De standaard-retrieval: woordgrensmatching over vier bronnen. Drie zijn geïnjecteerd als
+    al-geladen referenties (`aquo_ref`, `normenset`) of een connector (`catalogus`) -- zelfde stijl
+    als `aquo.verrijk(vestiging, ref)` en `doelen.toets(doelenset, ...)`: deze functie laadt zelf
+    niets van schijf en doet zelf geen netwerk, dat is aan de aanroeper (de runner-tool,
+    `runner.tool_uitleg_genereren`). Zonder die drie geeft zij voor hén dus terecht niets terug --
+    dat is niet een fout van deze functie, maar het eerlijke antwoord op "geen bron aangeleverd".
+    De vierde (de /kmg-proclaimer) is intrinsiek en altijd actief, want zij vraagt geen injectie:
+    `proclaimer.bouw()` is een zuivere functie, geen bestand en geen netwerk (zie
+    `_proclaimer_treffers`).
 
     Geen rangschikking op relevantie (geen score, geen embedding om op te sorteren): de volgorde
-    is Aquo, dan KRW, dan de Stelselcatalogus -- eigen, exacte structuurdata eerst, de
-    vrije-tekst-zoekopdracht op een externe bron als laatste. `n` knipt simpelweg af."""
+    is Aquo, dan KRW, dan de proclaimer, dan de Stelselcatalogus -- eigen, exacte structuurdata
+    eerst, dan de eigen kanttekeningen, en de vrije-tekst-zoekopdracht op een externe bron als
+    laatste. `n` knipt simpelweg af."""
     vraag_lower = (vraag or "").lower()
     treffers = _aquo_treffers(vraag_lower, aquo_ref or {})
     treffers += _krw_treffers(vraag_lower, normenset or {}, aquo_ref or {})
+    treffers += _proclaimer_treffers(vraag_lower)
     treffers += _catalogus_treffers(vraag, catalogus)
     return treffers[:n] if n else treffers
 

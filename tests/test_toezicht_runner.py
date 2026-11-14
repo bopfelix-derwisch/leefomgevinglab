@@ -11,7 +11,7 @@ import os
 import pytest
 import yaml
 
-from leefomgevinglab.usecases.toezicht import runner
+from leefomgevinglab.usecases.toezicht import runlog, runner
 from tests.test_toezicht_signalen import CONTEXT_MET_ALLES, VESTIGING_MET_ALLES
 
 _CONFIG_DIR = os.path.join(os.path.dirname(runner.__file__), "config")
@@ -61,21 +61,28 @@ def test_de_standaardpijplijn_draait_zonder_llm_en_levert_een_dossier():
 
 
 def test_agents_zonder_llm_sleutel_krijgen_nooit_een_taalmodel_ook_als_de_run_er_een_meekrijgt():
-    """De §4.4-grens, nu met een llm die wél is meegegeven aan `draai()`: signaalsteller en
-    vergunninglezer mogen hem alsnog niet krijgen, want hun agent-configuratie draagt geen
-    `llm`-sleutel. Dit is de grens zelf, niet alleen het gevolg ervan (zie
-    `test_toezicht_runlog.test_tijdens_de_signaalbepaling_komt_er_geen_taalmodel_aan_te_pas` voor
-    het gevolg)."""
+    """De §4.4-grens, nu met een llm die wél is meegegeven aan `draai()`: signaalsteller,
+    vergunninglezer en dossiersteller mogen hem alsnog niet krijgen, want hun agent-configuratie
+    draagt geen `llm`-sleutel.
+
+    **Herschreven in fix-ronde 1 van taak 7.** Vóór taak 7 was "geen enkele taak roept het
+    taalmodel aan" toevallig ook waar voor `uitlegger`, simpelweg omdat zijn tool nog niet
+    bestond (`GEPLAND`). Sinds taak 7 heeft `uitlegger` wél een echte tool én een `llm`-sleutel in
+    zijn configuratie, en met deze fixture (die `norm_overschreden_bovenstrooms` laat vuren, wat
+    de /kmg-proclaimer-bron activeert) gebruikt hij die ook echt -- dat is geen schending van
+    §4.4, want die grens gaat juist over agents *zonder* de sleutel. Deze test kijkt daarom per
+    agent naar het `llm`-veld in de runlog, niet naar één globaal spion-logboek dat niet
+    onderscheidt wie het taalmodel aanriep."""
+    log = runlog.Runlog()
     crew = runner.laad(AGENTS, TASKS)
-    aangeroepen_met_llm = []
 
     def spion_llm(prompt):
-        aangeroepen_met_llm.append(prompt)
-        return "SELECT * WHERE { ?s ?p ?o } LIMIT 1"
+        return "nette tekst"
 
-    crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, llm=spion_llm)
-    assert aangeroepen_met_llm == [], \
-        "geen van de taken in de standaardpijplijn mag het taalmodel aanroepen"
+    crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, llm=spion_llm, runlog=log)
+    for s in log.als_gegeven():
+        if s["agent"] in ("vergunninglezer", "signaalsteller", "dossiersteller"):
+            assert s["llm"] is False, f"{s['agent']} gebruikte een taalmodel in stap {s['nr']}"
 
 
 # -- Stap 5: de YAML gebruikt de CrewAI-velden ---------------------------------------------------

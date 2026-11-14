@@ -97,8 +97,14 @@ def test_de_uitlegger_draait_nu_echt_in_de_standaardpijplijn():
     """Taak 7 maakte `uitleg_genereren` een echte tool (vroeger stond hier
     `test_een_nog_niet_gebouwde_tool_krijgt_een_luide_nietbeschikbaar_stap_geen_stilte`, die
     precies het omgekeerde vastlegde). Een gewone run zonder `aquo_ref`/`normenset`/
-    `stelselcatalogus` in de invoer vindt nergens een bron, dus geen signaal krijgt een
-    `waarom`-veld -- maar de stap zelf is nu een normale, uitgevoerde stap, geen `niet_beschikbaar`."""
+    `stelselcatalogus` in de invoer kan de drie geïnjecteerde bronnen niet raadplegen -- maar de
+    vierde (de /kmg-proclaimer, fix-ronde 1) is intrinsiek en altijd actief, en vuurt hier op het
+    trefwoord 'regime' in de signaalkop 'toets niet regime-zuiver' (`niet_regime_zuiver`).
+    `norm_overschreden_bovenstrooms` fireert in deze run niet eens (zonder `context` ontbreekt
+    `context["waterlichaam"]`, zie `signalen.regel_norm_overschreden_bovenstrooms`), dus alleen
+    `niet_regime_zuiver` krijgt hier een `waarom`. De stap zelf is een normale, uitgevoerde stap,
+    geen `niet_beschikbaar`. Zie `test_de_uitlegger_vult_waarom_zodra_er_een_aquo_referentie_is`
+    hieronder voor een run met `context` en een geïnjecteerde Aquo-referentie erbij."""
     crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
     uitkomst = crew.draai({"vestiging": VESTIGING_FIXTURE}, runlog=log)
     stap = next(s for s in log.als_gegeven() if s["agent"] == "uitlegger")
@@ -107,8 +113,10 @@ def test_de_uitlegger_draait_nu_echt_in_de_standaardpijplijn():
     assert stap["tool"] == "uitleg_genereren"
     assert stap["llm"] is False, "deze run geeft draai() geen llm mee"
     assert uitkomst["dossier"]["signalen"], "de rest van de pijplijn moet toch doorlopen"
-    assert all("waarom" not in s for s in uitkomst["dossier"]["signalen"]), \
-        "zonder aquo_ref/normenset/stelselcatalogus vindt de uitlegger nergens een bron"
+    met_waarom = {s["regel"] for s in uitkomst["dossier"]["signalen"] if s.get("waarom")}
+    assert met_waarom == {"niet_regime_zuiver"}, (
+        "alleen het proclaimer-trefwoord 'regime' in de signaalkop mag hier een waarom "
+        "opleveren, zonder enige geïnjecteerde bron")
 
 
 def test_de_uitlegger_vult_waarom_zodra_er_een_aquo_referentie_is():
@@ -186,3 +194,33 @@ def test_de_signalen_in_de_runlog_stap_komen_overeen_met_het_uiteindelijke_dossi
     assert regels_in_runlog == regels_in_dossier, \
         "de runlog-stap en het uiteindelijke dossier beweren niet meer hetzelfde"
     assert stap["rijen_uit"] == len(uitkomst["dossier"]["signalen"])
+
+
+# -- Fix-ronde 1, bevinding 3: het GEPLAND/niet_beschikbaar-mechanisme behoudt dekking -----------
+
+def test_een_toekomstig_geplande_maar_nog_niet_gebouwde_tool_geeft_nog_steeds_nietbeschikbaar(
+        monkeypatch):
+    """`GEPLAND` is sinds taak 7 leeg, omdat `uitleg_genereren`/`terugkoppeling_genereren` nu
+    echte tools zijn -- maar het mechanisme zelf (een tool die verklaard is in de YAML en
+    aangekondigd in `GEPLAND`, maar nog niet in `TOOLS` staat, moet het laden niet breken en bij
+    uitvoering een luide `niet_beschikbaar`-stap geven) is daarmee dekkingsloos geworden: geen
+    test construeerde nog een gevulde `GEPLAND`. Dit simuleert de volgende agent die hetzelfde
+    tussenstadium doorloopt, met een tijdelijke, niet-bestaande toolnaam."""
+    monkeypatch.setattr(runner, "GEPLAND", {"toekomstige_tool"})
+    crew = runner.laad_uit_dict(
+        {"toekomstagent": {"role": "x", "goal": "y", "tools": ["toekomstige_tool"]}},
+        {"t1": {"description": "d", "expected_output": "e", "agent": "toekomstagent"}})
+
+    # De eerste helft: de tool is verklaard (dus geen `OnbekendeTool` bij het laden), maar niet
+    # gebouwd (dus `NietBeschikbaar` zodra iemand hem opvraagt).
+    with pytest.raises(runner.NietBeschikbaar):
+        crew.tools_voor("toekomstagent")["toekomstige_tool"]
+
+    # De tweede helft: `Crew.draai()` registreert dat luid in de runlog, geen stille overslag.
+    log = runlog.Runlog()
+    crew.draai({}, runlog=log)
+    stap = next(s for s in log.als_gegeven() if s["agent"] == "toekomstagent")
+    assert stap["niet_beschikbaar"] is True
+    assert stap["uitgezet"] is False
+    assert stap["tool"] == "toekomstige_tool"
+    assert stap["llm"] is False, "er is niets uitgevoerd, dus is er ook geen taalmodel gebruikt"

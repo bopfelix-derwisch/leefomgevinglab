@@ -202,11 +202,13 @@ def _uitlegvraag(signaal: dict) -> str:
 
 
 def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
-    """Vult per signaal in `staat['dossier']` het veld `waarom`, via `uitleg.waarom()` --
-    uitsluitend uit wat `staat` meegeeft (`aquo_ref`, `normenset`, `stelselcatalogus`). Ontbreekt
-    dat, dan vindt `uitleg.zoek_bronnen` niets en blijft `waarom` afwezig op elk signaal, net zoals
-    `tool_atlas_vergunningen` een vestiging onaangeroerd laat zonder `aquo_ref`: deze tool laadt
-    zelf geen bestand en doet zelf geen netwerk, dat is aan wie `staat` samenstelt.
+    """Vult per signaal in `staat['dossier']` het veld `waarom`, via `uitleg.waarom()`. Drie van
+    de vier bronnen komen uit wat `staat` meegeeft (`aquo_ref`, `normenset`, `stelselcatalogus`);
+    ontbreekt dat, dan vinden die drie niets, net zoals `tool_atlas_vergunningen` een vestiging
+    onaangeroerd laat zonder `aquo_ref` -- deze tool laadt zelf geen bestand en doet zelf geen
+    netwerk, dat is aan wie `staat` samenstelt. De vierde bron (de /kmg-proclaimer, fix-ronde 1)
+    is intrinsiek en vraagt geen `staat`-sleutel: zij kan dus ook zonder enige geïnjecteerde
+    referentie een signaal als `niet_regime_zuiver` of `norm_overschreden_bovenstrooms` uitleggen.
 
     `waarom` wordt alleen gezet als `uitleg.waarom()` `beschikbaar=True` teruggeeft -- anders
     blijft de sleutel afwezig (zie `dossier._signaal_deel_b`, die `stap` op dezelfde manier
