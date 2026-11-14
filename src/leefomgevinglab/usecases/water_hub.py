@@ -83,6 +83,15 @@ LEDEN = [
                      "bovenstrooms ligt licht op; elke stip draagt waar\u00f3p haar koppeling rust.",
      "live": ["Atlas voor een Schone Maas", "RWS KRW-service (geometrie, vereenvoudigd)"],
      "synthetisch": ["de stroomvolgorde tussen waterlichamen \u2014 een keuze van dit lab"]},
+    {"id": "toezicht", "pad": "/toezicht", "label": "Toezicht",
+     "titel": "Signaaldossier voor de toezichthouder",
+     "samenvatting": "Niet wat hier nog mag, maar waar je moet gaan kijken: tien "
+                     "deterministische regels op het Maas-lozingenregister, elk met bewijs, "
+                     "herkomst en de vraag die je ter plaatse kunt stellen — plus de "
+                     "pijplijn en de runlog die laten zien hoe het signaal tot stand kwam.",
+     "live": ["Atlas voor een Schone Maas", "Aquo-domeintabel Parameter",
+              "KRW-toetsresultaten (krw_normen.json)", "Stelselcatalogus Omgevingswet"],
+     "synthetisch": ["geen — dit dossier draait op open data, zonder eigen register"]},
     {"id": "eindbeeld", "pad": "/eindbeeld", "label": "Eindbeeld",
      "titel": "Vrachtenbalans zink \u2014 Zandmaas, traject Roermond\u2013Venlo",
      "samenvatting": "Hoe het informatieproduct eruitziet als de gaten dicht zijn. Volledig "

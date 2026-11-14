@@ -50,6 +50,11 @@ from leefomgevinglab.usecases import eindbeeld as eindbeeld_mod
 from leefomgevinglab.usecases import maaskaart as maaskaart_mod
 from leefomgevinglab.usecases import modellen as modellen_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
+from leefomgevinglab.usecases.kmg import doelen as kmg_doelen
+from leefomgevinglab.usecases.toezicht import aquo as toezicht_aquo
+from leefomgevinglab.usecases.toezicht import pijplijn as toezicht_pijplijn
+from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
+from leefomgevinglab.usecases.toezicht import runner as toezicht_runner
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -566,6 +571,112 @@ def _waterpagina(bestand: str, actief: str | None) -> str:
     """Een waterpagina met de gedeelde subnav erin; zelfde truc als _keten_tab."""
     html = (Path(__file__).parent.parent / "static" / bestand).read_text()
     return html.replace("__WATERNAV__", water_hub_mod.subnav_html(actief))
+
+
+# -- /toezicht: het signaaldossier op het Maas-lozingenregister (taak 8) -------------------------
+#
+# Hetzelfde middelpunt/straal als /maaskaart en de live-tests (`test_toezicht_live.py`): heel het
+# Maasstroomgebied vanuit één RD-punt, niet de kleinere straal die /waterruimte en /gebruiksruimte
+# rond een losse prik gebruiken.
+_TOEZICHT_CONFIG_DIR = os.path.join(os.path.dirname(toezicht_runner.__file__), "config")
+TOEZICHT_AGENTS_PAD = os.path.join(_TOEZICHT_CONFIG_DIR, "agents.yaml")
+TOEZICHT_TASKS_PAD = os.path.join(_TOEZICHT_CONFIG_DIR, "tasks.yaml")
+_TOEZICHT_PUNT = (170000.0, 390000.0)
+_TOEZICHT_STRAAL_M = 250000
+
+
+def _toezicht_register() -> list[dict]:
+    """Het hele Maas-lozingenregister, live via de Atlas voor een Schone Maas. Gecachet door de
+    connector zelf (`smwk_atlas.cache_ttl_s`, zie `kmg_service._atlas_standaard`), dus niet bij
+    elke pageview opnieuw over het netwerk. Een eigen, kleine functie (niet rechtstreeks
+    `kmg_service._atlas_standaard` in de routes) zodat een test hem in één regel kan vervangen."""
+    return kmg_service._atlas_standaard(*_TOEZICHT_PUNT, _TOEZICHT_STRAAL_M)
+
+
+def _toezicht_aquo_ref() -> dict:
+    """De Aquo-domeintabel Parameter, geldig én vervallen -- dezelfde CSV en hetzelfde
+    configuratiesleutel als `/kmg` (`kmg.aquo_csv_pad`), niet een eigen, tweede pad."""
+    kmg_cfg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    return toezicht_aquo.laad(kmg_cfg.get("aquo_csv_pad", ""))
+
+
+def _toezicht_normenset() -> dict:
+    """De KRW-normen (`kmg.normen_pad`), via `kmg.doelen.laad_normen` -- dezelfde functie en
+    hetzelfde bestand als `/kmg` gebruikt voor de chemische norm per stof en meetpunt."""
+    kmg_cfg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    normen_pad = kmg_cfg.get("normen_pad")
+    if not normen_pad:
+        return {"beschikbaar": False, "normen": {}, "reden": "geen normen_pad geconfigureerd"}
+    return kmg_doelen.laad_normen(normen_pad)
+
+
+@app.get("/toezicht", response_class=HTMLResponse)
+def toezicht_page():
+    """Signaaldossier voor de toezichthouder op het Maas-lozingenregister: niet wat hier nog
+    mag, maar waar je moet gaan kijken."""
+    return _waterpagina("toezicht.html", "toezicht")
+
+
+@app.get("/api/toezicht/pijplijn")
+def api_toezicht_pijplijn():
+    """De agents en taken zoals ze in de YAML staan -- geen crew gestart, geen validatie (R4):
+    de pagina moet de configuratie kunnen tonen zonder het proces uit te voeren."""
+    gegeven = toezicht_pijplijn.als_gegeven(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
+    return {**gegeven, "bron": TOEZICHT_AGENTS_PAD}
+
+
+@app.get("/api/toezicht/vestigingen")
+def api_toezicht_vestigingen():
+    """De vestigingen in het register, voor de kiezer op de pagina -- alleen de velden die een
+    keuze tonen, niet het volledige dossier per vestiging (dat is een afzonderlijke, zwaardere
+    aanroep, zie `api_toezicht_dossier`)."""
+    try:
+        register = _toezicht_register()
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return [{"locatiecode": v.get("locatiecode"), "naam": v.get("naam"), "plaats": v.get("plaats")}
+            for v in register]
+
+
+@app.get("/api/toezicht/dossier")
+def api_toezicht_dossier(vestiging: str):
+    """Draait de standaardpijplijn (`lees_vergunning` -> `bepaal_signalen` ->
+    `stel_dossier_samen` -> `leg_signalen_uit`) echt, met de drie bronnen voor de uitlegger
+    bekabeld (R20): `aquo_ref`, `normenset` en de Stelselcatalogus-connector. Geen taalmodel
+    hier (`llm=None`) -- de deterministische treffers uit die drie bronnen zijn al genoeg voor
+    een `waarom`, en de pagina mag niet wachten op een externe aanroep naar het lokale model om
+    die te tonen.
+
+    `context` blijft leeg: dit lab heeft geen betrouwbare, snel te bevragen bron voor
+    `gemeten_codes` (dat vraagt de 142 MB ruwe WKP-CSV, zie `test_toezicht_live.py`), een live
+    waterlichaam-opzoeking per vestiging of de normenlijst per stof. `dossier()` zet dat zelf om
+    in expliciete voorbehouden (`d["voorbehouden"]`) in plaats van er iets bij te verzinnen --
+    een gat is hier een signaal, geen gebrek dat verstopt moet worden."""
+    try:
+        register = _toezicht_register()
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    v = next((p for p in register if p.get("locatiecode") == vestiging), None)
+    if v is None:
+        raise HTTPException(status_code=404, detail=f"onbekende vestiging: {vestiging}")
+
+    crew = toezicht_runner.laad(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
+    log = toezicht_runlog.Runlog()
+    invoer = {
+        "vestiging": v,
+        "context": {},
+        "aquo_ref": _toezicht_aquo_ref(),
+        "normenset": _toezicht_normenset(),
+        "stelselcatalogus": _stelselcatalogus(),
+    }
+    staat = crew.draai(invoer, llm=None, runlog=log)
+    dossier = dict(staat["dossier"])
+    # `dossier()` zet zelf al een `runlog`-sleutel, maar dat is een foto vóór haar eigen stap en
+    # vóór de uitlegger erna (zie `dossier._signalen_stap`/`dossier.dossier`): op het moment dat
+    # `tool_dossier_samenstellen` haar aanroept, heeft de meegegeven `log` alleen de twee stappen
+    # ervóór. Hier is de hele run al klaar, dus vervang het door de volledige, echte log.
+    dossier["runlog"] = {"uitgezet": [], "stappen": log.als_gegeven()}
+    return dossier
 
 
 @app.get("/water", response_class=HTMLResponse)
