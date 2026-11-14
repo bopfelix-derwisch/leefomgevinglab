@@ -216,46 +216,87 @@ def _signalen_stap(runlog) -> dict | None:
     return None
 
 
-# Fix-ronde 1 (R20-review, bevinding 2): het ontwerpplan vraagt de bewering als volzin met het
-# getal erin -- "Voor 88 voorschriften bestaat geen onafhankelijke meting in het watersysteem."
-# -- niet de kale `kop` uit `signalen.py` die de pagina tot nu toe rechtstreeks toonde. Tien
-# losse, met de hand geschreven zinnen zou precies het probleem zijn dat deze module elders
-# vermijdt (zie `_HERKOMST_PER_REGEL`/`_WAT_TE_DOEN_PER_REGEL`: een tabel die uit de pas kan lopen
-# met een regel die zelf verandert). Daarom wordt de zin hier *afgeleid* uit twee dingen die al
-# bestaan: `signalen.DREMPELS[regel_id][1]` (wat `omvang` telt) en `omvang` zelf.
+# Fix-ronde 2 (R20-review): fix-ronde 1 leidde de bewering af uit `signalen.DREMPELS`'s
+# omvang_is-tekst, en dat ging op twee manieren mis die de review allebei terecht aanwees:
 #
-# Die omvang_is-tekst betekent niet voor elke regel hetzelfde (vandaar geen enkel generiek
-# sjabloon, zie onder):
-#   - Acht regels beginnen met "aantal " -- de rest van de tekst is een kant-en-klare
-#     naamwoordgroep die, met het getal ervoor, al een complete bewering is: "aantal voorschriften
-#     zonder meting" -> "88 voorschriften zonder meting."
-#   - `meerdere_grenswaarden` draagt een **verhouding**, geen telling ("verhouding hoogste /
-#     laagste grenswaarde") -- die krijgt een eigen vorm met een vermenigvuldigingsteken, want
-#     "4,0 verhouding hoogste / laagste grenswaarde." zou onzin zijn.
-#   - `niet_regime_zuiver` en `geen_geldigheidsduur` dragen in dat tweede tekstslot géén
-#     omvang-omschrijving maar een toelichting op de zwaarte ("altijd laag; dit is een
-#     voorbehoud/...geldt voor het hele register") -- hun `omvang` is wél een echte telling (zie
-#     hun eigen functie in `signalen.py`: "omvang draagt hier gewoon de echte telling, hoeveel
-#     voorschriften het betreft"), dus die twee vallen terug op de kop zelf plus het aantal
-#     voorschriften.
+# 1. Geen vervoeging: "1 voorschriften zonder meting." -- de generieke vorm plakte het getal
+#    vóór een meervoudige naamwoordgroep, ook bij een telling van 1. Dit is dezelfde familie fout
+#    die dit lab al drie keer trof (de `_nl()`-komma-vervanger die ook een zinskomma opvrat):
+#    een generieke tekstbewerking die iets opleverde dat niemand met de hand zo zou schrijven.
+# 2. Twee regels (`niet_regime_zuiver`, `geen_geldigheidsduur`) vielen terug op "Kop: N
+#    voorschriften." -- een sleutel-waardepaar met een dubbele punt, exact de vorm die het
+#    ontwerpplan afwijst ("De bewering is een zin, geen sleutel-waardepaar"). En
+#    `vergunning_niet_te_vinden` leverde een naamwoordgroep zonder werkwoord op
+#    ("N ontbrekende identificerende velden."), geen zin die een inspecteur zou uitspreken.
+#
+# De oplossing is niet één generiek sjabloon (dat is precies hoe bevinding 1 ontstond) maar ook
+# geen tien met de hand getypte getallen: elke regel krijgt hier een eigen paar zinssjablonen
+# (enkelvoud/meervoud, elk met een onderwerp én een werkwoord), in exact dezelfde vorm als
+# `_HERKOMST_PER_REGEL`/`_WAT_TE_DOEN_PER_REGEL` hierboven -- een vaste catalogus, geen generatie.
+# Het getal zelf wordt nooit getypt: het komt altijd via `.format(n=n)` uit `omvang` zelf, pas op
+# het moment van renderen. `meerdere_grenswaarden` (een verhouding, geen telling) heeft geen
+# enkelvoud/meervoud nodig en krijgt daarom een eigen, vaste zinsvorm zonder `{n}`.
 _RATIO_REGELS = {"meerdere_grenswaarden"}
 
+# Per regel: (enkelvoudzin, meervoudzin), beide met `{n}` op de plek van het getal. Volledigheid
+# (elke regel in `signalen.DREMPELS` behalve de ratio-regels staat hier) is een test, net als bij
+# de andere twee catalogi.
+_BEWERING_PER_REGEL: dict[str, tuple[str, str]] = {
+    "geen_onafhankelijke_meting": (
+        "Voor {n} voorschrift bestaat geen onafhankelijke meting in het watersysteem.",
+        "Voor {n} voorschriften bestaat geen onafhankelijke meting in het watersysteem."),
+    "vervallen_code": (
+        "{n} voorschrift draagt een grenswaarde op een ingetrokken Aquo-code.",
+        "{n} voorschriften dragen een grenswaarde op een ingetrokken Aquo-code."),
+    "niet_in_referentie": (
+        "{n} voorschrift noemt een parameter die niet in de Aquo-referentie voorkomt.",
+        "{n} voorschriften noemen een parameter die niet in de Aquo-referentie voorkomt."),
+    "vracht_onbepaald": (
+        "{n} concentratievoorschrift is niet naar een vracht om te rekenen: er is geen "
+        "debietvoorschrift.",
+        "{n} concentratievoorschriften zijn niet naar een vracht om te rekenen: er is geen "
+        "debietvoorschrift."),
+    "norm_overschreden_bovenstrooms": (
+        "{n} stof is benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms.",
+        "{n} stoffen zijn benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms."),
+    "stof_buiten_register": (
+        "{n} gemeten stof komt in het hele register niet voor als vergunde parameter.",
+        "{n} gemeten stoffen komen in het hele register niet voor als vergunde parameter."),
+    "vergunning_niet_te_vinden": (
+        "{n} identificerend veld van deze vergunning ontbreekt.",
+        "{n} identificerende velden van deze vergunning ontbreken."),
+    "niet_regime_zuiver": (
+        "{n} voorschrift schrijft een bemonsteringsregime voor dat een meting niet meldt.",
+        "{n} voorschriften schrijven een bemonsteringsregime voor dat een meting niet meldt."),
+    # `geen_geldigheidsduur` geldt per definitie voor het hele dossier (zie signalen.py): bij een
+    # telling van 1 is er dus precies één voorschrift, en "geen van de 1 voorschriften" zou zelf
+    # weer de vervoegingsfout zijn die deze ronde repareert -- "het enige voorschrift" is hier de
+    # natuurlijke enkelvoudsvorm, zonder dat het getal 1 zichtbaar hoeft te zijn.
+    "geen_geldigheidsduur": (
+        "Het enige voorschrift van deze vestiging draagt geen geldigheidsperiode.",
+        "Geen van de {n} voorschriften van deze vestiging draagt een geldigheidsperiode."),
+}
 
-def _hoofdletter(tekst: str) -> str:
-    return tekst[:1].upper() + tekst[1:] if tekst else tekst
+
+def _kies_vorm(n: int, enkelvoud: str, meervoud: str) -> str:
+    """Het juiste sjabloon voor dit getal, ingevuld -- nooit het meervoud bij een telling van 1,
+    en nooit het getal zelf getypt (het komt uit `n`, niet uit de sjabloontekst)."""
+    sjabloon = enkelvoud if n == 1 else meervoud
+    return sjabloon.format(n=n)
 
 
-def _bewering(signaal: str, omvang: float, regel_id: str) -> str:
-    """De bewering als volzin, met het getal erin afgeleid -- niet tien keer met de hand
-    geschreven (zie de toelichting hierboven)."""
+def _bewering(omvang: float, regel_id: str) -> str:
+    """De bewering als volzin met onderwerp en werkwoord, met het getal erin afgeleid via
+    `_BEWERING_PER_REGEL` (zie de toelichting hierboven) -- nooit tien keer met de hand getypte
+    cijfers, en nooit het sleutel-waardepaar dat het ontwerpplan afwijst. Geen `signaal`-parameter
+    meer (fix-ronde 1 gebruikte de kop nog als tekstonderdeel): elke zin is nu op zichzelf
+    staand, de kop zelf staat al los in het `signaal`-veld van het signaal."""
     if regel_id in _RATIO_REGELS:
-        return f"{_hoofdletter(signaal)} — factor {omvang:.1f}× verschil.".replace(".", ",", 1)
-    _, omvang_is = signalen_mod.DREMPELS[regel_id]
-    n = round(omvang)
-    if omvang_is.startswith("aantal "):
-        onderwerp = omvang_is[len("aantal "):]
-        return f"{n} {onderwerp}."
-    return f"{_hoofdletter(signaal)}: {n} voorschriften."
+        factor = f"{omvang:.1f}".replace(".", ",", 1)
+        return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, met "
+                 f"een factor {factor}× verschil tussen de hoogste en de laagste.")
+    enkelvoud, meervoud = _BEWERING_PER_REGEL[regel_id]
+    return _kies_vorm(round(omvang), enkelvoud, meervoud)
 
 
 def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
@@ -264,7 +305,7 @@ def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
     uit = {
         "regel": regel_id,
         "signaal": ruw["signaal"],
-        "bewering": _bewering(ruw["signaal"], ruw["omvang"], regel_id),
+        "bewering": _bewering(ruw["omvang"], regel_id),
         "zwaarte": ruw["zwaarte"],
         "omvang": ruw["omvang"],
         "bewijs": ruw["bewijs"],

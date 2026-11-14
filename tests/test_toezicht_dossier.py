@@ -5,6 +5,8 @@ krijgen. De grote fixture (`VESTIGING_MET_ALLES`/`CONTEXT_MET_ALLES`) komt uit
 `test_toezicht_signalen.py` en laat -- zoals die module zelf al test -- alle tien signaalregels
 vuren, inclusief signaal 1 twee keer (één keer per Aquo-code, zie taak 2).
 """
+import re
+
 from openpyxl import load_workbook
 
 from leefomgevinglab.usecases.kmg.lozingsmodel import ZEKERHEDEN
@@ -110,14 +112,50 @@ def test_de_bewering_bij_een_verhouding_toont_geen_tellingstekst():
 def test_elke_regel_in_de_catalogus_levert_een_niet_lege_bewering_met_het_getal_erin():
     """Alle tien regels, niet alleen de twee die de vorige twee tests noemen -- een regel zonder
     bewering zou de pagina terugzetten naar de kale kop die de review afkeurde. Het getal zelf
-    (hier 3, zodat het niet toevallig met iets anders in de kop-tekst samenvalt) moet in elke
-    bewering terugkomen, ook bij de verhouding (als "3,0" of "3.0")."""
+    (hier 5, zodat het niet toevallig met iets anders in de tekst samenvalt) moet in elke
+    bewering terugkomen, ook bij de verhouding (als "5,0"), met één uitzondering:
+    `geen_geldigheidsduur` schrijft een telling van 1 als "het enige voorschrift" zonder het
+    cijfer zelf te tonen (zie de tabel) -- bij een telling van 5 staat het cijfer er wél."""
     for regel_id in signalen.DREMPELS:
-        zin = dossier._bewering(f"test {regel_id}", 3, regel_id)
+        zin = dossier._bewering(5, regel_id)
         assert zin and zin.strip()
-        assert "3" in zin, f"{regel_id}: het getal staat niet in de bewering: {zin!r}"
+        assert "5" in zin, f"{regel_id}: het getal staat niet in de bewering: {zin!r}"
         for verboden in _VERBODEN:
             assert verboden not in zin.lower()
+
+
+def test_elke_regel_vervoegt_het_enkelvoud_correct_bij_een_telling_van_1():
+    """Fix-ronde 2 van de review: '1 voorschriften' (het meervoud, niet vervoegd) kwam voor bij
+    meerdere van de tien regels. Getest voor alle tien -- een telling van 1 is precies de
+    waarde die de fout blootlegt, en de twee regels die niet in `_BEWERING_PER_REGEL` staan
+    (de verhouding kent geen telling) hebben dit probleem per ontwerp niet."""
+    for regel_id in signalen.DREMPELS:
+        zin = dossier._bewering(1, regel_id)
+        assert "1 voorschriften" not in zin, f"{regel_id}: meervoud bij telling 1: {zin!r}"
+        assert "1 stoffen" not in zin, f"{regel_id}: meervoud bij telling 1: {zin!r}"
+        assert "1 velden" not in zin, f"{regel_id}: meervoud bij telling 1: {zin!r}"
+        assert "1 concentratievoorschriften" not in zin, f"{regel_id}: {zin!r}"
+        # `geen_geldigheidsduur` schrijft een telling van 1 bewust zonder het cijfer te tonen
+        # ("het enige voorschrift") -- zie de tabel. Elke andere regel toont het wél.
+        if regel_id != "geen_geldigheidsduur" and regel_id not in dossier._RATIO_REGELS:
+            assert "1" in zin, f"{regel_id}: geen getal in de bewering bij telling 1: {zin!r}"
+
+
+def test_geen_bewering_is_nog_een_sleutel_waardepaar():
+    """Plan §2, beslissing 2, letterlijk: 'De bewering is een zin, geen sleutel-waardepaar.'
+    Fix-ronde 1 liet `niet_regime_zuiver` en `geen_geldigheidsduur` terugvallen op precies dat
+    patroon ("Kop: N voorschriften."). Deze regex herkent dat patroon (tekst, dubbele punt,
+    een los getal plus woord, punt) -- een dubbele punt gevolgd door een echte bijzin (zoals bij
+    `vracht_onbepaald`, waar na de punt geen cijfer volgt) matcht hem niet."""
+    patroon = re.compile(r"^.+:\s*\d+\s+\S+\.$")
+    for regel_id in signalen.DREMPELS:
+        zin = dossier._bewering(5, regel_id)
+        assert not patroon.match(zin), f"{regel_id}: nog een sleutel-waardepaar: {zin!r}"
+
+
+def test_elke_regel_behalve_de_verhouding_staat_in_de_beweringtabel():
+    """Volledigheid, zelfde vorm als bij `_HERKOMST_PER_REGEL`/`_WAT_TE_DOEN_PER_REGEL`."""
+    assert set(dossier._BEWERING_PER_REGEL) | dossier._RATIO_REGELS == set(signalen.DREMPELS)
 
 
 def test_grondslag_en_zekerheid_komen_uit_de_bestaande_vocabulaires():
