@@ -62,6 +62,13 @@ def _schrijf_blad(ws, signaal: dict) -> None:
     # `runner.tool_uitleg_genereren`).
     if signaal.get("waarom"):
         ws.append(("waarom", signaal["waarom"]))
+        # Fix-ronde 2, bevinding A: de vindplaats moet overal meereizen waar `waarom` ook staat
+        # -- het werkblad is wat een inspecteur in de praktijk mee de deur uit neemt (zie de
+        # moduledocstring), dus een uitleg zonder bron hier is even "erger dan geen uitleg" als
+        # op de pagina.
+        vindplaatsen = signaal.get("waarom_vindplaatsen") or []
+        if vindplaatsen:
+            ws.append(("vindplaats", "; ".join(vindplaatsen)))
     ws.append([])
 
     bewijs = signaal.get("bewijs") or []

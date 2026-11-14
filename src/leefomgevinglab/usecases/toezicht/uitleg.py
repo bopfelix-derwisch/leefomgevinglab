@@ -293,9 +293,12 @@ def waarom(vraag: str, *, n: int = 3, _zoek=None, llm=None) -> dict:
     breekt of mislukt valt terug op de deterministische tekst (zie `_herformuleer`)."""
     zoekfunctie = _zoek or zoek_bronnen
     ruwe = zoekfunctie(vraag, n) or []
-    # De poort: geen vindplaats of een verboden woord betekent "deze treffer telt niet mee" --
-    # niet opschonen, zie de moduledocstring.
-    treffers = [t for t in ruwe if t.get("vindplaats") and _toegestaan(t.get("tekst") or "")]
+    # De poort: geen vindplaats of een verboden woord (in de tekst óf in de vindplaats zelf --
+    # fix-ronde 2, bevinding A maakte de vindplaats voor het eerst zichtbaar op de pagina, dus de
+    # taalregel moet haar nu net zo goed dekken) betekent "deze treffer telt niet mee". Niet
+    # opschonen, zie de moduledocstring.
+    treffers = [t for t in ruwe if t.get("vindplaats")
+                and _toegestaan(t.get("tekst") or "") and _toegestaan(t.get("vindplaats") or "")]
     if not treffers:
         return {"vraag": vraag, "beschikbaar": False, "tekst": None, "vindplaatsen": [],
                 "reden": _GEEN_TREFFER, "bronnen": []}

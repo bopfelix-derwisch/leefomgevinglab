@@ -46,13 +46,22 @@ leest waaróm een stap ontbreekt, moet dat verschil kunnen zien.
 
 **Eis (b), de runlog als deel D.** `Crew.draai(invoer, llm=None, runlog=None)` vult, als er een
 `Runlog` is meegegeven, per stap wie (`agent`), wat (`taak`, `tool`), hoeveel (`rijen_in`,
-`rijen_uit`, gemeten, nooit getypt) en of er een taalmodel bij was. Dat laatste is de harde grens
-uit §4.4: een agent zonder `llm`-sleutel in zijn configuratie krijgt het meegegeven `llm` hier
-nooit doorgegeven, ook niet als de aanroeper er een aan `draai()` geeft -- zie
-`_llm_voor_deze_agent`. Dat maakt de belofte "signaalsteller en vergunninglezer gebruiken nooit
-een taalmodel" per run aantoonbaar (de runlog zegt het), niet alleen een statische eigenschap van
-de YAML (die ook bewaakt wordt, zie de tests, maar op zichzelf niets zou bewijzen over een
-werkelijke run).
+`rijen_uit`, gemeten, nooit getypt) en of er een taalmodel **gebruikt** is -- demand (b) van §4.2
+vraagt letterlijk "of er een taalmodel aan te pas kwam", en dat is gebruik, geen aanbod. Een agent
+zonder `llm`-sleutel in zijn configuratie krijgt het meegegeven `llm` hier nooit doorgegeven, ook
+niet als de aanroeper er een aan `draai()` geeft -- zie `_llm_voor_deze_agent`. Dat maakt de
+belofte "signaalsteller en vergunninglezer gebruiken nooit een taalmodel" per run aantoonbaar (de
+runlog zegt het), niet alleen een statische eigenschap van de YAML (die ook bewaakt wordt, zie de
+tests, maar op zichzelf niets zou bewijzen over een werkelijke run).
+
+**Fix-ronde 2, bevinding E: eligibility is niet gebruik.** Tot deze fix registreerde het
+`llm`-veld alleen of een agent een taalmodel *mocht* krijgen (`llm_voor_deze_agent is not None`),
+niet of zijn tool het ook echt heeft *aangeroepen*. Dat verschil was voor `signaalsteller`/
+`vergunninglezer` onzichtbaar (voor hen is "mocht" altijd al `False`, dus "gebruikte" ook), maar
+voor `uitlegger` niet: `uitleg.waarom()` roept de llm alleen aan als er een treffer is om te
+herformuleren, en een stap zonder treffer logde vóór deze fix toch `llm: True`. `draai()` wikkelt
+`llm_voor_deze_agent` nu in `_AangeroepenLlm`, een dunne, transparante telproxy, en registreert
+`proxy.aangeroepen` in plaats van de kale eligibility-check.
 
 **Sequentieel, met doorgegeven staat.** `draai()` doorloopt de taken in de volgorde van
 `tasks.yaml` (een gewoon dict, en dict-volgorde is sinds Python 3.7 invoervolgorde) en geeft
@@ -192,13 +201,32 @@ def tool_vraag_stellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
                      args={"vraag": staat.get("vraag")})
 
 
+#: Regels wiens vraag letterlijk over de stof/code zelf gaat -- is deze naam een geldige
+#: Aquo-referentie, en wat is de KRW-norm ervoor. Alleen déze regels mogen de parameternamen uit
+#: hun bewijs in de uitlegvraag meesturen (fix-ronde 2, bevinding B). Voor de rest zou dat de
+#: vraag naar de verkeerde bron sturen: "vracht niet te bepalen" gaat over een ontbrekend
+#: debietvoorschrift, niet over of "Minerale olie" een geldige Aquo-naam is, en met `n=3` vulden
+#: de Aquo-treffers op die naam élke beschikbare plek op -- vóór de proclaimer-bron (fix-ronde 1)
+#: ooit de kans kreeg te vuren op het eigen, juiste trefwoord van het signaal ("regime",
+#: "bovenstrooms"). Live geprobeerd: `niet_regime_zuiver` en `vracht_onbepaald` kregen zo
+#: woordelijk dezelfde drie Aquo-zinnen als uitleg, geen van beide over hun eigen onderwerp.
+_STOF_GEBONDEN_REGELS = {"geen_onafhankelijke_meting", "vervallen_code", "niet_in_referentie"}
+
+
 def _uitlegvraag(signaal: dict) -> str:
-    """De vrije-tekstvraag voor `uitleg.waarom()` bij één signaal: de kop van het signaal plus de
-    parameternamen uit zijn bewijs -- niet het hele bewijs (dat zou de vraag net zo onleesbaar
-    maken als een `args`-veld met de hele vestiging erin, zie de moduledocstring 'eis (b),
-    vervolg'). De namen zijn precies waarop `uitleg.zoek_bronnen` woordgrens-matcht."""
+    """De vrije-tekstvraag voor `uitleg.waarom()` bij één signaal: de kop van het signaal, en
+    alleen voor de regels in `_STOF_GEBONDEN_REGELS` ook de parameternamen uit zijn bewijs --
+    niet het hele bewijs (dat zou de vraag net zo onleesbaar maken als een `args`-veld met de hele
+    vestiging erin, zie de moduledocstring 'eis (b), vervolg'). Voor de overige regels is de kop
+    zelf de vraag: dat is wat het signaal *is*, en precies waarop de /kmg-proclaimer-bron
+    woordgrens-matcht (`niet_regime_zuiver` op "regime", `norm_overschreden_bovenstrooms` op
+    "bovenstrooms"). Levert dat voor zo'n regel ook niets op, dan blijft `waarom` afwezig -- geen
+    verklaring is hier de juiste uitkomst, geen verklaring over de verkeerde vraag."""
+    kop = signaal.get("signaal") or ""
+    if signaal.get("regel") not in _STOF_GEBONDEN_REGELS:
+        return kop
     namen = sorted({b.get("parameter") for b in (signaal.get("bewijs") or []) if b.get("parameter")})
-    return " ".join([signaal.get("signaal") or ""] + namen)
+    return " ".join([kop] + namen)
 
 
 def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
@@ -213,7 +241,15 @@ def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     `waarom` wordt alleen gezet als `uitleg.waarom()` `beschikbaar=True` teruggeeft -- anders
     blijft de sleutel afwezig (zie `dossier._signaal_deel_b`, die `stap` op dezelfde manier
     optioneel houdt): een afwezig veld is hier "geen bron gevonden", geen leeg maar aanwezig veld
-    dat een poging suggereert die niets opleverde."""
+    dat een poging suggereert die niets opleverde.
+
+    **Fix-ronde 2, bevinding A.** `waarom_vindplaatsen` gaat er sinds deze fix altijd naast
+    `waarom` mee -- de harde regel ("elke uitleg draagt minstens één benoemde vindplaats") hield
+    binnen `uitleg.waarom()` stand, maar deze tool liet `uit["vindplaatsen"]` eerder op de vloer
+    vallen en zette alleen `uit["tekst"]` door. Een inspecteur die de pagina of het werkblad leest
+    zag dus een uitleg zonder bron, precies de situatie die het plan "erger dan geen uitleg" noemt.
+    `waarom` blijft zelf een platte string (de taalregel-test concateneert hem rechtstreeks met
+    `+`, zie `test_toezicht_signalen.py`); de vindplaatsen staan ernaast, niet erin verweven."""
     dossier = staat.get("dossier") or {}
     signalen_lijst = dossier.get("signalen") or []
     aquo_ref = staat.get("aquo_ref")
@@ -224,12 +260,23 @@ def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
         return uitleg_mod.zoek_bronnen(vraag, n, aquo_ref=aquo_ref, normenset=normenset,
                                         catalogus=catalogus)
 
-    bijgewerkt, aantal_beschikbaar = [], 0
+    # Fix-ronde 2, bevinding B (tweede helft): twee signalen mogen nooit letterlijk dezelfde
+    # `waarom`-tekst dragen. Dat gebeurt legitiem -- `vervallen_code` en `geen_onafhankelijke_
+    # meting` kunnen voor dezelfde stof (bv. 'Zwevende stof') allebei op dezelfde Aquo-treffer
+    # uitkomen -- maar twee identieke verklaringen naast elkaar op de pagina lezen als een
+    # kopieerfout, niet als twee keer een overwogen, eigen antwoord. `signalen_lijst` is al
+    # gerangschikt op zwaarte en omvang (zie `signalen.signalen`), dus het eerste signaal dat een
+    # tekst claimt (het zwaarst wegende) houdt hem; een latere, lichtere herhaling krijgt in plaats
+    # daarvan geen verklaring -- de constante uit de taakbrief: geen verklaring is hier de juiste
+    # uitkomst, niet een herhaalde.
+    bijgewerkt, aantal_beschikbaar, gebruikte_teksten = [], 0, set()
     for s in signalen_lijst:
         nieuw = dict(s)
         uit = uitleg_mod.waarom(_uitlegvraag(s), _zoek=_zoek, llm=llm)
-        if uit["beschikbaar"]:
+        if uit["beschikbaar"] and uit["tekst"] not in gebruikte_teksten:
             nieuw["waarom"] = uit["tekst"]
+            nieuw["waarom_vindplaatsen"] = uit["vindplaatsen"]
+            gebruikte_teksten.add(uit["tekst"])
             aantal_beschikbaar += 1
         bijgewerkt.append(nieuw)
     nieuw_dossier = {**dossier, "signalen": bijgewerkt}
@@ -269,6 +316,27 @@ TOOLS: dict[str, Callable[..., Uitkomst]] = {
 #: Sinds taak 7 leeg: `uitleg_genereren` en `terugkoppeling_genereren` zijn nu echte `TOOLS`.
 #: Blijft bestaan als mechanisme voor een volgende agent die hetzelfde tussenstadium doorloopt.
 GEPLAND: set[str] = set()
+
+
+class _AangeroepenLlm:
+    """Dunne telproxy om een geïnjecteerde `llm` heen (fix-ronde 2, bevinding E). `Crew.draai`
+    moet per stap twee verschillende dingen kunnen zeggen: mocht deze agent een taalmodel krijgen
+    (eligibility, bepaald door `_llm_voor_deze_agent` via de `llm`-sleutel in de configuratie) én
+    heeft zijn tool het ook echt aangeroepen (gebruik). Die twee liepen tot deze fix door elkaar:
+    de runlog registreerde `llm=True` zodra een agent er een *mocht* krijgen, ook als zijn tool
+    die aanroep nooit deed -- precies het geval van `uitlegger` zonder treffer (`uitleg.waarom()`
+    roept de llm alleen aan als er iets te herformuleren is).
+
+    Transparant voor de tool: deze proxy is zelf aanroepbaar en geeft de aanroep ongewijzigd door
+    aan de echte `llm`, dus geen tool (`uitleg.py`, `vraag.py`) hoeft hier iets van te weten."""
+
+    def __init__(self, echte_llm) -> None:
+        self._echte_llm = echte_llm
+        self.aangeroepen = False
+
+    def __call__(self, *args, **kwargs):
+        self.aangeroepen = True
+        return self._echte_llm(*args, **kwargs)
 
 
 # -- De configuratie: laden en bewaken -----------------------------------------------------------
@@ -414,12 +482,18 @@ class Crew(object):
                     continue
 
                 llm_voor_deze_agent = self._llm_voor_deze_agent(agent, llm)
+                # Fix-ronde 2, bevinding E: de proxy meet gebruik, los van eligibility. Zonder
+                # eligibility (`llm_voor_deze_agent is None`) is er niets om in te pakken en blijft
+                # `llm` gewoon `None` -- een tool die `llm is None` toetst (zoals `uitleg.waarom`)
+                # moet dat onderscheid onveranderd blijven zien.
+                proxy = _AangeroepenLlm(llm_voor_deze_agent) if llm_voor_deze_agent is not None \
+                    else None
                 begin = time.monotonic()
-                uitkomst = fn(staat, llm=llm_voor_deze_agent, runlog=runlog)
+                uitkomst = fn(staat, llm=proxy, runlog=runlog)
                 duur = time.monotonic() - begin
                 staat.update(uitkomst.updates)
                 if runlog is not None:
                     runlog.stap(agent_naam, taak_id, tool_naam, uitkomst.rijen_in,
-                                 uitkomst.rijen_uit, llm_voor_deze_agent is not None, duur=duur,
-                                 args=uitkomst.args)
+                                 uitkomst.rijen_uit, proxy.aangeroepen if proxy is not None
+                                 else False, duur=duur, args=uitkomst.args)
         return staat

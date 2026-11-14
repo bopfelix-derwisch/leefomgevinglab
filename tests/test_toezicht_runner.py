@@ -80,9 +80,18 @@ def test_agents_zonder_llm_sleutel_krijgen_nooit_een_taalmodel_ook_als_de_run_er
         return "nette tekst"
 
     crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, llm=spion_llm, runlog=log)
+    gecontroleerd = {"vergunninglezer", "signaalsteller", "dossiersteller"}
+    geziene_agents = set()
     for s in log.als_gegeven():
-        if s["agent"] in ("vergunninglezer", "signaalsteller", "dossiersteller"):
+        if s["agent"] in gecontroleerd:
+            geziene_agents.add(s["agent"])
             assert s["llm"] is False, f"{s['agent']} gebruikte een taalmodel in stap {s['nr']}"
+    # Fix-ronde 2, bevinding C (R21): zonder deze assertie zou de lus hierboven ook slagen als
+    # géén van de drie ooit een stap logde -- een hernoemde agent of een geschrapte taak zou de
+    # scherpste grens van het plan ongemerkt ontwapenen terwijl de test groen bleef.
+    assert geziene_agents == gecontroleerd, (
+        f"niet alle drie de agents zonder llm-sleutel logden een stap: gezien {geziene_agents}, "
+        f"verwacht {gecontroleerd} -- de toets hierboven is dan vacuüm")
 
 
 # -- Stap 5: de YAML gebruikt de CrewAI-velden ---------------------------------------------------

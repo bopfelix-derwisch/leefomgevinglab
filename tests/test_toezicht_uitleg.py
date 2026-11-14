@@ -534,3 +534,173 @@ def test_de_taalregel_geldt_ook_voor_waarom_in_het_dossier_en_het_werkblad(tmp_p
         assert verboden not in tekst_werkblad
     # En de uitleg moet ook echt op het blad terechtkomen, niet alleen ongevaarlijk afwezig zijn.
     assert any(gevuld[0]["waarom"] in cel for cel in cellen)
+
+
+# == Fix-ronde 2 ===================================================================================
+
+# -- Bevinding A: de vindplaats moet de dossier- en werkbladgrens overleven -----------------------
+
+def test_tool_uitleg_genereren_draagt_de_vindplaatsen_niet_alleen_de_tekst_over():
+    """Vóór deze fix zette `tool_uitleg_genereren` alleen `uit["tekst"]` op het signaal en liet
+    `uit["vindplaatsen"]` vallen -- de harde regel hield binnen `uitleg.waarom()` stand maar was
+    op de pagina onzichtbaar (geverifieerd: het woord 'vindplaats' kwam nul keer voor in de
+    gepubliceerde HTML)."""
+    from leefomgevinglab.usecases.toezicht import runner
+    from tests.test_toezicht_runner import AGENTS, CONTEXT, TASKS, VESTIGING_FIXTURE
+
+    aquo_ref = {"geldig": {}, "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
+    crew = runner.laad(AGENTS, TASKS)
+    uitkomst = crew.draai(
+        {"vestiging": VESTIGING_FIXTURE, "context": CONTEXT, "aquo_ref": aquo_ref})
+    vervallen = next(s for s in uitkomst["dossier"]["signalen"] if s["regel"] == "vervallen_code")
+    assert vervallen.get("waarom")
+    assert vervallen.get("waarom_vindplaatsen"), \
+        "een signaal met een waarom moet ook zijn vindplaatsen dragen"
+    assert vervallen["waarom_vindplaatsen"] == ["Aquo-domeintabel Parameter, code ZS, status Vervallen"]
+
+
+def test_rapport_schrijft_de_vindplaats_naast_de_waarom(tmp_path):
+    """Dezelfde grens, nu voor het werkblad -- wat een inspecteur in de praktijk mee de deur uit
+    neemt (zie `rapport.py`'s moduledocstring) moet de bron ook dragen, niet alleen de pagina."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    d = {"signalen": [{
+        "regel": "vervallen_code", "signaal": "grenswaarde op een ingetrokken code",
+        "zwaarte": "hoog", "omvang": 1, "bewijs": [], "grondslag": "code", "zekerheid": "uit de bron",
+        "wat_te_doen": "Vraag welke code nu geldt.",
+        "waarom": "'Zwevende stof' is ingetrokken (code ZS).",
+        "waarom_vindplaatsen": ["Aquo-domeintabel Parameter, code ZS, status Vervallen"],
+    }]}
+    pad = tmp_path / "met_vindplaats.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    cellen = [str(c) for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True) for c in rij
+              if c is not None]
+    assert any("vindplaats" in c.lower() for c in cellen)
+    assert any("Aquo-domeintabel Parameter, code ZS, status Vervallen" in c for c in cellen)
+
+
+def test_een_signaal_zonder_waarom_schrijft_ook_geen_vindplaatsrij(tmp_path):
+    """De keerzijde: geen `waarom`, dan ook geen losse 'vindplaats'-rij die een poging zou
+    suggereren die niets opleverde."""
+    from openpyxl import load_workbook
+
+    from leefomgevinglab.usecases.toezicht import rapport
+
+    d = {"signalen": [{
+        "regel": "geen_geldigheidsduur", "signaal": "geen geldigheidsduur", "zwaarte": "laag",
+        "omvang": 3, "bewijs": [], "grondslag": "geen", "zekerheid": "ontbreekt",
+        "wat_te_doen": "Vraag of de vergunning nog geldt.",
+    }]}
+    pad = tmp_path / "zonder_vindplaats.xlsx"
+    rapport.schrijf(d, str(pad))
+    wb = load_workbook(str(pad))
+    cellen = [str(c) for rij in wb[wb.sheetnames[0]].iter_rows(values_only=True) for c in rij
+              if c is not None]
+    assert not any("vindplaats" in c.lower() for c in cellen)
+
+
+def test_uitleg_waarom_verwerpt_ook_een_verboden_vindplaats():
+    """Fix-ronde 2 breidt de poort uit: niet alleen de tekst van een treffer, ook zijn vindplaats
+    moet de taalregel halen -- nu die vindplaats voor het eerst zichtbaar is op de pagina en in
+    het werkblad."""
+    def _zoek(vraag, n):
+        return [{"tekst": "Een neutraal feit.", "vindplaats": "Bron met een overtreding erin"}]
+
+    uit = uitleg.waarom("iets", _zoek=_zoek)
+    assert uit["beschikbaar"] is False
+
+
+# -- Bevinding B: de vraag moet over het signaal zelf gaan, niet overspoeld worden door stofnamen -
+
+def test_vracht_onbepaald_krijgt_geen_verklaring_als_er_geen_juiste_bron_is():
+    """Het letterlijke voorbeeld uit de bevinding: vóór de fix citeerde dit signaal drie Aquo-
+    zinnen over 'Minerale olie'/'Olie'/'Zwevende stof' -- geen daarvan legt uit waarom een
+    ontbrekend debietvoorschrift aandacht verdient. Na de fix: liever geen verklaring dan een
+    over de verkeerde vraag."""
+    from leefomgevinglab.usecases.toezicht import runner
+
+    vestiging = {
+        "naam": "Reproductie bevinding B", "kenmerk": "K1", "url": "https://x",
+        "besluitdatum": "2020-01-01",
+        "voorschriften": [
+            {"parameter": "Minerale olie", "waarde": 1.0, "eenheid": "milligram per liter"},
+            {"parameter": "Olie", "waarde": 2.0, "eenheid": "milligram per liter"},
+            {"parameter": "Zwevende stof", "waarde": 30.0, "eenheid": "milligram per liter",
+             "aquo": "ZS", "aquo_status": "Vervallen"},
+        ],
+    }
+    aquo_ref = {"geldig": {"minerale olie": "MINROLE", "olie": "OLE"},
+                "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": vestiging, "context": {}, "aquo_ref": aquo_ref})
+    vracht = next(s for s in uitkomst["dossier"]["signalen"] if s["regel"] == "vracht_onbepaald")
+    assert "waarom" not in vracht, \
+        "geen van de bronnen legt uit waarom een debietvoorschrift ontbreekt -- dit moet leeg blijven"
+
+
+def test_niet_regime_zuiver_krijgt_zijn_eigen_antwoord_niet_het_aquo_antwoord_van_een_ander_signaal():
+    """De tweede helft van hetzelfde voorbeeld: `niet_regime_zuiver` moet de hoedanigheid-
+    kanttekening van de proclaimer-bron krijgen (fix-ronde 1), niet de Aquo-zinnen die vóór deze
+    fix elke beschikbare plek vulden."""
+    from leefomgevinglab.usecases.toezicht import runner
+
+    vestiging = {
+        "naam": "Reproductie bevinding B", "kenmerk": "K1", "url": "https://x",
+        "besluitdatum": "2020-01-01",
+        "voorschriften": [
+            {"parameter": "Minerale olie", "waarde": 1.0, "eenheid": "milligram per liter",
+             "bemonstering": "Steekmonster"},
+            {"parameter": "Olie", "waarde": 2.0, "eenheid": "milligram per liter",
+             "bemonstering": "Steekmonster"},
+        ],
+    }
+    aquo_ref = {"geldig": {"minerale olie": "MINROLE", "olie": "OLE"}, "vervallen": {},
+                "vervangen_door": {}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": vestiging, "context": {}, "aquo_ref": aquo_ref})
+    regime = next(s for s in uitkomst["dossier"]["signalen"] if s["regel"] == "niet_regime_zuiver")
+    assert regime.get("waarom")
+    assert "minerale olie" not in regime["waarom"].lower()
+    assert "olie" not in regime["waarom"].lower() or "grootheden" in regime["waarom"].lower()
+    assert "grootheden" in regime["waarom"].lower()
+    assert "proclaimer" in regime["waarom_vindplaatsen"][0].lower()
+
+
+def test_twee_verschillende_regels_krijgen_nooit_dezelfde_waarom_tekst_op_de_echte_fixture():
+    """Letterlijk gevraagd in de taakbrief: op de grote, alles-laat-vuren-fixture
+    (`VESTIGING_MET_ALLES`/`CONTEXT_MET_ALLES`) mogen twee verschillende regel-ID's nooit dezelfde
+    `waarom`-tekst dragen. Dit gebeurt legitiem bij gelijke onderliggende feiten (`vervallen_code`
+    en `geen_onafhankelijke_meting` kunnen allebei over 'Zwevende stof' gaan) -- `tool_uitleg_
+    genereren` dedupliceert daarom over de hele vestiging, niet per signaal."""
+    from leefomgevinglab.usecases.toezicht import runner
+    from tests.test_toezicht_signalen import CONTEXT_MET_ALLES, VESTIGING_MET_ALLES
+
+    aquo_ref = {"geldig": {"zink": "Zn"}, "vervallen": {"zwevende stof": "ZS"},
+                "vervangen_door": {}}
+    normenset = {"normen": {"NL91_X": [
+        {"meetpunt": "NL91_X", "parameter": "Zn", "hoedanigheid": "NVT",
+         "grondslag": "jaargemiddelde", "norm": 7.8, "eenheid": "ug/l"},
+    ]}}
+    crew = runner.laad(*_agents_tasks())
+    uitkomst = crew.draai({"vestiging": VESTIGING_MET_ALLES, "context": CONTEXT_MET_ALLES,
+                           "aquo_ref": aquo_ref, "normenset": normenset})
+    teksten = [s["waarom"] for s in uitkomst["dossier"]["signalen"] if s.get("waarom")]
+    assert teksten, "deze fixture moet minstens één waarom opleveren om dit te kunnen toetsen"
+    assert len(teksten) == len(set(teksten)), \
+        f"twee signalen dragen dezelfde waarom-tekst: {teksten}"
+    # En elk signaal met een waarom draagt ook een vindplaats (bevinding A, nog een keer, nu over
+    # de hele, zwaarste fixture in plaats van één handgemaakt geval).
+    for s in uitkomst["dossier"]["signalen"]:
+        if s.get("waarom"):
+            assert s.get("waarom_vindplaatsen"), f"{s['regel']} heeft een waarom zonder vindplaats"
+
+
+def _agents_tasks():
+    import os
+
+    from leefomgevinglab.usecases.toezicht import runner
+    config_dir = os.path.join(os.path.dirname(runner.__file__), "config")
+    return (os.path.join(config_dir, "agents.yaml"), os.path.join(config_dir, "tasks.yaml"))

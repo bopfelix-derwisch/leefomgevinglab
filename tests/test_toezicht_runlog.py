@@ -224,3 +224,73 @@ def test_een_toekomstig_geplande_maar_nog_niet_gebouwde_tool_geeft_nog_steeds_ni
     assert stap["uitgezet"] is False
     assert stap["tool"] == "toekomstige_tool"
     assert stap["llm"] is False, "er is niets uitgevoerd, dus is er ook geen taalmodel gebruikt"
+
+
+# -- Fix-ronde 2, bevinding D (R21) — de "mag een taalmodel" kant is nu ook runtime bewezen ------
+
+def test_een_agent_met_llm_sleutel_kan_het_taalmodel_ook_echt_ontvangen_in_een_run():
+    """`test_toezicht_pijplijn.py` toetst alleen de YAML (`heeft_llm`) -- niets bewees dat
+    `_llm_voor_deze_agent` een eligible agent ook werkelijk een aanroepbaar taalmodel geeft in
+    een echte `draai()`. Een regressie die hem altijd `None` laat teruggeven (te voorzichtig,
+    blokkeert iedereen) zou de rest van de suite ongemerkt laten slagen, want alle bestaande
+    `llm`-tests toetsen alleen de agents *zonder* de sleutel. Deze test geeft `uitlegger` een
+    fixture met een echte proclaimer-treffer (`niet_regime_zuiver`, zie fix-ronde 1) en bewijst
+    dat de spion ook echt is aangeroepen -- niet alleen dat de runlog `llm: True` zegt."""
+    aangeroepen = []
+
+    def spion_llm(prompt):
+        aangeroepen.append(prompt)
+        return "nette tekst"
+
+    log = runlog.Runlog()
+    crew = runner.laad(AGENTS, TASKS)
+    crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, llm=spion_llm, runlog=log)
+    assert aangeroepen, \
+        "uitlegger kreeg geen aanroepbaar taalmodel -- _llm_voor_deze_agent is kapot of te streng"
+    stap = next(s for s in log.als_gegeven() if s["agent"] == "uitlegger")
+    assert stap["llm"] is True
+
+
+# -- Fix-ronde 2, bevinding E (R21) — het runlog-veld `llm` meet gebruik, niet eligibility --------
+
+def test_runlog_llm_veld_is_false_als_uitlegger_eligible_is_maar_niets_aanroept():
+    """De kern van bevinding E: `uitlegger` draagt een `llm`-sleutel (eligible) maar roept het
+    model alleen aan als `uitleg.waarom()` iets vindt om te herformuleren. Met een vestiging die
+    geen van de vier bronnen raakt, is hij eligible én ongebruikt -- en dát moet de runlog nu
+    zeggen, niet `llm: True` omdat hij het hád mogen gebruiken."""
+    def spion_llm(prompt):
+        return "nette tekst"
+
+    vestiging = {"naam": "Niets te verklaren", "kenmerk": "K1", "url": "https://x",
+                 "besluitdatum": "2020-01-01", "voorschriften": []}
+    log = runlog.Runlog()
+    crew = runner.laad(AGENTS, TASKS)
+    uitkomst = crew.draai({"vestiging": vestiging, "context": {}}, llm=spion_llm, runlog=log)
+    assert uitkomst["dossier"]["signalen"] == [], "deze vestiging mag geen signaal opleveren"
+    stap = next(s for s in log.als_gegeven() if s["agent"] == "uitlegger")
+    assert stap["llm"] is False, \
+        "uitlegger was eligible maar riep niets aan -- het veld moet gebruik meten, geen aanbod"
+
+
+def test_runlog_llm_veld_contrasteert_eligible_ongebruikt_met_eligible_gebruikt():
+    """Dezelfde agent, dezelfde eligibility, twee runs die alleen verschillen in of er iets te
+    verklaren is -- het `llm`-veld moet daadwerkelijk meebewegen met gebruik, niet een vaste
+    eigenschap van de configuratie zijn die toevallig op `True` staat."""
+    def spion_llm(prompt):
+        return "nette tekst"
+
+    leeg = {"naam": "Niets te verklaren", "kenmerk": "K1", "url": "https://x",
+            "besluitdatum": "2020-01-01", "voorschriften": []}
+    crew = runner.laad(AGENTS, TASKS)
+
+    log_zonder = runlog.Runlog()
+    crew.draai({"vestiging": leeg, "context": {}}, llm=spion_llm, runlog=log_zonder)
+    stap_zonder = next(s for s in log_zonder.als_gegeven() if s["agent"] == "uitlegger")
+
+    log_met = runlog.Runlog()
+    crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, llm=spion_llm,
+               runlog=log_met)
+    stap_met = next(s for s in log_met.als_gegeven() if s["agent"] == "uitlegger")
+
+    assert stap_zonder["llm"] is False
+    assert stap_met["llm"] is True

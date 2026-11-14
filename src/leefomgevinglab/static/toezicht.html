@@ -84,6 +84,7 @@
     .signaal .hoezeker { margin-top:6px; font-size:11.5px; color:var(--dim); }
     .signaal .hoezeker b { color:var(--muted); font-weight:600; }
     .signaal .herkomst { margin-top:4px; font-size:11px; color:var(--dim); }
+    .signaal .vindplaats { margin-top:2px; font-size:10.5px; color:var(--dim); font-style:italic; }
 
     .bewijs { margin-top:9px; }
     .bewijs summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none;
@@ -240,7 +241,10 @@
         `<div class="inhoud">` +
         `<div class="bewering">${esc(s.signaal)}</div>` +
         `<div class="hoezeker">hoe zeker is dit? <b>${hoeZeker(s)}</b></div>` +
-        (s.waarom ? `<div class="herkomst">${esc(s.waarom)}</div>` : "") +
+        (s.waarom ? `<div class="herkomst">${esc(s.waarom)}</div>` +
+          (s.waarom_vindplaatsen && s.waarom_vindplaatsen.length
+            ? `<div class="vindplaats">bron: ${esc(s.waarom_vindplaatsen.join("; "))}</div>` : "")
+          : "") +
         (n ? `<details class="bewijs"><summary>${n} ${n === 1 ? "bewijsregel" : "bewijsregels"}</summary>` +
           `<div class="bewijsrijen">${(s.bewijs || []).map(bewijsrij).join("")}</div></details>` : "") +
         (s.wat_te_doen ? `<div class="watevraag"><div class="lbl">Wat kun je ter plaatse vragen?</div>` +
@@ -285,7 +289,7 @@
       $("runlogtabel").querySelector("tbody").innerHTML = (stappen || []).map(s => {
         const status = s.uitgezet ? '<span class="vlag">uitgezet</span>'
           : s.niet_beschikbaar ? '<span class="vlag">nog niet gebouwd</span>'
-          : s.llm ? '<span class="ja">mocht taalmodel</span>' : '<span class="nee">geen taalmodel</span>';
+          : s.llm ? '<span class="ja">taalmodel gebruikt</span>' : '<span class="nee">geen taalmodel</span>';
         return `<tr class="${s.uitgezet ? "uitgezet-rij" : ""}">` +
           `<td>${esc(s.nr)}</td><td class="naam">${esc(s.agent)}</td>` +
           `<td class="taak">${esc(s.taak)}<br><span class="toolnaam">${esc(s.tool || "—")}</span></td>` +
