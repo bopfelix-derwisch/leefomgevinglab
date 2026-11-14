@@ -1,9 +1,8 @@
-"""Live smoke tegen de open REV WFS. Skipt zonder DSO_API_KEY (live-test-vlag)."""
-import os
+"""Live smoke tegen de open REV WFS. Staat standaard uit (marker `live`, zie fix 3,
+live-fixes-report.md -- aanzetten met `pytest --run-live`)."""
 import pytest
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="live-tests uit (DSO_API_KEY niet gezet)")
+pytestmark = pytest.mark.live
 
 WFS = "https://rev-portaal.nl/geoserver/wfs"
 

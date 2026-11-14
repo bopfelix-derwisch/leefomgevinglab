@@ -1,15 +1,15 @@
-"""Live smoke tegen de Atlas voor een Schone Maas. Skipt zonder live-test-vlag.
+"""Live smoke tegen de Atlas voor een Schone Maas. Staat standaard uit (marker `live`).
 
-De Atlas vraagt zelf geen sleutel; DSO_API_KEY is in deze repo de generieke vlag die
-live-tests aanzet — test_ev_live.py doet hetzelfde voor de REV-WFS.
-"""
-import os
+De Atlas vraagt zelf geen sleutel. Fix 3 (taakrapport): voorheen was `DSO_API_KEY` de generieke
+vlag die live-tests aanzette, maar `geluidsmeter/api.py` zet die sleutel bij import al in
+`os.environ` (`load_dotenv()`), dus stond hij altijd aan in een gewone testrun met `.env`
+gesourcet. Deze marker is losgekoppeld van elke omgevingsvariabele; aanzetten met
+`pytest --run-live` (zie `tests/conftest.py`)."""
 import pytest
 
 from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="live-tests uit (DSO_API_KEY niet gezet)")
+pytestmark = pytest.mark.live
 
 
 def test_maastricht_geeft_echte_vergunningen(tmp_path):

@@ -1,9 +1,10 @@
-"""Live smoke tegen Ozon pre-prod. Skipt zonder DSO_API_KEY."""
+"""Live smoke tegen Ozon pre-prod. Staat standaard uit (marker `live`, zie fix 3,
+live-fixes-report.md -- aanzetten met `pytest --run-live`; vereist dan nog steeds een echte
+`DSO_API_KEY` in de omgeving, want die wordt hier als auth-sleutel gebruikt)."""
 import os
 import pytest
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="DSO_API_KEY niet gezet; live-test overgeslagen")
+pytestmark = pytest.mark.live
 
 OZON = "https://service.pre.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/presenteren/v8"
 

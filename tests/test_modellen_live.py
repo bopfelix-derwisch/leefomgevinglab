@@ -9,10 +9,15 @@ na, inclusief de twee dingen die bij het natellen boven water kwamen:
   indelingsregel van `modellen.indeling()` komt exact op 168 uit;
 * `imev30-oas-schema.yaml` bevat een tabteken en is daardoor geen geldige YAML.
 
-Skipt zonder `DSO_API_KEY`, de generieke live-vlag van deze repo. De bestanden zelf vragen
-geen sleutel.
+Staat standaard uit (marker `live`). De bestanden zelf vragen geen sleutel.
+
+Fix 3 (taakrapport, live-fixes-report.md): dit bestand droeg dezelfde `skipif(not
+os.environ.get("DSO_API_KEY"))` als de vijf andere `*_live.py`-bestanden, met hetzelfde gat --
+`geluidsmeter/api.py` zet die sleutel bij import al in `os.environ`, dus stond hij altijd aan in
+een gewone testrun met `.env` gesourcet. Niet in de oorspronkelijke opsomming van dat taakrapport
+genoemd, maar wel hetzelfde lek; meegenomen in dezelfde fix in plaats van het gat voor dit ene
+bestand open te laten. Aanzetten met `pytest --run-live` (zie `tests/conftest.py`).
 """
-import os
 import re
 
 import httpx
@@ -21,8 +26,7 @@ import yaml
 
 from leefomgevinglab.usecases import modellen as mo
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="live-tests uit (DSO_API_KEY niet gezet)")
+pytestmark = pytest.mark.live
 
 BASIS = "https://rev-portaal.nl/oas/"
 

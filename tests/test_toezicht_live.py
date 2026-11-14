@@ -13,10 +13,15 @@ Vier bronnen, drie live en één lokaal bestand:
 
 Alle tellingen zijn gemeten op 2026-11-13 tegen deze bronnen; zie de assert-boodschappen voor
 wat te doen als een getal niet meer klopt.
+
+Staat standaard uit (marker `live`, zie fix 3, live-fixes-report.md -- aanzetten met
+`pytest --run-live`). **Niet elke test hier hoeft dat te zijn**: de configuratietest op
+`_toezicht_normenset` raakt geen netwerk en hoort daarom niet in dit bestand, maar in
+`tests/test_api_toezicht.py` (zie de toelichting daar, fix-ronde 3 van die taak -- hetzelfde
+patroon als deze fix, één taak eerder al toegepast).
 """
 import csv
 import json
-import os
 import tempfile
 from collections import Counter
 from pathlib import Path
@@ -27,8 +32,7 @@ from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
 from leefomgevinglab.usecases.kmg import lozingsmodel
 from leefomgevinglab.usecases.toezicht import aquo, signalen
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="live-tests uit (DSO_API_KEY niet gezet)")
+pytestmark = pytest.mark.live
 
 _WKP_DIR = "/mnt/nvme/geluidsmeter/data/external/wkp"
 _RUWE_CSV = f"{_WKP_DIR}/WKP_Meetwaarden_Rijkswaterstaat_2025_20261001171800.csv"

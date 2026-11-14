@@ -1,10 +1,11 @@
-"""Optionele live smoke-test tegen DSO pre-productie. Skipt zonder DSO_API_KEY."""
+"""Optionele live smoke-test tegen DSO pre-productie. Staat standaard uit (marker `live`, zie
+fix 3, live-fixes-report.md -- aanzetten met `pytest --run-live`; vereist dan nog steeds een
+echte `DSO_API_KEY` in de omgeving, want die wordt hier als auth-sleutel gebruikt)."""
 import os
 
 import pytest
 
-pytestmark = pytest.mark.skipif(not os.environ.get("DSO_API_KEY"),
-                                reason="DSO_API_KEY niet gezet; live-test overgeslagen")
+pytestmark = pytest.mark.live
 
 ZOEK = "https://service.pre.omgevingswet.overheid.nl/publiek/toepasbare-regels/api/zoekinterface/v2"
 RTR = ("https://service.pre.omgevingswet.overheid.nl/publiek/toepasbare-regels/api/"
