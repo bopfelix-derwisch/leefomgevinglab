@@ -6,8 +6,6 @@ of embedding-aanroep staat hier niet; die horen in een `*_live.py`-bestand (zie 
 live.py` voor het patroon), en dit lab heeft dat vandaag niet nodig: `uitleg.zoek_bronnen` leest
 alleen al-geladen referenties, geen bestand en geen netwerk zelf.
 """
-import inspect
-
 import pytest
 
 from leefomgevinglab.usecases.toezicht import aquo, signalen, terugkoppeling, uitleg
