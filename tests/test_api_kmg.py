@@ -85,6 +85,48 @@ def test_het_verhaal_staat_vooraan_in_het_dossier():
     assert ids[1] == "verhaal"
 
 
+def test_de_kmg_normen_pad_is_echt_bereikbaar_via_de_configuratie(monkeypatch):
+    """Fix 2 (taakrapport): `_kmg_normen_pad` las eerder `leefomgevinglab.kmg.normen_pad`, een
+    sleutel die niet bestaat (die sectie kent alleen aquo_csv_pad/doelen_pad/maaskaart_pad/
+    metingen_pad/overzicht_pad/parameters_pad/straal_m/waterlichamen_pad). Het echte pad staat
+    onder `leefomgevinglab.waterpresentatie.normen_pad`. Deze test roept de functie ongepatcht
+    aan tegen de echte `core/config.yaml`, zodat een hernoemde of verschoven sleutel hier luid
+    faalt in plaats van stilzwijgend een lege normenset op te leveren -- precies zoals
+    `test_de_normenset_is_echt_bereikbaar_via_de_configuratie` dat al voor `/toezicht` bewaakt."""
+    from pathlib import Path
+
+    from leefomgevinglab.geluidsmeter.config import load_config
+
+    monkeypatch.setattr(api, "_config", load_config())
+    pad = api._kmg_normen_pad()
+    assert pad, "geen normen_pad gevonden -- controleer leefomgevinglab.waterpresentatie.normen_pad"
+    assert Path(pad).exists(), f"het geconfigureerde normenbestand bestaat niet: {pad}"
+
+
+def test_een_stof_met_een_echte_chemische_norm_krijgt_die_norm(monkeypatch):
+    """De kern van fix 2: zink op NL80_BELFBVN heeft een echte KRW-norm (7,80 ug/l, opgeloste
+    fractie, zie CLAUDE.md) -- vóór de fix kwam die nooit aan, omdat `normen_pad` een niet-
+    bestaande configuratiesleutel las en de normenset dus altijd leeg was.
+
+    `_config` wordt hier net als in `test_de_kmg_normen_pad_is_echt_bereikbaar_via_de_configuratie`
+    expliciet op de echte configuratie gezet: `app`'s `startup`-hook vult hem anders alleen als
+    de TestClient als contextmanager wordt gebruikt, en zonder die vulling leest elke `kmg`-sleutel
+    stil terug als "niet meegegeven" in plaats van de configuratiefout te laten zien."""
+    from leefomgevinglab.geluidsmeter.config import load_config
+
+    monkeypatch.setattr(api, "_config", load_config())
+    monkeypatch.setattr(api, "load_config", lambda *a, **k: api._config)
+    r = _client(monkeypatch).get("/api/kmg?meetpunt=NL80_BELFBVN&live=0")
+    assert r.status_code == 200
+    bijdragen = r.json()["bijdragen"]
+    zn = [b for b in bijdragen if b["stof"] == "Zn" and b.get("doel", {}).get("beschikbaar")]
+    assert zn, "geen enkele Zn-reeks op dit meetpunt kreeg een beschikbare norm"
+    doel = zn[0]["doel"]
+    assert doel["soort"] == "chemische norm"
+    assert doel["goed_tot"] == 7.8
+    assert doel["hoedanigheid"] == "nf"
+
+
 def test_de_laag_mag_zegt_zelf_wat_zij_niet_toont(monkeypatch):
     """Twee uitspraken die een lezer van "mag" nodig heeft, en die niet uit de data volgen.
 

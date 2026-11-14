@@ -240,10 +240,16 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   Keizersveer precies niets terwijl er 19 vergunningen in het register staan (geen ervan ligt
   bovenstrooms). Het register verklaart hoogstens een zevende van wat er gemeten wordt, en op de
   meeste punten niets. PFOA levert een lege bijdragenlijst: die stof
-  komt in het register niet voor. Er zijn **geen KRW-doelen** geladen, dus de pagina toont de
-  metingen **zonder normoordeel**; terugvallen op de illustratieve normen die dit lab elders
-  gebruikt is verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt
-  een **proclaimer** die uit de data zelf wordt opgebouwd, zodat tekst en getallen niet uit de pas
+  komt in het register niet voor. **Gecorrigeerd (live-fixes-report.md, fix 2):** `/api/kmg` las
+  het chemische-normenbestand via `leefomgevinglab.kmg.normen_pad`, een sleutel die niet bestaat
+  — de normenset was daardoor altijd leeg en de pagina toonde alle stoffen zonder normoordeel,
+  ook zink. Het echte pad staat onder `leefomgevinglab.waterpresentatie.normen_pad`
+  (`_kmg_normen_pad` in `api.py`); nu die klopt, krijgt zink op elk meetpunt zijn echte KRW-norm
+  (7,80 µg/l op de opgeloste fractie, zoals hierboven). PFOA blijft zonder normoordeel, maar dat
+  is nu een echt gat in de bron (geen norm of toetsresultaat in de KRW-download), niet een
+  configuratiefout. Terugvallen op de illustratieve normen die dit lab elders gebruikt blijft
+  verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt een
+  **proclaimer** die uit de data zelf wordt opgebouwd, zodat tekst en getallen niet uit de pas
   kunnen lopen met wat de lezer ziet.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 

@@ -475,5 +475,6 @@ def beeld(code: str, pad: str, live: bool = True, straal_m: int = 250000,
         "proclaimer": proclaimer.bouw(set_, mag, regels.BRON,
                                       doelen_beschikbaar=bool(doelenset.get("beschikbaar")
                                                               or normenset.get("beschikbaar")),
-                                      punten_in_beeld=in_beeld),
+                                      punten_in_beeld=in_beeld,
+                                      normen_beschikbaar=bool(normenset.get("beschikbaar"))),
     }

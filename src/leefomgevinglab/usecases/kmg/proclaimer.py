@@ -18,7 +18,8 @@ def _metingen(meetset: dict) -> int:
 
 
 def bouw(meetset: dict, register_bron: dict, regels_bron: str,
-         doelen_beschikbaar: bool, punten_in_beeld: int | None = None) -> dict:
+         doelen_beschikbaar: bool, punten_in_beeld: int | None = None,
+         normen_beschikbaar: bool | None = None) -> dict:
     """De vier kopjes van de proclaimer, met de getallen uit de data."""
     beschikbaar = bool(meetset.get("beschikbaar"))
     bron = meetset.get("bron") or {}
@@ -93,6 +94,9 @@ def bouw(meetset: dict, register_bron: dict, regels_bron: str,
         "kunnen bijdragen."
     )
 
+    if normen_beschikbaar is None:
+        normen_beschikbaar = False
+
     if doelen_beschikbaar:
         # Zeggen wat er geladen is én wat niet. "Doelen beschikbaar" is waar en tegelijk maar de
         # halve waarheid: het doelenbestand draagt de ecologische en fysisch-chemische doelen, geen
@@ -100,13 +104,31 @@ def bouw(meetset: dict, register_bron: dict, regels_bron: str,
         van_ons += (
             " De KRW-doelen zijn geladen uit het Waterkwaliteitsportaal, maar dekken niet alles: "
             "dat bestand bevat de ecologische en fysisch-chemische doelen per waterlichaam — "
-            "stikstof hoort daarbij — en **geen enkele chemische stof**. De normen voor zink en "
-            "PFOA zijn landelijk, staan in het Bkl, en gelden voor zink bovendien voor de opgeloste "
-            "fractie met een correctie voor biobeschikbaarheid. Die hebben wij niet geladen, dus "
-            "over die twee stoffen geven wij geen oordeel. En een doel geldt voor het "
-            "**zomergemiddelde** over april tot en met september, niet voor de jaarmediaan die in "
-            "de tabel staat; wij toetsen daarom op die eerste grootheid en zwijgen zodra wij hem "
-            "niet kunnen berekenen."
+            "stikstof hoort daarbij — en **geen enkele chemische stof**."
+        )
+        if normen_beschikbaar:
+            # Fix (taakrapport): deze tak klopt alleen sinds de chemische normen (Bkl, via de
+            # KRW-toetsresultaten) ook echt bereikbaar zijn. Zink krijgt nu wél een oordeel; PFOA
+            # niet, maar dat is een gat in de bron zelf (`doelen._GEEN_DOEL["PFOA"]`), niet iets
+            # wat dit lab had kunnen laden en naliet.
+            van_ons += (
+                " De chemische normen staan landelijk in het Bkl en komen uit een tweede "
+                "bestand (KRW-toetsresultaten); zink is daarin geladen en gecorrigeerd voor "
+                "biobeschikbaarheid, voor de opgeloste fractie. Niet elke stof staat in dat "
+                "bestand: voor PFOA is in deze download geen norm of toetsresultaat "
+                "aangetroffen, dus over PFOA geven wij nog steeds geen oordeel."
+            )
+        else:
+            van_ons += (
+                " De normen voor zink en PFOA zijn landelijk, staan in het Bkl, en gelden voor "
+                "zink bovendien voor de opgeloste fractie met een correctie voor "
+                "biobeschikbaarheid. Die hebben wij niet geladen, dus over die twee stoffen "
+                "geven wij geen oordeel."
+            )
+        van_ons += (
+            " En een doel geldt voor het **zomergemiddelde** over april tot en met september, "
+            "niet voor de jaarmediaan die in de tabel staat; wij toetsen daarom op die eerste "
+            "grootheid en zwijgen zodra wij hem niet kunnen berekenen."
         )
     else:
         van_ons += (

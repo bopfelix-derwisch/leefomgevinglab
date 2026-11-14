@@ -362,6 +362,17 @@ def _kmg_pad() -> str:
         "metingen_pad", "/mnt/nvme/geluidsmeter/data/external/wkp/metingen_2025.json")
 
 
+def _kmg_normen_pad() -> str | None:
+    """Het pad naar de chemische KRW-normen voor `/api/kmg`.
+
+    Staat NIET onder `leefomgevinglab.kmg` (die sectie kent geen `normen_pad`) maar onder
+    `leefomgevinglab.waterpresentatie.normen_pad` -- zie `core/config.yaml` en
+    `_toezicht_normenset`, die hetzelfde pad op dezelfde manier leest. Een eigen functie, zodat
+    een test deze lezing apart tegen de echte configuratie kan bewijzen (zie
+    `test_de_kmg_normen_pad_is_echt_bereikbaar_via_de_configuratie`)."""
+    return _config.get("leefomgevinglab", {}).get("waterpresentatie", {}).get("normen_pad")
+
+
 @app.get("/kmg", response_class=HTMLResponse)
 def kmg_page():
     """Kan, mag en gebeurt op het water — de drie lagen over elkaar."""
@@ -550,7 +561,16 @@ def api_kmg(meetpunt: str, live: int = 1):
                                  straal_m=kmg.get("straal_m", 250000),
                                  doelen_pad=kmg.get("doelen_pad"),
                                  parameters_pad=kmg.get("parameters_pad"),
-                                 normen_pad=kmg.get("normen_pad"),
+                                 # Fix (taakrapport): `leefomgevinglab.kmg` draagt geen
+                                 # `normen_pad` -- die sectie kent alleen aquo_csv_pad/
+                                 # doelen_pad/maaskaart_pad/metingen_pad/overzicht_pad/
+                                 # parameters_pad/straal_m/waterlichamen_pad. Het echte pad
+                                 # staat onder `leefomgevinglab.waterpresentatie.normen_pad`
+                                 # (zie `_kmg_normen_pad` en `core/config.yaml`); dezelfde
+                                 # sleutel die `_toezicht_normenset` hieronder al gebruikt. De
+                                 # oude lezing gaf altijd `beschikbaar: False` terug, dus de
+                                 # chemische KRW-norm (zink, PFOA) bereikte deze route nooit.
+                                 normen_pad=_kmg_normen_pad(),
                                  waterlichamen_pad=kmg.get("waterlichamen_pad"))
     except KeyError:
         raise HTTPException(status_code=404, detail=f"onbekend meetpunt: {meetpunt}")
@@ -617,11 +637,11 @@ def _toezicht_normenset() -> dict:
     `overzicht_pad`/`parameters_pad`/`straal_m`/`waterlichamen_pad` -- geen `normen_pad`), maar
     onder `leefomgevinglab.waterpresentatie.normen_pad` (zie `core/config.yaml`). De eerdere
     lezing haalde dus altijd een lege sectie op en gaf permanent `beschikbaar: False` terug --
-    precies de KRW-norm-poot van R20 deed in de praktijk niets. Dezelfde foute sleutel staat nog
-    op de bestaande `/api/kmg`-route (`api_kmg`, regel ~553); die blijft met opzet ongewijzigd --
-    dat is een ander dossier, buiten deze taak, en al bij Bob gemeld."""
-    wp_cfg = _config.get("leefomgevinglab", {}).get("waterpresentatie", {})
-    normen_pad = wp_cfg.get("normen_pad")
+    precies de KRW-norm-poot van R20 deed in de praktijk niets. Dezelfde foute sleutel stond ook
+    op de bestaande `/api/kmg`-route (`api_kmg`); dat is inmiddels in een apart taakrapport
+    rechtgezet (live-fixes-report.md, fix 2) -- beide routes lezen nu via `_kmg_normen_pad`
+    hetzelfde echte pad."""
+    normen_pad = _kmg_normen_pad()
     if not normen_pad:
         return {"beschikbaar": False, "normen": {}, "reden": "geen normen_pad geconfigureerd"}
     return kmg_doelen.laad_normen(normen_pad)
