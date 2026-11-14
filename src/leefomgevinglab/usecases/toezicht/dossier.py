@@ -241,10 +241,26 @@ _RATIO_REGELS = {"meerdere_grenswaarden"}
 # Per regel: (enkelvoudzin, meervoudzin), beide met `{n}` op de plek van het getal. Volledigheid
 # (elke regel in `signalen.DREMPELS` behalve de ratio-regels staat hier) is een test, net als bij
 # de andere twee catalogi.
+#
+# Fix-ronde 3 (publieke review op `/toezicht`, 2026-11-14): `geen_onafhankelijke_meting` vuurt
+# per Aquo-code (taak 2), met opzet, zodat de zwaarte per stof kan verschillen -- maar de
+# bewering zelf noemde die stof niet. Op een vestiging met meerdere ongemeten stoffen (zoals
+# Solvay/NATRON, live: zes exemplaren) stonden daardoor vijf van de zes beweringen woordelijk
+# gelijk ("Voor 4 voorschriften bestaat geen onafhankelijke meting..." drie keer, "Voor 2
+# voorschriften..." twee keer) -- niet te onderscheiden zonder elk bewijsblok open te klikken.
+# Dit is dezelfde klasse fout als twee eerdere ronden: de eindreview op `vergunning_niet_te_
+# vinden` (een bewering die niet zegt waarover zij gaat) en fix-ronde 2 van taak 7 (twee
+# verschillende signalen mogen nooit dezelfde `waarom`-tekst dragen) -- hier is het dezelfde
+# *regel*, per code, die zichzelf herhaalt. `{stof}` komt nu uit `_stof_van_bewijs()`: de naam
+# staat al op het voorschrift (`bewijs[0]["parameter"]`), dus er wordt niets geraden of getypt,
+# alleen gelezen. `meerdere_grenswaarden` (de andere regel met hetzelfde probleem, op
+# `/wasstraat` -- "elf keer achter elkaar" bij Tata Steel) is hieronder in de ratio-tak van
+# `_bewering()` gerepareerd, niet hier: die regel heeft geen `{n}`-telling.
 _BEWERING_PER_REGEL: dict[str, tuple[str, str]] = {
     "geen_onafhankelijke_meting": (
-        "Voor {n} voorschrift bestaat geen onafhankelijke meting in het watersysteem.",
-        "Voor {n} voorschriften bestaat geen onafhankelijke meting in het watersysteem."),
+        "Voor {n} voorschrift van {stof} bestaat geen onafhankelijke meting in het watersysteem.",
+        "Voor {n} voorschriften van {stof} bestaat geen onafhankelijke meting in het "
+        "watersysteem."),
     "vervallen_code": (
         "{n} voorschrift draagt een grenswaarde op een ingetrokken Aquo-code.",
         "{n} voorschriften dragen een grenswaarde op een ingetrokken Aquo-code."),
@@ -278,33 +294,61 @@ _BEWERING_PER_REGEL: dict[str, tuple[str, str]] = {
 }
 
 
-def _kies_vorm(n: int, enkelvoud: str, meervoud: str) -> str:
+def _kies_vorm(n: int, enkelvoud: str, meervoud: str, **velden) -> str:
     """Het juiste sjabloon voor dit getal, ingevuld -- nooit het meervoud bij een telling van 1,
-    en nooit het getal zelf getypt (het komt uit `n`, niet uit de sjabloontekst)."""
+    en nooit het getal zelf getypt (het komt uit `n`, niet uit de sjabloontekst). `**velden` zijn
+    de overige plekhouders (vandaag alleen `stof`, zie `_stof_van_bewijs`) -- `.format()` negeert
+    een sleutel die een sjabloon niet gebruikt, dus de aanroeper mag altijd `stof=...` meegeven
+    zonder per regel te moeten weten of die plek in de tekst staat."""
     sjabloon = enkelvoud if n == 1 else meervoud
-    return sjabloon.format(n=n)
+    return sjabloon.format(n=n, **velden)
 
 
-def _bewering(omvang: float, regel_id: str) -> str:
+def _stof_van_bewijs(bewijs: list[dict] | None) -> str:
+    """De naam van de stof waarover één signaalexemplaar gaat, gelezen van het eerste
+    bewijsvoorschrift (`bewijs[0]["parameter"]`) -- nooit geraden, nooit uit `omvang` afgeleid
+    (die draagt alleen een getal). Bewijs is bij de twee regels die dit gebruiken
+    (`geen_onafhankelijke_meting`, groepeert per Aquo-code; `meerdere_grenswaarden`, groepeert
+    per `(parameter, eenheid)`) nooit leeg wanneer het signaal echt vuurt. De generieke terugval
+    is uitsluitend voor de bestaande tests die `_bewering()` los van een echt signaal aanroepen,
+    zonder bewijs mee te geven (zie `test_toezicht_dossier.py`)."""
+    if not bewijs:
+        return "deze stof"
+    return bewijs[0].get("parameter") or "deze stof"
+
+
+def _bewering(omvang: float, regel_id: str, bewijs: list[dict] | None = None) -> str:
     """De bewering als volzin met onderwerp en werkwoord, met het getal erin afgeleid via
     `_BEWERING_PER_REGEL` (zie de toelichting hierboven) -- nooit tien keer met de hand getypte
     cijfers, en nooit het sleutel-waardepaar dat het ontwerpplan afwijst. Geen `signaal`-parameter
     meer (fix-ronde 1 gebruikte de kop nog als tekstonderdeel): elke zin is nu op zichzelf
-    staand, de kop zelf staat al los in het `signaal`-veld van het signaal."""
+    staand, de kop zelf staat al los in het `signaal`-veld van het signaal.
+
+    **Fix-ronde 3.** `bewijs` is nieuw: twee regels (`geen_onafhankelijke_meting`,
+    `meerdere_grenswaarden`) vuren meerdere keren per vestiging, telkens voor een andere stof --
+    zonder de stof in de bewering te noemen waren die exemplaren woordelijk niet van elkaar te
+    onderscheiden op een gerangschikte lijst (zie de toelichting bij `_BEWERING_PER_REGEL` en de
+    ratio-tak hieronder). Optioneel, met een generieke terugval (`_stof_van_bewijs`), zodat de
+    bestaande aanroepen met alleen `(omvang, regel_id)` blijven werken."""
     if regel_id in _RATIO_REGELS:
         # `signalen.regel_meerdere_grenswaarden` geeft `float("inf")` bij een grenswaarde van 0
         # (de deling is dan onbegrensd, zie die functie) -- een eigen zin in plaats van "inf×" of
         # een `ValueError` op `.1f` (die bestaat niet voor `inf`, maar de tekst zelf zou onleesbaar
-        # zijn).
+        # zijn). De stof komt vóór "draagt" (zinsbegin), met een hoofdletter ook als de bron de
+        # naam met een kleine letter schrijft -- een Nederlandse zin begint met een hoofdletter,
+        # los van hoe de bron een parameternaam spelt.
+        stof = _stof_van_bewijs(bewijs)
+        stof_bij_zinsbegin = stof[0].upper() + stof[1:] if stof else stof
         if omvang == float("inf"):
-            return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, "
+            return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde, "
                      "waarvan er één 0 is -- de laagste en de hoogste staan daardoor niet in een "
                      "zinvolle verhouding tot elkaar.")
         factor = f"{omvang:.1f}".replace(".", ",", 1)
-        return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, met "
+        return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde, met "
                  f"een factor {factor}× verschil tussen de hoogste en de laagste.")
     enkelvoud, meervoud = _BEWERING_PER_REGEL[regel_id]
-    return _kies_vorm(round(omvang), enkelvoud, meervoud)
+    velden = {"stof": _stof_van_bewijs(bewijs)} if regel_id == "geen_onafhankelijke_meting" else {}
+    return _kies_vorm(round(omvang), enkelvoud, meervoud, **velden)
 
 
 def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
@@ -313,7 +357,7 @@ def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
     uit = {
         "regel": regel_id,
         "signaal": ruw["signaal"],
-        "bewering": _bewering(ruw["omvang"], regel_id),
+        "bewering": _bewering(ruw["omvang"], regel_id, ruw["bewijs"]),
         "zwaarte": ruw["zwaarte"],
         "omvang": ruw["omvang"],
         "bewijs": ruw["bewijs"],

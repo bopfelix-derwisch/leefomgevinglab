@@ -174,6 +174,63 @@ def test_elke_regel_behalve_de_verhouding_staat_in_de_beweringtabel():
     assert set(dossier._BEWERING_PER_REGEL) | dossier._RATIO_REGELS == set(signalen.DREMPELS)
 
 
+# -- Fix-ronde 3 (publieke review op `/toezicht`, 2026-11-14): een bewering moet haar stof -----
+# -- noemen, en binnen één dossier mag geen twee signalen dezelfde bewering delen --------------
+
+def test_geen_onafhankelijke_meting_noemt_de_eigen_stof_in_de_bewering():
+    """`geen_onafhankelijke_meting` vuurt per Aquo-code (taak 2) -- zonder de stof in de
+    bewering waren de twee exemplaren van `VESTIGING_MET_ALLES` (Zwevende stof en Zuurgraad)
+    woordelijk niet van elkaar te onderscheiden. Dat was precies de publieke bevinding: vijf van
+    de zes beweringen van Solvay (NATRON) waren identiek."""
+    d = dossier.dossier(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES)
+    exemplaren = {s["bewering"] for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting"}
+    assert len(exemplaren) == 2, f"de twee exemplaren delen hun bewering: {exemplaren}"
+    assert any("Zwevende stof" in b for b in exemplaren)
+    assert any("Zuurgraad" in b for b in exemplaren)
+    for b in exemplaren:
+        assert "1 voorschrift " in b, f"geen vervoeging/getal in de bewering: {b!r}"
+
+
+def test_meerdere_grenswaarden_noemt_de_parameter_in_de_bewering():
+    """Zelfde reparatie voor de andere regel met dit probleem (op `/wasstraat` -- bij Tata Steel
+    live elf keer achter elkaar "Dezelfde parameter..."). Twee parameters, allebei met twee
+    grenswaarden, moeten twee te onderscheiden beweringen opleveren, elk met haar eigen naam."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter"},
+        {"parameter": "Koper", "waarde": 1.0, "eenheid": "milligram per liter"},
+        {"parameter": "Koper", "waarde": 4.0, "eenheid": "milligram per liter"},
+    ]}
+    d = dossier.dossier(v, {})
+    exemplaren = {s["bewering"] for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden"}
+    assert len(exemplaren) == 2, f"de twee exemplaren delen hun bewering: {exemplaren}"
+    assert any(b.startswith("Zink ") for b in exemplaren)
+    assert any(b.startswith("Koper ") for b in exemplaren)
+
+
+def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering():
+    """De regel waar dit nu drie keer tegen gezondigd is (de eindreview op `vergunning_niet_te_
+    vinden`, fix-ronde 2 van taak 7 op `waarom`, en nu deze twee regels): binnen één dossier mag
+    geen enkele bewering letterlijk gelijk zijn aan een andere. Deze vestiging laat met opzet
+    zowel `geen_onafhankelijke_meting` als `meerdere_grenswaarden` elk twee keer vuren, zodat een
+    toekomstige regressie in deze of een andere regel hier meteen zichtbaar is -- de test legt het
+    patroon zelf vast, niet alleen dit ene geval."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter", "aquo": "Zn"},
+        {"parameter": "Koper", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Cu"},
+        {"parameter": "Koper", "waarde": 5.0, "eenheid": "milligram per liter", "aquo": "Cu"},
+    ]}
+    context = {"gemeten_codes": set()}  # bewust leeg maar aangeleverd: niets wordt gemeten
+    d = dossier.dossier(v, context)
+    beweringen = [s["bewering"] for s in d["signalen"]]
+    assert len(beweringen) == len(set(beweringen)), (
+        f"twee signalen delen dezelfde bewering: {beweringen}")
+    # De controle is niet toevallig leeg: beide regels moeten hier echt meermaals vuren.
+    assert sum(1 for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting") == 2
+    assert sum(1 for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden") == 2
+
+
 def test_grondslag_en_zekerheid_komen_uit_de_bestaande_vocabulaires():
     """Geen tweede vocabulaire: elke `grondslag` moet in `maaskaart.GRONDSLAG` staan en elke
     `zekerheid` in `lozingsmodel.ZEKERHEDEN`."""
