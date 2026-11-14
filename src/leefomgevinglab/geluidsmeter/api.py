@@ -55,6 +55,7 @@ from leefomgevinglab.usecases.toezicht import aquo as toezicht_aquo
 from leefomgevinglab.usecases.toezicht import pijplijn as toezicht_pijplijn
 from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
 from leefomgevinglab.usecases.toezicht import runner as toezicht_runner
+from leefomgevinglab.usecases.toezicht import register as toezicht_register
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -606,10 +607,13 @@ _TOEZICHT_STRAAL_M = 250000
 
 
 def _toezicht_register() -> list[dict]:
-    """Het hele Maas-lozingenregister, live via de Atlas voor een Schone Maas. Gecachet door de
-    connector zelf (`smwk_atlas.cache_ttl_s`, zie `kmg_service._atlas_standaard`), dus niet bij
-    elke pageview opnieuw over het netwerk. Een eigen, kleine functie (niet rechtstreeks
-    `kmg_service._atlas_standaard` in de routes) zodat een test hem in één regel kan vervangen.
+    """Het hele Maas-lozingenregister, live via de Atlas voor een Schone Maas, en al ontdubbeld
+    (`toezicht_register.voorbereid`) -- zie die module voor waarom dat hier gebeurt, bij de grens
+    waarop het register `toezicht` binnenkomt, en niet in elk van de tien signaalregels apart
+    (eindreview, bevinding 3). Gecachet door de connector zelf (`smwk_atlas.cache_ttl_s`, zie
+    `kmg_service._atlas_standaard`), dus niet bij elke pageview opnieuw over het netwerk. Een
+    eigen, kleine functie (niet rechtstreeks `kmg_service._atlas_standaard` in de routes) zodat
+    een test hem in één regel kan vervangen.
 
     Minor (R20-review): dit hergebruikt een functie van `kmg_service` met een voorloop-underscore
     -- een privé-functie van een andere module. Bewust zo gelaten: `maaskaart.py` doet exact
@@ -618,7 +622,8 @@ def _toezicht_register() -> list[dict]:
     connector (cache_dir, cache_ttl, base_url) op te bouwen. `_atlas_standaard` publiek maken zou
     verder dan deze taak reiken: dat is een keuze over de publieke interface van `kmg_service`,
     niet over `/toezicht`."""
-    return kmg_service._atlas_standaard(*_TOEZICHT_PUNT, _TOEZICHT_STRAAL_M)
+    ruw = kmg_service._atlas_standaard(*_TOEZICHT_PUNT, _TOEZICHT_STRAAL_M)
+    return toezicht_register.voorbereid(ruw)
 
 
 def _toezicht_aquo_ref() -> dict:

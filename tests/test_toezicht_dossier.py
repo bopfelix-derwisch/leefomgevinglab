@@ -109,6 +109,22 @@ def test_de_bewering_bij_een_verhouding_toont_geen_tellingstekst():
     assert "verhouding" not in s["bewering"]
 
 
+def test_de_bewering_bij_een_onbegrensde_verhouding_crasht_niet_en_noemt_de_nul():
+    """Eindreview, bevinding 2: `signalen.regel_meerdere_grenswaarden` geeft `float("inf")` als
+    de laagste grenswaarde 0 is -- `_bewering()` mag daar geen `ValueError` op `.1f` of een
+    onleesbare 'inf×' van maken, en moet wel de taalregel blijven halen."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.0, "eenheid": "milligram per liter"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter"},
+    ]}
+    d = dossier.dossier(v, {})
+    s = next(x for x in d["signalen"] if x["regel"] == "meerdere_grenswaarden")
+    assert s["bewering"]
+    assert "0" in s["bewering"]
+    for verboden in _VERBODEN:
+        assert verboden not in s["bewering"].lower()
+
+
 def test_elke_regel_in_de_catalogus_levert_een_niet_lege_bewering_met_het_getal_erin():
     """Alle tien regels, niet alleen de twee die de vorige twee tests noemen -- een regel zonder
     bewering zou de pagina terugzetten naar de kale kop die de review afkeurde. Het getal zelf

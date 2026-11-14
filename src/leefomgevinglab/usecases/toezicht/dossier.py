@@ -292,6 +292,14 @@ def _bewering(omvang: float, regel_id: str) -> str:
     meer (fix-ronde 1 gebruikte de kop nog als tekstonderdeel): elke zin is nu op zichzelf
     staand, de kop zelf staat al los in het `signaal`-veld van het signaal."""
     if regel_id in _RATIO_REGELS:
+        # `signalen.regel_meerdere_grenswaarden` geeft `float("inf")` bij een grenswaarde van 0
+        # (de deling is dan onbegrensd, zie die functie) -- een eigen zin in plaats van "inf×" of
+        # een `ValueError` op `.1f` (die bestaat niet voor `inf`, maar de tekst zelf zou onleesbaar
+        # zijn).
+        if omvang == float("inf"):
+            return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, "
+                     "waarvan er één 0 is -- de laagste en de hoogste staan daardoor niet in een "
+                     "zinvolle verhouding tot elkaar.")
         factor = f"{omvang:.1f}".replace(".", ",", 1)
         return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, met "
                  f"een factor {factor}× verschil tussen de hoogste en de laagste.")

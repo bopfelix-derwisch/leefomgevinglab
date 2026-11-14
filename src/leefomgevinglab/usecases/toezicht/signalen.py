@@ -64,6 +64,16 @@ DEBIET_EENHEDEN = {
 # expliciete waarde `None` (de koppeling is geprobeerd en mislukt) telt als signaal.
 _NIET_OPGEZOCHT = object()
 
+# Fix-ronde (eindreview, bevinding 2): parameters waarvoor twee grenswaarden een toegestane
+# bandbreedte vormen, geen tegenstrijdige eis. Zuurgraad is het bekende geval: een vergunning
+# vergunt pH altijd als venster (bv. 6,5-9,0), en dat venster is de normale, correcte vorm, niet
+# een "welke grenswaarde geldt?"-vraag. Bovendien is pH logaritmisch, dus een verhouding tussen
+# twee pH-waarden is sowieso betekenisloos -- live trof deze regel 36 van de 164 destijds
+# getelde gevallen puur op dit patroon. Op naam, niet op eenheid ("dimensieloos" draagt in het
+# register ook "Vervuilingswaarde", een gewone telling waarvoor een venster geen correcte lezing
+# is). Lowercase-vergelijking: de bron schrijft zowel "Zuurgraad" als "zuurgraad".
+_GEEN_DISCREPANTIE_PARAMETERS = {"zuurgraad"}
+
 
 class Regel(NamedTuple):
     """Een rij uit de signaalcatalogus (plan, §6)."""
@@ -138,19 +148,42 @@ def _signaal(regel_id: str, kop: str, omvang: float, bewijs: list[dict],
 
 
 def regel_meerdere_grenswaarden(vestiging: dict, context: dict) -> list[dict]:
-    """Welke grenswaarde geldt? -- dezelfde parameter met meer dan één grenswaarde in één
-    vestiging. `omvang` is de verhouding hoogste / laagste; daar is geen drempel op getallen voor
-    nodig, de verhouding zelf is de maat."""
-    per_parameter: dict[str, list[dict]] = {}
+    """Welke grenswaarde geldt? -- dezelfde parameter heeft binnen één vestiging meer dan één
+    grenswaarde **in dezelfde eenheid**. `omvang` is de verhouding hoogste / laagste; daar is geen
+    drempel op getallen voor nodig, de verhouding zelf is de maat.
+
+    **Fix-ronde (eindreview, bevinding 2).** Vóór deze fix groepeerde deze regel alleen op
+    `parameter`, en nam zij `max/min` over die groep zonder naar `eenheid` te kijken. Live gaf dat
+    bij 53 van de 164 toen getelde gevallen (32%) een concentratiegrens (mg/l) en een vrachtgrens
+    (kg/jaar) voor dezelfde stof tegen elkaar -- twee elkaar aanvullende voorwaarden, geen
+    tegenstrijdigheid, met als zichtbaar gevolg een bewering als "een factor 35704419,9× verschil"
+    (CORUSNB, Warmte: 220000 MJ/dag tegenover 2,508 MJ/seconde). Dat is precies de fout die
+    `kmg.toerekening` elders in dit lab expliciet vermijdt (nooit stilzwijgend een eenheid
+    aannemen). Groeperen op `(parameter, eenheid)` i.p.v. alleen `parameter` lost dit op: een
+    concentratie- en een vrachtgrens voor dezelfde stof komen nu in twee aparte groepen terecht en
+    worden niet meer tegen elkaar gedeeld. Zie ook `_GEEN_DISCREPANTIE_PARAMETERS` hierboven voor
+    de tweede helft van deze fix (Zuurgraad/pH).
+
+    **De deling wordt bewaakt.** Een grenswaarde van 0 naast een grenswaarde groter dan 0 zou
+    `max/min` op een `ZeroDivisionError` laten stuklopen -- vandaag komt dat in het register niet
+    voor, maar een regel die een live eindpunt bedient mag daar niet op vertrouwen (zie
+    `kmg.toerekening`, die een afvoer van 0 ook expliciet afvangt in plaats van te laten crashen).
+    Is de laagste waarde 0, dan is de verhouding per definitie onbegrensd: `omvang` wordt dan
+    `float("inf")` (altijd `hoog`, zie `zwaarte()`) in plaats van dat de functie een 500 teruggeeft."""
+    per_groep: dict[tuple, list[dict]] = {}
     for v in vestiging.get("voorschriften") or []:
-        per_parameter.setdefault(v.get("parameter"), []).append(v)
+        parameter = v.get("parameter")
+        if (parameter or "").strip().lower() in _GEEN_DISCREPANTIE_PARAMETERS:
+            continue
+        per_groep.setdefault((parameter, v.get("eenheid")), []).append(v)
 
     uit = []
-    for parameter, voorschriften in per_parameter.items():
+    for (_parameter, _eenheid), voorschriften in per_groep.items():
         waarden = {v["waarde"] for v in voorschriften if v.get("waarde") is not None}
         if len(waarden) < 2:
             continue
-        omvang = max(waarden) / min(waarden)
+        laagste, hoogste = min(waarden), max(waarden)
+        omvang = float("inf") if laagste == 0 else hoogste / laagste
         uit.append(_signaal("meerdere_grenswaarden", "welke grenswaarde geldt?", omvang,
                              voorschriften))
     return uit

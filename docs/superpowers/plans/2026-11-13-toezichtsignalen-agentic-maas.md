@@ -164,8 +164,23 @@ rond `(170000, 390000)`:
 - **12 bemonsteringsregimes**, waarvan `Verzamelmonster gedurende 24 uur` (341) en `Steekmonster`
   (316) samen 84% dekken — plus **2 voorschriften die er helemaal geen melden**
 - **164 gevallen** waarin binnen één vestiging dezelfde parameter meer dan één grenswaarde heeft
+  -- **gecorrigeerd op 2026-11-14 (eindreview, bevinding 2): dit getal groepeerde alleen op
+  parameter, niet op eenheid, en telde dus 53 gevallen waarin een concentratiegrens en een
+  vrachtgrens voor dezelfde stof tegen elkaar werden gezet (twee elkaar aanvullende voorwaarden,
+  geen discrepantie) plus 36 pure Zuurgraad/pH-vensters (altijd tweezijdig, nooit een echte
+  tegenstrijdigheid, en een verhouding tussen twee pH-waarden is sowieso betekenisloos). 54% van
+  de 164 was dus een artefact van de regel zelf. Na groeperen op `(parameter, eenheid)` en het
+  uitsluiten van Zuurgraad is het echte getal, live op het ontdubbelde register (zie bevinding 3
+  hieronder), `114` -- niet simpelweg 164-53-36=75, want een paar van de 53 mixed-unit-groepen
+  bevatten óók een echte, same-unit meervoudige grenswaarde die in de oude telling verdwenen was
+  achter de ene mixed-unit-signaal per parameter.**
 - **3 voorschriften zonder `waarde`**, waarvan één zonder `parameter` en één dat letterlijk
   "geen lozingseisen" heet
+- **132 van de 782 voorschriften (17%) zijn een letterlijke duplicaatrij** (zelfde parameter,
+  waarde, eenheid én bemonsteringswijze als een eerdere rij in dezelfde vestiging) --
+  **gevonden op 2026-11-14 (eindreview, bevinding 3)**, niet in de oorspronkelijke verificatie:
+  CORUSNB's eerste vergunning draagt 118 rijen, waarvan maar 46 unieke. `toezicht_register.
+  voorbereid` ontdubbelt dit nu bij de grens waarop het register `toezicht` binnenkomt.
 
 **Aquo-domeintabel Parameter** (`aquo_parameters.json`, 5760 namen): van de 782 voorschriften
 koppelen **677 op een geldige Aquo-code** (56 verschillende stoffen); **105 voorschriften over 13
@@ -398,7 +413,7 @@ geverifieerd waar aangegeven, en anders in taak 3 vast te stellen.
 | 1 | **geen onafhankelijke meting** | het voorschrift noemt een stof die op geen RWS-meetpunt in de set voorkomt | hoog bij een stof met een KRW-norm, anders midden | **274 voorschriften, 18 stoffen** (geverifieerd) |
 | 2 | **grenswaarde op een ingetrokken code** | de Aquo-code van de parameter is `Vervallen` | hoog — er is geen geldige referentie om tegen te toetsen | **90 voorschriften**, waarvan 83 "Zwevende stof" (eerder geverifieerd via `/kennisgraaf`) |
 | 3 | **parameter niet in de referentie** | de naam koppelt niet aan Aquo | midden | **105 voorschriften over 13 namen** (geverifieerd) |
-| 4 | **welke grenswaarde geldt?** | dezelfde parameter heeft binnen één vestiging meer dan één grenswaarde | hoog als ze meer dan een factor 2 verschillen | **164 gevallen** (geverifieerd) |
+| 4 | **welke grenswaarde geldt?** | dezelfde parameter heeft **in dezelfde eenheid** binnen één vestiging meer dan één grenswaarde (Zuurgraad uitgesloten -- een pH-venster is altijd tweezijdig, geen discrepantie) | hoog als ze meer dan een factor 2 verschillen | **114 gevallen** (geverifieerd 2026-11-14, op het ontdubbelde register; was eerst 164, zie §10a-vervolg onder §3 -- 54% daarvan was een artefact van de regel zelf: mixed-unit-groepen en pure pH-vensters) |
 | 5 | **vracht niet te bepalen** | concentratievoorschrift zonder debietvoorschrift, dus niet naar een vracht om te rekenen | midden | af te leiden uit `atlas_register`, dat dit al in drie lagen doet |
 | 6 | **meting boven de norm, lozer bovenstrooms** | op een benedenstrooms meetpunt is de KRW-norm overschreden en deze vestiging ligt bovenstrooms volgens `toerekening.STROOMVOLGORDE` | hoog | te berekenen; `/kmg` levert de bouwstenen |
 | 7 | **gemeten stof die in geen vergunning staat** | een stof die de norm nadert of overschrijdt komt in het hele register niet voor | hoog | PFOA is het bekende geval |

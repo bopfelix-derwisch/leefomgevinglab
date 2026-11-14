@@ -31,6 +31,7 @@ import pytest
 from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
 from leefomgevinglab.usecases.kmg import lozingsmodel
 from leefomgevinglab.usecases.toezicht import aquo, signalen
+from leefomgevinglab.usecases.toezicht import register as register_mod
 
 pytestmark = pytest.mark.live
 
@@ -339,3 +340,59 @@ def test_vervallen_code_raakt_de_aantallen_die_het_plan_noemt(register):
 # `DSO_API_KEY` -- die test raakt geen netwerk en heeft die sleutel niet nodig (hij leest een
 # lokaal JSON-bestand via `laad_normen`), dus zou in elke run zonder die sleutel stilzwijgend
 # niet meelopen. Verplaatst naar `tests/test_api_toezicht.py`, dat geen skip-gate draagt.
+
+
+# == Eindreview, bevinding 3: ontdubbelen van letterlijk herhaalde voorschriften =================
+
+def test_het_live_register_draagt_132_letterlijke_duplicaatvoorschriften(register):
+    """Eén keer, bij de grens (`toezicht_register.voorbereid`), niet in elk van de tien regels.
+    Live, 2026-11: 132 van de 782 voorschriften (17%) zijn een letterlijke herhaling (zelfde
+    parameter, waarde, eenheid én bemonsteringswijze) van een eerdere rij in dezelfde vestiging --
+    CORUSNB's eerste vergunning draagt er 118, waarvan maar 46 uniek."""
+    voor = sum(len(v.get("voorschriften") or []) for v in register)
+    na = sum(len(v["voorschriften"]) for v in register_mod.voorbereid(register))
+    assert voor == 782, f"{voor} voorschriften vóór ontdubbelen i.p.v. 782 -- zie de verbatim-test"
+    assert voor - na == 132, (
+        f"{voor - na} duplicaatvoorschriften i.p.v. 132 -- de Atlas is gewijzigd of de "
+        "ontdubbelsleutel is aangepast; plan en rapport moeten dan mee"
+    )
+
+    corusnb = next(v for v in register if v.get("kenmerk") == "RWS-2015/19557")
+    gededupliceerd = register_mod.dedupliceer_voorschriften(corusnb)
+    assert len(corusnb["voorschriften"]) == 118
+    assert len(gededupliceerd["voorschriften"]) == 46, (
+        f"{len(gededupliceerd['voorschriften'])} unieke voorschriften i.p.v. 46 voor CORUSNB's "
+        "eerste vergunning"
+    )
+
+
+# == Eindreview, bevinding 2: eenheid moet meetellen, en pH is geen discrepantie =================
+
+def test_regel_4_telt_live_114_gevallen_na_de_eenheden_en_ph_fix(register):
+    """Vóór deze fix telde regel 4 (`meerdere_grenswaarden`) 164 gevallen, waarvan 53 (32%) een
+    concentratiegrens tegen een vrachtgrens voor dezelfde stof zette (twee elkaar aanvullende
+    voorwaarden, geen discrepantie) en 36 puur een pH-venster waren (altijd tweezijdig, nooit een
+    echte tegenstrijdigheid) -- 54% van de 164 was dus een artefact van de regel zelf, niet van
+    het register. Groeperen op `(parameter, eenheid)` i.p.v. alleen `parameter`, plus het
+    uitsluiten van Zuurgraad, geeft op het ontdubbelde register geen van beide artefacten meer
+    terug, en wel een paar sámengestelde groepen die ten onrechte in de oude, mixed-unit telling
+    verdwenen waren -- vandaar dat de nieuwe telling niet simpelweg 164-53-36=75 is."""
+    register_dedup = register_mod.voorbereid(register)
+    totaal = 0
+    mix_unit = 0
+    zuurgraad = 0
+    for v in register_dedup:
+        for s in signalen.regel_meerdere_grenswaarden(v, {}):
+            totaal += 1
+            eenheden = {b.get("eenheid") for b in s["bewijs"]}
+            if len(eenheden) > 1:
+                mix_unit += 1
+            if any((b.get("parameter") or "").strip().lower() == "zuurgraad" for b in s["bewijs"]):
+                zuurgraad += 1
+
+    assert totaal == 114, (
+        f"{totaal} gevallen van regel 4 i.p.v. 114 -- de Atlas of de regel is gewijzigd; "
+        "plan §3/§6 en de pagina moeten dan mee"
+    )
+    assert mix_unit == 0, "een gemengde-eenheid-groep vuurt nog steeds -- de groeperingsfix werkt niet"
+    assert zuurgraad == 0, "Zuurgraad vuurt nog steeds -- de uitsluiting werkt niet"

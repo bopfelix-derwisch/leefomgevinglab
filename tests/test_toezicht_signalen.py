@@ -88,6 +88,74 @@ def test_eenmalige_grenswaarde_geeft_geen_signaal():
     assert signalen.regel_meerdere_grenswaarden(v, {}) == []
 
 
+# -- Eindreview, bevinding 2: eenheid moet meetellen, en pH is geen discrepantie ------------------
+
+def test_een_concentratiegrens_en_een_vrachtgrens_voor_dezelfde_stof_geven_geen_signaal():
+    """Live gaf dit 53 van de 164 toen getelde gevallen: een concentratiegrens (mg/l) en een
+    vrachtgrens (kg/jaar) voor dezelfde stof zijn twee elkaar aanvullende voorwaarden, geen
+    tegenstrijdigheid. De bewering "een factor 35704419,9× verschil" (CORUSNB, Warmte) kwam
+    letterlijk uit het verschil tussen MJ/dag en MJ/seconde -- precies de eenhedenfout die
+    `kmg.toerekening` elders in dit lab expliciet vermijdt."""
+    v = {"voorschriften": [
+        {"parameter": "Warmte", "waarde": 220000, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 2.508, "eenheid": "megajoule per seconde"},
+    ]}
+    assert signalen.regel_meerdere_grenswaarden(v, {}) == []
+
+
+def test_twee_grenswaarden_in_dezelfde_eenheid_vuren_nog_steeds():
+    """De positieve controle: twee écht verschillende grenswaarden in dezelfde eenheid voor
+    dezelfde stof blijven een signaal -- de fix groepeert fijner, zij onderdrukt niet."""
+    v = {"voorschriften": [
+        {"parameter": "Warmte", "waarde": 1.0, "eenheid": "megajoule per seconde"},
+        {"parameter": "Warmte", "waarde": 4.0, "eenheid": "megajoule per seconde"},
+    ]}
+    uit = signalen.regel_meerdere_grenswaarden(v, {})
+    assert len(uit) == 1
+    assert uit[0]["zwaarte"] == "hoog"
+
+
+def test_zuurgraad_geeft_nooit_een_signaal_ook_niet_bij_een_groot_venster():
+    """pH wordt altijd als venster vergund (bv. 6,5-9,0) -- dat is de normale, correcte vorm, geen
+    'welke grenswaarde geldt?'-vraag, en een verhouding tussen twee pH-waarden is sowieso
+    betekenisloos (logaritmisch). Live was dit 36 van de 164 toen getelde gevallen, puur dit
+    patroon. Case-ongevoelig: de bron schrijft zowel 'Zuurgraad' als 'zuurgraad'."""
+    v = {"voorschriften": [
+        {"parameter": "Zuurgraad", "waarde": 6.5, "eenheid": "dimensieloos"},
+        {"parameter": "Zuurgraad", "waarde": 9.0, "eenheid": "dimensieloos"},
+    ]}
+    assert signalen.regel_meerdere_grenswaarden(v, {}) == []
+    v2 = {"voorschriften": [
+        {"parameter": "zuurgraad", "waarde": 6.0, "eenheid": "dimensieloos"},
+        {"parameter": "zuurgraad", "waarde": 12.0, "eenheid": "dimensieloos"},
+    ]}
+    assert signalen.regel_meerdere_grenswaarden(v2, {}) == []
+
+
+def test_een_andere_dimensieloze_parameter_dan_zuurgraad_vuurt_nog_wel():
+    """De uitsluiting is op naam, niet op eenheid: 'dimensieloos' draagt in het register ook
+    'Vervuilingswaarde', een gewone telling waarvoor een venster geen correcte lezing is."""
+    v = {"voorschriften": [
+        {"parameter": "Vervuilingswaarde", "waarde": 10.0, "eenheid": "dimensieloos"},
+        {"parameter": "Vervuilingswaarde", "waarde": 40.0, "eenheid": "dimensieloos"},
+    ]}
+    assert len(signalen.regel_meerdere_grenswaarden(v, {})) == 1
+
+
+def test_een_grenswaarde_van_nul_geeft_geen_zerodivisionerror():
+    """Eén grenswaarde 0 naast een andere, grotere grenswaarde zou `max/min` laten stuklopen.
+    Vandaag komt dat in het register niet voor, maar een regel op een live eindpunt mag daar niet
+    op vertrouwen (zie de docstring bij deze functie)."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.0, "eenheid": "milligram per liter"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter"},
+    ]}
+    uit = signalen.regel_meerdere_grenswaarden(v, {})
+    assert len(uit) == 1
+    assert uit[0]["omvang"] == float("inf")
+    assert uit[0]["zwaarte"] == "hoog"
+
+
 def test_een_vervallen_aquo_code_geeft_een_signaal():
     v = {"voorschriften": [
         {"parameter": "Zwevende stof", "waarde": 30.0, "eenheid": "milligram per liter",
