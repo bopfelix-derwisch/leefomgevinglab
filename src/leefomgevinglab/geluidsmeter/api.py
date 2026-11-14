@@ -57,6 +57,7 @@ from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
 from leefomgevinglab.usecases.toezicht import runner as toezicht_runner
 from leefomgevinglab.usecases.toezicht import register as toezicht_register
 from leefomgevinglab.usecases.toezicht import graaf as toezicht_graaf
+from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -746,6 +747,88 @@ def api_toezicht_dossier(vestiging: str):
     dossier["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
                           "stappen": log.als_gegeven()}
     return dossier
+
+
+# -- /wasstraat: de papierbevindingen op het Maas-lozingenregister -------------------------------
+#
+# Splitsing van `/toezicht` (plan: `docs/superpowers/plans/2026-11-14-wasstraat-en-toezicht-
+# splitsen.md`): zelfde register, zelfde standaardpijplijn, andere lezer. Deze route draait de
+# pijplijn opnieuw in plaats van de uitkomst van `api_toezicht_dossier` te hergebruiken -- beide
+# routes mogen onafhankelijk van elkaar blijven werken als de een ooit verandert, en `/toezicht`
+# blijft daarmee letterlijk ongewijzigd (zie de taakbrief: "zorg alleen dat je wijziging aan
+# signalen.py hem niet breekt"). Het echte hergebruik zit in `wasstraat_dossier_mod.
+# papier_dossier()`, die op het volledige dossier van `toezicht.dossier.dossier()` filtert in
+# plaats van er een tweede samensteller naast te zetten.
+
+@app.get("/wasstraat", response_class=HTMLResponse)
+def wasstraat_page():
+    """Papierdossier voor de vergunningverlener op het Maas-lozingenregister: niet waar een
+    toezichthouder moet gaan kijken, maar wat er aan de vergunning zelf moet rechtkomen."""
+    return _waterpagina("wasstraat.html", "wasstraat")
+
+
+@app.get("/api/wasstraat/pijplijn")
+def api_wasstraat_pijplijn():
+    """Dezelfde configuratie als `/api/toezicht/pijplijn` -- één pijplijn, twee lezers, dus één
+    bron voor de pagina die toont hoe zij is opgebouwd (R4: geen crew gestart, geen validatie)."""
+    gegeven = toezicht_pijplijn.als_gegeven(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
+    return {**gegeven, "bron": TOEZICHT_AGENTS_PAD}
+
+
+@app.get("/api/wasstraat/vestigingen")
+def api_wasstraat_vestigingen():
+    """Dezelfde vestigingenlijst als `/api/toezicht/vestigingen`, op dezelfde manier
+    geïdentificeerd (`toezicht_register.identiteiten`, want `locatiecode` alleen is geen unieke
+    sleutel -- zie die module)."""
+    try:
+        register = _toezicht_register()
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    ids = toezicht_register.identiteiten(register)
+    return [{"id": i, "locatiecode": v.get("locatiecode"), "naam": v.get("naam"),
+             "plaats": v.get("plaats"), "kenmerk": v.get("kenmerk")}
+            for i, v in zip(ids, register)]
+
+
+@app.get("/api/wasstraat/dossier")
+def api_wasstraat_dossier(vergunning: str):
+    """Draait de standaardpijplijn echt (`lees_vergunning` -> `bepaal_signalen` ->
+    `stel_dossier_samen` -> `leg_signalen_uit`), met dezelfde drie bronnen voor de uitlegger als
+    `/api/toezicht/dossier` -- en filtert de uitkomst daarna naar de zeven papiersignalen
+    (`wasstraat_dossier_mod.papier_dossier`). Geen taalmodel hier (`llm=None`): dezelfde reden als
+    bij `/toezicht` -- de deterministische treffers uit de drie bronnen zijn al genoeg, en de
+    pagina mag niet op het lokale model wachten.
+
+    `vergunning` is de `id` die `api_wasstraat_vestigingen` teruggaf, niet de rauwe
+    `locatiecode` -- zelfde reden als bij `/toezicht` (zie `toezicht_register.identiteiten`)."""
+    try:
+        register = _toezicht_register()
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    ids = toezicht_register.identiteiten(register)
+    v = next((p for i, p in zip(ids, register) if i == vergunning), None)
+    if v is None:
+        raise HTTPException(status_code=404, detail=f"onbekende vergunning: {vergunning}")
+
+    crew = toezicht_runner.laad(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
+    log = toezicht_runlog.Runlog()
+    normenset = _toezicht_normenset()
+    invoer = {
+        "vestiging": v,
+        "context": {"stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset)},
+        "aquo_ref": _toezicht_aquo_ref(),
+        "normenset": normenset,
+        "stelselcatalogus": _stelselcatalogus(),
+    }
+    staat = crew.draai(invoer, llm=None, runlog=log)
+    volledig = dict(staat["dossier"])
+    # Zelfde correctie als `api_toezicht_dossier`: `dossier()` zet zelf al een `runlog`-sleutel,
+    # maar dat is een foto vóór haar eigen stap en vóór de uitlegger erna. Vervang `stappen` door
+    # de volledige, echte log; `uitgezet` komt uit `dossier()` zelf.
+    bestaand_runlog = volledig.get("runlog") or {}
+    volledig["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
+                           "stappen": log.als_gegeven()}
+    return wasstraat_dossier_mod.papier_dossier(volledig)
 
 
 @app.get("/water", response_class=HTMLResponse)

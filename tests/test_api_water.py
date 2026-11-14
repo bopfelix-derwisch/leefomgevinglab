@@ -36,6 +36,7 @@ def test_waterpagina_bevat_de_subnav_met_actief_overzicht(monkeypatch):
     ("/balo", "Knelpunten"),
     ("/lozing", "Keten"),
     ("/toezicht", "Toezicht"),
+    ("/wasstraat", "Wasstraat"),
 ])
 def test_waterpaginas_dragen_dezelfde_subnav(monkeypatch, pad, actief_label):
     r = _client(monkeypatch).get(pad)
@@ -76,7 +77,7 @@ def test_de_homepagina_heeft_precies_een_ingang_naar_het_waterdossier(monkeypatc
 
 
 @pytest.mark.parametrize("pad", ["/water", "/waterruimte", "/gebruiksruimte", "/lozing", "/balo",
-                                  "/toezicht"])
+                                  "/toezicht", "/wasstraat"])
 def test_alle_waterpaginas_delen_hetzelfde_kleurenpalet(monkeypatch, pad):
     """Bevinding 11 van de eindreview: /water en /waterruimte draaiden op `--bg:#0a1420` met
     `--paneel`/`--tekst`, de rest op `--bg:#080c14` met `--panel`/`--text` — klikken van

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Wasstraat vergunningen op de Schone Maas</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --kan:#2ecc8f; --mag:#e8b84b; --gebeurt:#4fc3f7; --weg:#ff7a6b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel);
+                border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    .wrap { max-width:900px; margin:0 auto; padding:0 20px 60px; }
+
+    .banner { margin-top:16px; background:var(--panel2); border:1px solid var(--weg);
+      border-radius:10px; padding:11px 15px; font-size:12.5px; color:var(--text);
+      display:flex; gap:9px; align-items:flex-start; }
+    .banner .teken { color:var(--weg); font-weight:800; flex:none; }
+
+    .hero { padding:20px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:24px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero p { color:var(--muted); font-size:13.5px; max-width:74ch; }
+    .hero b { color:var(--text); }
+
+    .uitleg { margin-top:16px; background:var(--panel); border:1px solid var(--border);
+      border-radius:10px; padding:13px 15px; font-size:13px; color:var(--muted); max-width:78ch; }
+    .uitleg b { color:var(--text); }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:28px 0 10px; }
+
+    .kiezer { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:14px;
+      background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:11px 14px; }
+    .kiezer label { font-size:12px; color:var(--muted); display:flex; align-items:center;
+      gap:8px; }
+    select { background:var(--panel2); color:var(--text); border:1px solid var(--border);
+      border-radius:7px; padding:6px 10px; font-size:13px; min-width:300px; max-width:100%; }
+    .status { font-size:11.5px; color:var(--dim); }
+
+    code, .mono { font-family:ui-monospace,monospace; }
+
+    /* Deel A -- de kaart. Een ontbrekend veld blijft staan en kleurt rood: het is het signaal,
+       niet een leeg veld om te verbergen. */
+    .kaart { display:grid; grid-template-columns:auto 1fr auto; gap:6px 14px;
+      font-size:13px; margin-top:4px; }
+    .kaart .veld { color:var(--dim); white-space:nowrap; }
+    .kaart .waarde { color:var(--text); word-break:break-word; }
+    .kaart .waarde.leeg { color:var(--weg); font-style:italic; }
+    .kaart .zekerheid { font-size:10.5px; text-transform:uppercase; letter-spacing:.07em;
+      color:var(--dim); white-space:nowrap; text-align:right; }
+    .kaart .zekerheid.ontbreekt { color:var(--weg); font-weight:700; }
+
+    /* Deel B -- de bevindingen. Zwaarte als rail, geen badge: scannen zonder lezen. */
+    .signalen { margin-top:6px; display:flex; flex-direction:column; gap:2px; }
+    .signaal { display:flex; gap:14px; padding:14px 0 14px 16px; border-bottom:1px solid var(--border); }
+    .signaal:last-child { border-bottom:none; }
+    .signaal .rail { flex:none; width:5px; border-radius:3px; align-self:stretch; }
+    .signaal.hoog .rail { background:var(--weg); }
+    .signaal.midden .rail { background:var(--mag); }
+    .signaal.laag .rail { background:var(--kan); }
+    .signaal .inhoud { flex:1; min-width:0; }
+    .signaal .bewering { font-size:14.5px; color:#eafff6; max-width:70ch; }
+    .signaal .hoezeker { margin-top:6px; font-size:11.5px; color:var(--dim); }
+    .signaal .hoezeker b { color:var(--muted); font-weight:600; }
+
+    .bewijs { margin-top:9px; }
+    .bewijs summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none;
+      user-select:none; }
+    .bewijs summary::-webkit-details-marker { display:none; }
+    .bewijs summary::before { content:"▸ "; }
+    .bewijs[open] summary::before { content:"▾ "; }
+    .bewijsrijen { margin-top:7px; display:flex; flex-direction:column; gap:3px; }
+    .bewijsrij { font-size:11.5px; color:var(--muted); background:var(--panel2);
+      border-radius:5px; padding:5px 9px; font-family:ui-monospace,monospace;
+      word-break:break-word; }
+
+    .reparatie { margin-top:11px; border-left:3px solid var(--mag); padding:9px 13px;
+      background:rgba(232,184,75,.08); border-radius:0 8px 8px 0; }
+    .reparatie .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--mag); font-weight:700; margin-bottom:3px; }
+    .reparatie p { font-size:13.5px; color:var(--text); }
+
+    .voorbehouden { margin-top:14px; display:flex; flex-direction:column; gap:6px; }
+    .voorbehouden li { font-size:12px; color:var(--dim); list-style:none; padding-left:14px;
+      position:relative; }
+    .voorbehouden li::before { content:"—"; position:absolute; left:0; }
+
+    /* Deel C en D -- de logboeken en de configuratie. */
+    .deeld { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+      margin-top:4px; }
+    .blok { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 15px; }
+    .blok h4 { font-size:13px; color:#eafff6; margin-bottom:9px; }
+    .blok .noot { font-size:11px; color:var(--dim); margin-bottom:9px; }
+    .blok .samenvattingszin { font-size:12.5px; color:var(--text); margin-bottom:11px;
+      padding:8px 10px; background:var(--panel2); border-radius:7px; }
+    table.rijen { width:100%; border-collapse:collapse; font-size:11.5px; }
+    table.rijen th { text-align:left; color:var(--dim); font-weight:600; font-size:10px;
+      text-transform:uppercase; letter-spacing:.05em; padding:4px 6px;
+      border-bottom:1px solid var(--border); }
+    table.rijen td { padding:5px 6px; border-bottom:1px solid var(--panel2); color:var(--muted);
+      vertical-align:top; }
+    table.rijen td.naam { color:var(--text); font-weight:600; }
+    .ja { color:var(--accent); } .nee { color:var(--dim); }
+    .taak { font-size:10.5px; color:var(--dim); }
+    .staptekst { font-size:11px; color:var(--muted); margin-top:2px; }
+    .toolnaam { font-family:ui-monospace,monospace; font-size:11px; }
+    .uitgezet-rij td { opacity:.55; }
+    .vlag { font-size:9.5px; text-transform:uppercase; letter-spacing:.05em;
+      padding:1px 6px; border-radius:8px; border:1px solid var(--border); color:var(--dim); }
+    .alleenlezen { margin-top:11px; font-size:11.5px; color:var(--dim); }
+
+    footer { border-top:1px solid var(--border); margin-top:34px; padding-top:16px;
+      font-size:11.5px; color:var(--dim); max-width:80ch; }
+    footer p + p { margin-top:7px; }
+    footer a { color:var(--accent); text-decoration:none; }
+
+    @media (max-width:560px) {
+      .wrap { padding:0 14px 50px; }
+      select { min-width:0; width:100%; }
+      .kaart { grid-template-columns:1fr; }
+      .kaart .zekerheid { text-align:left; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">wasstraat</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="banner">
+      <span class="teken">⚠</span>
+      <span>Alleen open data. Dit lab heeft <b>geen bevoegdheid en velt geen oordeel</b> — het
+        draait op een persoonlijke Cloudflare-tunnel, zonder eHerkenning, zonder authenticatie en
+        zonder logging. Een bevinding hieronder is een aanwijzing dat er iets aan de vergunning
+        kan rechtkomen, nooit een vaststelling.</span>
+    </div>
+
+    <div class="hero">
+      <h2>Is deze vergunning handhaafbaar opgeschreven?</h2>
+      <p>Niet "waar moet een toezichthouder gaan kijken", maar "wat moet hier recht". Zeven
+        deterministische regels (geen taalmodel, geen netwerk) op het Maas-lozingenregister van de
+        <b>Atlas voor een Schone Maas</b> toetsen of elke vergunning tegen zichzelf klopt — met
+        bewijs en, per bevinding, de reparatie die eruit volgt. De drie regels die meetdata nodig
+        hebben, staan op <a href="/toezicht">/toezicht</a>, bij de toezichthouder.</p>
+    </div>
+
+    <div class="uitleg">
+      <p><b>Wat hier gebeurt.</b> Het register komt binnen en wordt ontdubbeld (een letterlijk
+        herhaald voorschrift telt maar één keer). Elke parameter gaat tegen de Aquo-domeintabel —
+        een geldige code, een ingetrokken code, of geen koppeling. Daarna kijken zeven regels of
+        de vergunning <i>tegen zichzelf</i> klopt: een grenswaarde op een ingetrokken code, een
+        parameter buiten de referentie, twee grenswaarden voor dezelfde stof, een concentratie
+        zonder debiet, een ontbrekend identificerend veld, een onvermeld bemonsteringsregime, geen
+        geldigheidsperiode. Geen taalmodel in die zeven regels — rekenen en vergelijken.</p>
+    </div>
+
+    <div class="kiezer">
+      <label>Vergunning
+        <select id="vergunning"></select>
+      </label>
+      <span class="status" id="status">Vergunningen laden…</span>
+    </div>
+
+    <div class="section-title">De kaart van deze vergunning</div>
+    <div class="kaart" id="kaart"></div>
+
+    <div class="section-title">De zeven bevindingen (<span id="aantalsignalen">0</span>)</div>
+    <div class="signalen" id="signalen"></div>
+    <ul class="voorbehouden" id="voorbehouden"></ul>
+
+    <div class="section-title">De logboeken, samengevat en uitgelegd</div>
+    <div class="blok" style="margin-top:4px;">
+      <h4>De keten van dit dossier</h4>
+      <div class="samenvattingszin" id="runlogzin">Nog geen dossier opgevraagd.</div>
+      <table class="rijen" id="runlogtabel">
+        <thead><tr><th>#</th><th>agent / taak</th><th>rijen</th><th>duur</th><th>status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">De configuratie (alleen-lezen)</div>
+    <div class="deeld">
+      <div class="blok">
+        <h4>De agents (<span id="pijplijnbron"></span>)</h4>
+        <p class="noot">Gelezen uit de YAML die ook draait — geen los plaatje. "Mag taalmodel" is
+          een eigenschap van de configuratie (krijgt deze agent er één toegewezen als er één
+          wordt meegegeven), niet of hij er in déze run ook echt een heeft gebruikt — zie de
+          keten hierboven voor wat er in dit dossier gebeurde.</p>
+        <table class="rijen" id="agentstabel">
+          <thead><tr><th>agent</th><th>rol</th><th>gereedschap</th><th>mag taalmodel</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="blok">
+        <h4>De takenorde</h4>
+        <p class="noot">De volgorde waarin de pijplijn de taken uitvoert, elk met de agent die
+          hem draait en de taken waarop hij voortbouwt.</p>
+        <table class="rijen" id="takentabel">
+          <thead><tr><th>#</th><th>taak</th><th>agent</th><th>bouwt voort op</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="alleenlezen">Alleen-lezen: deze pagina staat publiek zonder authenticatie, en
+          een schrijfpad zou betekenen dat een bezoeker verandert wat voor iedereen draait — er
+          is dan ook geen knop die iets opslaat, nergens op deze pagina.</p>
+      </div>
+    </div>
+
+    <footer>
+      <p><b>Bron.</b> <a href="https://atlas-smwk.hub.arcgis.com/" target="_blank"
+        rel="noopener">Atlas voor een Schone Maas</a> (Schone Maaswaterketen) en de
+        Aquo-domeintabel Parameter — dezelfde pijplijn als <a href="/toezicht">/toezicht</a>,
+        hier gefilterd naar wat er aan het papier zelf moet rechtkomen.</p>
+      <p>Zie ook het <a href="/water">waterdossier</a> en <a href="/toezicht">toezicht</a>, dat
+        de drie overige signalen toont — die hebben meetdata of stroomrichting nodig en gaan over
+        de werkelijkheid, niet over het papier.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => { const t = document.createElement("span"); t.textContent = s == null ? "" : String(s); return t.innerHTML; };
+    const nl = (n, d = 1) => (n === null || n === undefined || Number.isNaN(Number(n)))
+      ? "—" : Number(n).toLocaleString("nl-NL", { maximumFractionDigits: d });
+
+    const GRONDSLAG_KORT = { code: "gekoppeld op code", ruimtelijk: "gekoppeld op coördinaat",
+      heuristiek: "gekoppeld op naam plus afstand", geen: "geen koppeling gelegd" };
+
+    function hoeZeker(s) {
+      const g = GRONDSLAG_KORT[s.grondslag] || s.grondslag || "onbekend";
+      return `${esc(s.zekerheid || "onbekend")} · ${esc(g)}`;
+    }
+
+    function bewijsrij(rij) {
+      const stukjes = Object.entries(rij || {}).map(([k, v]) =>
+        `${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}`);
+      return `<div class="bewijsrij">${stukjes.join(" · ")}</div>`;
+    }
+
+    function tekenSignaal(s) {
+      const n = (s.bewijs || []).length;
+      return `<div class="signaal ${esc(s.zwaarte)}">` +
+        `<div class="rail"></div>` +
+        `<div class="inhoud">` +
+        `<div class="bewering">${esc(s.bewering || s.signaal)}</div>` +
+        `<div class="hoezeker">hoe zeker is dit? <b>${hoeZeker(s)}</b></div>` +
+        (n ? `<details class="bewijs"><summary>${n} ${n === 1 ? "bewijsregel" : "bewijsregels"}</summary>` +
+          `<div class="bewijsrijen">${(s.bewijs || []).map(bewijsrij).join("")}</div></details>` : "") +
+        (s.reparatie ? `<div class="reparatie"><div class="lbl">Wat moet hier recht?</div>` +
+          `<p>${esc(s.reparatie)}</p></div>` : "") +
+        `</div></div>`;
+    }
+
+    function tekenKaart(kaart) {
+      const VELDEN = [["naam", "naam"], ["plaats", "plaats"], ["locatie", "locatie"],
+        ["locatiecode", "locatiecode"], ["vestigingsnummer_kvk", "KvK-vestigingsnummer"],
+        ["kenmerk", "vergunningkenmerk"], ["besluitdatum", "besluitdatum"],
+        ["waterlichaam", "waterlichaam"], ["url", "vergunningdocument"]];
+      $("kaart").innerHTML = VELDEN.map(([sleutel, label]) => {
+        const veld = (kaart || {})[sleutel] || { waarde: null, zekerheid: "ontbreekt" };
+        const leeg = veld.waarde === null || veld.waarde === undefined || veld.waarde === "";
+        return `<div class="veld">${esc(label)}</div>` +
+          `<div class="waarde ${leeg ? "leeg" : ""}">${leeg ? "ontbreekt" : esc(veld.waarde)}</div>` +
+          `<div class="zekerheid ${leeg ? "ontbreekt" : ""}">${esc(veld.zekerheid)}</div>`;
+      }).join("");
+    }
+
+    function tekenVoorbehouden(lijst) {
+      $("voorbehouden").innerHTML = (lijst || []).map(v => `<li>${esc(v)}</li>`).join("");
+    }
+
+    function tekenAgents(d) {
+      $("pijplijnbron").textContent = (d.bron || "").split("/").slice(-2).join("/");
+      $("agentstabel").querySelector("tbody").innerHTML = (d.agents || []).map(a =>
+        `<tr><td class="naam">${esc(a.id)}</td><td>${esc(a.role || "")}</td>` +
+        `<td class="toolnaam">${esc((a.tools || []).join(", ") || "—")}</td>` +
+        `<td class="${a.heeft_llm ? "ja" : "nee"}">${a.heeft_llm ? "ja" : "nee"}</td></tr>`
+      ).join("");
+    }
+
+    function tekenTaken(d) {
+      $("takentabel").querySelector("tbody").innerHTML = (d.tasks || []).map((t, i) =>
+        `<tr><td>${i + 1}</td><td class="naam">${esc(t.id)}</td>` +
+        `<td>${esc(t.agent || "")}</td>` +
+        `<td class="toolnaam">${esc((t.context || []).join(", ") || "—")}</td></tr>`
+      ).join("");
+    }
+
+    function tekenRunlog(runlog) {
+      const stappen = (runlog && runlog.stappen) || [];
+      const samenvatting = (runlog && runlog.samenvatting) || {};
+      $("runlogzin").textContent = samenvatting.zin || "Nog geen dossier opgevraagd.";
+      $("runlogtabel").querySelector("tbody").innerHTML = stappen.map(s => {
+        const status = s.uitgezet ? '<span class="vlag">uitgezet</span>'
+          : s.niet_beschikbaar ? '<span class="vlag">nog niet gebouwd</span>'
+          : s.llm ? '<span class="ja">taalmodel gebruikt</span>' : '<span class="nee">geen taalmodel</span>';
+        return `<tr class="${s.uitgezet ? "uitgezet-rij" : ""}">` +
+          `<td>${esc(s.nr)}</td>` +
+          `<td><span class="naam">${esc(s.agent)}</span><br>` +
+          `<span class="taak">${esc(s.taak)} · <span class="toolnaam">${esc(s.tool || "—")}</span></span>` +
+          `<div class="staptekst">${esc(s.uitleg || "")}</div></td>` +
+          `<td>${esc(s.rijen_in)} → ${esc(s.rijen_uit)}</td>` +
+          `<td>${s.duur != null ? nl(s.duur * 1000, 0) + " ms" : "—"}</td>` +
+          `<td>${status}</td></tr>`;
+      }).join("");
+    }
+
+    async function laadPijplijn() {
+      try {
+        const d = await (await fetch("/api/wasstraat/pijplijn")).json();
+        tekenAgents(d);
+        tekenTaken(d);
+      } catch (e) {
+        $("agentstabel").querySelector("tbody").innerHTML =
+          `<tr><td colspan="4">Pijplijn ophalen mislukt: ${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    async function laadDossier(vergunningId) {
+      $("status").textContent = "Dossier wordt samengesteld…";
+      try {
+        const r = await fetch(`/api/wasstraat/dossier?vergunning=${encodeURIComponent(vergunningId)}`);
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.detail || `HTTP ${r.status}`);
+        }
+        const d = await r.json();
+        tekenKaart(d.kaart);
+        const signalen = d.signalen || [];
+        $("aantalsignalen").textContent = signalen.length;
+        $("signalen").innerHTML = signalen.map(tekenSignaal).join("") ||
+          '<p class="status">Geen bevindingen voor deze vergunning.</p>';
+        tekenVoorbehouden(d.voorbehouden);
+        tekenRunlog(d.runlog);
+        $("status").textContent = "";
+      } catch (e) {
+        $("status").textContent = `Dossier ophalen mislukt: ${esc(e.message)}`;
+      }
+    }
+
+    async function laadVergunningen() {
+      const sel = $("vergunning");
+      try {
+        const vergunningen = await (await fetch("/api/wasstraat/vestigingen")).json();
+        if (!Array.isArray(vergunningen) || !vergunningen.length) {
+          $("status").textContent = "Geen vergunningen beschikbaar.";
+          return;
+        }
+        sel.innerHTML = vergunningen.map(v =>
+          `<option value="${esc(v.id)}">${esc(v.naam || v.locatiecode)}` +
+          (v.plaats ? ` — ${esc(v.plaats)}` : "") +
+          ` (${esc(v.kenmerk || "geen kenmerk")})` + `</option>`).join("");
+        sel.value = vergunningen[0].id;
+        await laadDossier(vergunningen[0].id);
+      } catch (e) {
+        $("status").textContent = `Vergunningen ophalen mislukt: ${esc(e.message)}`;
+      }
+    }
+
+    $("vergunning").addEventListener("change", e => laadDossier(e.target.value));
+    laadPijplijn();
+    laadVergunningen();
+  </script>
+</body>
+</html>

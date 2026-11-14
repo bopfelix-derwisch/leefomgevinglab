@@ -1,0 +1,183 @@
+"""`/wasstraat` -- de pagina en de eindpunten.
+
+Splitsing van `/toezicht` (plan: `docs/superpowers/plans/2026-11-14-wasstraat-en-toezicht-
+splitsen.md`): zelfde register, zelfde standaardpijplijn, andere lezer. Geen netwerk hier:
+`_toezicht_register`/`_toezicht_aquo_ref`/`_toezicht_normenset`/`_stelselcatalogus` worden per
+test gemonkeypatcht, exact zoals in `test_api_toezicht.py` -- dezelfde vier bronnen, nu bediend
+via de wasstraat-routes.
+"""
+from fastapi.testclient import TestClient
+
+import leefomgevinglab.geluidsmeter.api as api
+from leefomgevinglab.usecases import water_hub as wh
+from leefomgevinglab.usecases.toezicht import pijplijn
+from tests.test_api_toezicht import (
+    FIXTURE_AQUO_REF, FIXTURE_AQUO_REF_VERVALLEN, FIXTURE_NORMENSET, FIXTURE_VESTIGING,
+    FIXTURE_VESTIGING_VERVALLEN,
+)
+from tests.test_toezicht_runner import AGENTS, TASKS
+
+
+def _client(monkeypatch):
+    monkeypatch.setattr(api, "load_config", lambda *a, **k: api._config)
+    return TestClient(api.app)
+
+
+def _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING,)):
+    monkeypatch.setattr(api, "_toezicht_register", lambda: list(register))
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF)
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
+    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+
+
+# -- De pagina: banner, taalregel, lid van het waterdossier, geen eigen kaart -------------------
+
+def test_de_pagina_draagt_de_open_data_banner(monkeypatch):
+    h = _client(monkeypatch).get("/wasstraat").text.lower()
+    assert "open data" in h
+    assert "geen bevoegdheid" in h
+    assert "geen oordeel" in h
+    assert "zonder authenticatie" in h
+    assert "zonder logging" in h
+
+
+def test_de_pagina_haalt_de_taalregel_op_de_echte_html(monkeypatch):
+    h = _client(monkeypatch).get("/wasstraat").text.lower()
+    assert "overtreding" not in h
+    assert "veroorzaakt door" not in h
+    assert "in strijd met" not in h
+
+
+def test_de_pagina_noemt_het_alleen_lezen_ontwerpbesluit_als_een_regel(monkeypatch):
+    """Geen schrijfpad, en dat staat uitgelegd bij de configuratie -- niet als los
+    disclaimer-blok (plan, punt 3)."""
+    h = _client(monkeypatch).get("/wasstraat").text.lower()
+    assert "alleen-lezen" in h
+    assert "schrijfpad" in h
+
+
+def test_wasstraat_is_lid_van_het_waterdossier_en_krijgt_geen_eigen_kaart(monkeypatch):
+    assert wh.lid("wasstraat")["pad"] == "/wasstraat"
+    r = _client(monkeypatch).get("/")
+    assert 'href="/wasstraat"' not in r.text
+
+
+def test_wasstraatpagina_geeft_200_met_de_subnav(monkeypatch):
+    r = _client(monkeypatch).get("/wasstraat")
+    assert r.status_code == 200
+    assert 'class="waternav"' in r.text
+    assert r.text.count('aria-current="page"') == 1
+    assert "__WATERNAV__" not in r.text
+
+
+# -- De pijplijn komt uit dezelfde configuratie als /toezicht -----------------------------------
+
+def test_de_pijplijn_komt_uit_dezelfde_configuratie_als_toezicht(monkeypatch):
+    uit_api = _client(monkeypatch).get("/api/wasstraat/pijplijn").json()
+    uit_module = pijplijn.als_gegeven(AGENTS, TASKS)
+    assert [a["id"] for a in uit_api["agents"]] == [a["id"] for a in uit_module["agents"]]
+    assert [t["id"] for t in uit_api["tasks"]] == [t["id"] for t in uit_module["tasks"]]
+    assert uit_api["bron"].endswith("agents.yaml")
+    # Zelfde bron als /api/toezicht/pijplijn -- één pijplijn, twee lezers.
+    uit_toezicht = _client(monkeypatch).get("/api/toezicht/pijplijn").json()
+    assert uit_api["bron"] == uit_toezicht["bron"]
+
+
+def test_de_pagina_rendert_de_takenorde(monkeypatch):
+    r = _client(monkeypatch).get("/wasstraat")
+    assert "takentabel" in r.text
+    assert "bepaal_signalen" not in r.text  # niet hardgecodeerd in de HTML, komt uit de API
+
+
+# -- Vestigingen/vergunningen -------------------------------------------------------------------
+
+def test_vergunningen_endpoint_geeft_een_lijst(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    r = _client(monkeypatch).get("/api/wasstraat/vestigingen")
+    assert r.status_code == 200
+    d = r.json()
+    assert d == [{"id": "TEST01", "locatiecode": "TEST01", "naam": "Testvestiging BV",
+                  "plaats": "Venlo", "kenmerk": None}]
+
+
+def test_onbekende_vergunning_geeft_404(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    r = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=BESTAAT_NIET")
+    assert r.status_code == 404
+
+
+# -- Het dossier bevat alleen de zeven papierbevindingen ----------------------------------------
+
+def test_het_dossier_endpoint_laat_alleen_papierbevindingen_zien(monkeypatch):
+    """`FIXTURE_VESTIGING` triggert `meerdere_grenswaarden` en `niet_regime_zuiver` (twee
+    Zink-voorschriften met verschillende waarden, allebei met een bemonsteringsregime) -- beide
+    papierregels. Geen van de drie werkelijkheidsregels kan hier vuren: de route geeft geen
+    `gemeten_codes`/`waterlichaam`/`register_codes` mee."""
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    regel_ids = {s["regel"] for s in d["signalen"]}
+    assert regel_ids, "geen signalen -- de fixture triggert normaal gesproken twee papierregels"
+    assert regel_ids <= {"vervallen_code", "niet_in_referentie", "meerdere_grenswaarden",
+                          "vracht_onbepaald", "vergunning_niet_te_vinden", "niet_regime_zuiver",
+                          "geen_geldigheidsduur"}
+    for s in d["signalen"]:
+        assert s.get("reparatie"), s["regel"]
+
+
+def test_het_dossier_endpoint_bekabelt_de_aquo_bron_en_vervallen_code_krijgt_een_reparatie(
+        monkeypatch):
+    monkeypatch.setattr(api, "_toezicht_register", lambda: [FIXTURE_VESTIGING_VERVALLEN])
+    monkeypatch.setattr(api, "_toezicht_aquo_ref", lambda: FIXTURE_AQUO_REF_VERVALLEN)
+    monkeypatch.setattr(api, "_toezicht_normenset", lambda: FIXTURE_NORMENSET)
+    monkeypatch.setattr(api, "_stelselcatalogus", lambda: None)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST02").json()
+    s = next((x for x in d["signalen"] if x["regel"] == "vervallen_code"), None)
+    assert s is not None, "vervallen_code vuurt niet -- de fixture of aquo.verrijk is gewijzigd"
+    assert s.get("reparatie")
+
+
+def test_het_dossier_endpoint_draait_zonder_taalmodel(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    stappen = d["runlog"]["stappen"]
+    assert stappen, "de runlog van deze run is leeg"
+    assert all(s["llm"] is False for s in stappen)
+    agenten = [s["agent"] for s in stappen]
+    assert "uitlegger" in agenten, "de runlog mist de uitlegger-stap"
+
+
+def test_elke_stap_in_het_dossier_draagt_een_uitleg(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    for s in d["runlog"]["stappen"]:
+        assert s.get("uitleg"), s["taak"]
+
+
+def test_de_runlog_draagt_een_samenvatting(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    samenvatting = d["runlog"]["samenvatting"]
+    assert samenvatting["aantal_stappen"] == len(d["runlog"]["stappen"])
+    assert samenvatting["stappen_met_taalmodel"] == []
+    assert "Geen van de stappen heeft een taalmodel aangeroepen" in samenvatting["zin"]
+
+
+# -- Taalregel op het echte dossier, niet alleen op de pagina ------------------------------------
+
+def test_een_bevinding_is_nooit_een_vaststelling(monkeypatch):
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    for s in d["signalen"]:
+        tekst = (s["signaal"] + s.get("reparatie", "")).lower()
+        for verboden in ("overtreding", "veroorzaakt door", "in strijd met"):
+            assert verboden not in tekst, f"{s['signaal']}: {verboden}"
+
+
+# -- Geen schrijfpaden ---------------------------------------------------------------------------
+
+def test_er_is_geen_schrijfpad_op_de_wasstraat_routes(monkeypatch):
+    client = _client(monkeypatch)
+    for pad in ("/api/wasstraat/pijplijn", "/api/wasstraat/vestigingen",
+                "/api/wasstraat/dossier?vergunning=X"):
+        r = client.post(pad)
+        assert r.status_code in (405, 404), pad

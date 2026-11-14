@@ -583,6 +583,28 @@ def test_de_fixture_met_alles_laat_alle_tien_regels_vuren():
     assert regel_ids == set(signalen.DREMPELS)
 
 
+# -- Wasstraat/toezicht-splitsing: `Regel.laag` ------------------------------------------------
+
+def test_elke_regel_heeft_precies_een_laag():
+    """`laag` is afgeleid (`_WERKELIJKHEID_REGELS`), dus kan nooit iets anders zijn dan deze
+    twee waarden -- deze test legt dat vast als invariant, niet als toeval van vandaag."""
+    for regel in signalen.REGELS:
+        assert regel.laag in ("papier", "werkelijkheid"), regel.id
+
+
+def test_de_twee_lagen_dekken_samen_de_tien_regels():
+    """De splitsing uit het plan (2026-11-14-wasstraat-en-toezicht-splitsen.md, §"De splitsing,
+    gemeten en niet bedacht"): 7 regels papier, 3 regels werkelijkheid, geen overlap en samen
+    precies de tien regels uit `DREMPELS`."""
+    papier = {r.id for r in signalen.REGELS if r.laag == "papier"}
+    werkelijkheid = {r.id for r in signalen.REGELS if r.laag == "werkelijkheid"}
+    assert papier & werkelijkheid == set()
+    assert papier | werkelijkheid == set(signalen.DREMPELS)
+    assert werkelijkheid == {"geen_onafhankelijke_meting", "norm_overschreden_bovenstrooms",
+                              "stof_buiten_register"}
+    assert len(papier) == 7 and len(werkelijkheid) == 3
+
+
 def test_een_signaal_is_nooit_een_vaststelling():
     """Dezelfde taalregel als /kmg, hier op de gegenereerde signaaltekst."""
     for s in signalen.signalen(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES):

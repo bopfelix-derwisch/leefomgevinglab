@@ -75,6 +75,27 @@ _NIET_OPGEZOCHT = object()
 _GEEN_DISCREPANTIE_PARAMETERS = {"zuurgraad"}
 
 
+# Welke regels meetdata of stroomrichting uit `context` nodig hebben, en daarmee een bevinding
+# over de werkelijkheid zijn in plaats van over het papier van de vergunning zelf (plan,
+# `docs/superpowers/plans/2026-11-14-wasstraat-en-toezicht-splitsen.md`). Dit is de **enige**
+# plek waar die indeling staat -- `Regel.laag` leidt haar hieruit af (zie onder), zodat er geen
+# tweede lijst bestaat die uit de pas kan lopen met de eerste.
+#
+# `geen_onafhankelijke_meting` is het grensgeval (zie de moduledocstring en het plan): de
+# bevinding is dat er geen onafhankelijke meting *bestaat*, en dat is een feit over het meetnet,
+# niet over de pen van de vergunningverlener. Dat zij ook de vergunning raakt, staat als
+# verwijzing op de wasstraatpagina, niet als eigen regel daar.
+_WERKELIJKHEID_REGELS = frozenset({
+    "geen_onafhankelijke_meting", "norm_overschreden_bovenstrooms", "stof_buiten_register",
+})
+
+
+def _laag(regel_id: str) -> str:
+    """`"werkelijkheid"` voor de drie regels in `_WERKELIJKHEID_REGELS`, anders `"papier"` --
+    geen derde waarde, dus elke regel-id valt in precies één van de twee."""
+    return "werkelijkheid" if regel_id in _WERKELIJKHEID_REGELS else "papier"
+
+
 class Regel(NamedTuple):
     """Een rij uit de signaalcatalogus (plan, §6)."""
     id: str
@@ -84,6 +105,12 @@ class Regel(NamedTuple):
     # hoeft terug te komen.
     uitleg_sleutel: str
     functie: Callable[[dict, dict], list[dict]]
+
+    @property
+    def laag(self) -> str:
+        """`"papier"` of `"werkelijkheid"` -- afgeleid van `_WERKELIJKHEID_REGELS`, nooit een
+        tweede keer getypt op deze regel. Zie de wasstraat/toezicht-splitsing in het plan."""
+        return _laag(self.id)
 
 
 # Per regel: de drempel waarboven het signaal zwaar weegt, en wat `omvang` daar betekent.
