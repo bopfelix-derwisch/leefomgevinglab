@@ -56,6 +56,12 @@ def _schrijf_blad(ws, signaal: dict) -> None:
         ("wat te doen", signaal.get("wat_te_doen")),
     ):
         ws.append(rij)
+    # `waarom` (taak 7, `uitleg.waarom`) is optioneel: zonder bron in de afgebakende bronnenset
+    # ontbreekt het veld, en dan schrijft dit blad er ook geen rij voor -- een lege "waarom"-rij
+    # zou een poging suggereren die niets opleverde (zelfde afspraak als het veld zelf, zie
+    # `runner.tool_uitleg_genereren`).
+    if signaal.get("waarom"):
+        ws.append(("waarom", signaal["waarom"]))
     ws.append([])
 
     bewijs = signaal.get("bewijs") or []

@@ -93,18 +93,40 @@ def test_een_uitgezette_agent_met_een_taak_krijgt_een_luide_stap_geen_stilte():
     assert stap["tool"] is None, "uitgezet betekent: geen tool is aangeroepen, niet eens geprobeerd"
 
 
-def test_een_nog_niet_gebouwde_tool_krijgt_een_luide_nietbeschikbaar_stap_geen_stilte():
-    """Open vraag 1 uit de taakopdracht, hier als test vastgelegd: `uitlegger`s tool bestaat nog
-    niet (taak 7), maar wordt wel aangeroepen door de standaardpijplijn. De runlog meldt dat met
-    een eigen vlag én de naam van de tool, en de rest van de pijplijn loopt gewoon door."""
+def test_de_uitlegger_draait_nu_echt_in_de_standaardpijplijn():
+    """Taak 7 maakte `uitleg_genereren` een echte tool (vroeger stond hier
+    `test_een_nog_niet_gebouwde_tool_krijgt_een_luide_nietbeschikbaar_stap_geen_stilte`, die
+    precies het omgekeerde vastlegde). Een gewone run zonder `aquo_ref`/`normenset`/
+    `stelselcatalogus` in de invoer vindt nergens een bron, dus geen signaal krijgt een
+    `waarom`-veld -- maar de stap zelf is nu een normale, uitgevoerde stap, geen `niet_beschikbaar`."""
     crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
     uitkomst = crew.draai({"vestiging": VESTIGING_FIXTURE}, runlog=log)
     stap = next(s for s in log.als_gegeven() if s["agent"] == "uitlegger")
-    assert stap["niet_beschikbaar"] is True
+    assert stap["niet_beschikbaar"] is False
     assert stap["uitgezet"] is False
     assert stap["tool"] == "uitleg_genereren"
-    assert stap["llm"] is False, "er is niets uitgevoerd, dus is er ook geen taalmodel gebruikt"
+    assert stap["llm"] is False, "deze run geeft draai() geen llm mee"
     assert uitkomst["dossier"]["signalen"], "de rest van de pijplijn moet toch doorlopen"
+    assert all("waarom" not in s for s in uitkomst["dossier"]["signalen"]), \
+        "zonder aquo_ref/normenset/stelselcatalogus vindt de uitlegger nergens een bron"
+
+
+def test_de_uitlegger_vult_waarom_zodra_er_een_aquo_referentie_is():
+    """Dezelfde run, nu mét een Aquo-referentie in de invoer -- de vestiging in deze fixture
+    draagt een voorschrift op 'Zwevende stof' met `aquo_status: Vervallen` (zie
+    `test_toezicht_signalen.VESTIGING_MET_ALLES`), dus een Aquo-referentie die diezelfde naam als
+    ingetrokken kent, moet voor dat signaal een `waarom` opleveren."""
+    crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
+    aquo_ref = {"geldig": {}, "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
+    uitkomst = crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT,
+                           "aquo_ref": aquo_ref}, runlog=log)
+    vervallen_signalen = [s for s in uitkomst["dossier"]["signalen"]
+                          if s["regel"] == "vervallen_code"]
+    assert vervallen_signalen, "de fixture moet dit signaal laten vuren"
+    assert vervallen_signalen[0].get("waarom"), \
+        "met een passende Aquo-referentie moet dit signaal een uitleg krijgen"
+    for verboden in ("overtreding", "veroorzaakt door", "in strijd met"):
+        assert verboden not in vervallen_signalen[0]["waarom"].lower()
 
 
 # -- Fixronde 1, bevinding 1 (Important): args is een samenvatting, nooit leeg en nooit de payload

@@ -33,22 +33,32 @@ def laad(pad: str) -> dict:
 
     Zacht falen, net als `kmg.lozingsmodel.laad_parameters`: zonder (leesbare) bron blijft
     `verrijk()` mogelijk, alleen doet hij dan niets -- en dat moet deze functie kunnen zeggen.
+
+    **Sinds taak 7: ook `vervangen_door`.** De `uitlegger` (`uitleg.py`) moet bij een ingetrokken
+    code kunnen zeggen of er een opvolger is, en dat staat in de kolom "Vervangen door" van
+    dezelfde CSV -- een kolom die deze functie tot nu toe niet las, want `signalen.py` had hem
+    niet nodig (een signaal vuurt al op de status alleen). `usecases/stoffengraaf.py` leest die
+    kolom al voor een ander doel (de CAS-crosswalk); dit is dezelfde kolom, niet een tweede lezer
+    met een eigen aanname erover.
     """
     p = Path(pad)
     bron = {"naam": "Aquo-domeintabel Parameter", "pad": pad}
     if not p.exists():
-        return {"beschikbaar": False, "geldig": {}, "vervallen": {}, "aantal": {}, "bron": bron,
+        return {"beschikbaar": False, "geldig": {}, "vervallen": {}, "vervangen_door": {},
+                "aantal": {}, "bron": bron,
                 "reden": f"geen Aquo-domeintabel gevonden op {pad}; download hem van "
                          "https://www.aquo.nl/images/aquo/a/a3/Parameter.csv"}
     try:
         with p.open(encoding="utf-8-sig", newline="") as f:
             rijen = list(csv.DictReader(f, delimiter=";"))
     except (OSError, csv.Error) as exc:
-        return {"beschikbaar": False, "geldig": {}, "vervallen": {}, "aantal": {}, "bron": bron,
+        return {"beschikbaar": False, "geldig": {}, "vervallen": {}, "vervangen_door": {},
+                "aantal": {}, "bron": bron,
                 "reden": f"de Aquo-domeintabel op {pad} is onleesbaar ({type(exc).__name__})"}
 
     geldig: dict[str, str] = {}
     vervallen: dict[str, str] = {}
+    vervangen_door: dict[str, str] = {}
     aantal: dict[str, int] = {}
     for rij in rijen:
         naam = (rij.get("Omschrijving") or "").strip().lower()
@@ -57,6 +67,10 @@ def laad(pad: str) -> dict:
         aantal[status] = aantal.get(status, 0) + 1
         if not naam or not code:
             continue
+        if status == "Vervallen":
+            vervanger = (rij.get("Vervangen door") or "").strip()
+            if vervanger:
+                vervangen_door.setdefault(naam, vervanger)
         if status in _GELDIGE_STATUSSEN:
             geldig[naam] = code
         elif status == "Vervallen":
@@ -66,7 +80,8 @@ def laad(pad: str) -> dict:
             # dát de naam ingetrokken is -- dat feit bepaalt het signaal.
             vervallen.setdefault(naam, code)
 
-    return {"beschikbaar": True, "geldig": geldig, "vervallen": vervallen, "aantal": aantal,
+    return {"beschikbaar": True, "geldig": geldig, "vervallen": vervallen,
+            "vervangen_door": vervangen_door, "aantal": aantal,
             "bron": bron, "gelezen_op": date.today().isoformat(), "reden": None}
 
 

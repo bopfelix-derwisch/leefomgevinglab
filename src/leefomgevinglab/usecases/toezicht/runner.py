@@ -18,16 +18,25 @@ en de pendant voor taken).
    check zou de YAML het proces alleen *beschrijven*, en kon een agent alsnog bij het gereedschap
    van een ander. Zie `VerklaardeTools.__getitem__`.
 
-**Een derde, tussenliggend geval: verklaard, maar nog niet gebouwd.** `uitlegger` en
-`terugkoppelaar` (taak 7) staan al met hun échte tools in `agents.yaml`, zodat de configuratie nu
-al het volledige procesplaatje toont (R4/§5) -- maar die tools bestaan nog niet als Python-functie.
-`GEPLAND` is de plek waar dat *aangekondigd* staat: een naam die hier of in `TOOLS` voorkomt, laadt
-gewoon; alleen een naam in geen van beide is een tikfout of een vergeten registratie en breekt het
-laden (`OnbekendeTool`). Roept de pijplijn zo'n geplande tool toch aan (`Crew.draai`), dan krijgt
-die stap een luide `niet_beschikbaar`-vlag in de runlog in plaats van een stille `continue` of een
-crash -- de opdracht vroeg expliciet om dat zichtbaar te maken, en koos niet voor een startfout,
-want dat zou het laden van de hele configuratie blokkeren zolang taak 7 niet klaar is, en precies
-dát (een configuratie die wél leesbaar is maar niet draait) is wat deze module moet voorkomen.
+**Een derde, tussenliggend geval: verklaard, maar nog niet gebouwd.** Tot taak 7 stonden
+`uitlegger` en `terugkoppelaar` al met hun échte tools in `agents.yaml`, zodat de configuratie het
+volledige procesplaatje toonde (R4/§5) terwijl die tools nog niet als Python-functie bestonden.
+`GEPLAND` was de plek waar dat *aangekondigd* stond: een naam die hier of in `TOOLS` voorkomt,
+laadt gewoon; alleen een naam in geen van beide is een tikfout of een vergeten registratie en
+breekt het laden (`OnbekendeTool`). Riep de pijplijn zo'n geplande tool toch aan (`Crew.draai`),
+dan kreeg die stap een luide `niet_beschikbaar`-vlag in de runlog in plaats van een stille
+`continue` of een crash -- de opdracht vroeg expliciet om dat zichtbaar te maken, en koos niet
+voor een startfout, want dat zou het laden van de hele configuratie blokkeren zolang taak 7 niet
+klaar was, en precies dát (een configuratie die wél leesbaar is maar niet draait) moest deze
+module voorkomen.
+
+Sinds taak 7 zijn `uitleg_genereren` en `terugkoppeling_genereren` echte, aanroepbare tools in
+`TOOLS` (zie `tool_uitleg_genereren`/`tool_terugkoppeling_genereren` hieronder) en staan ze niet
+meer in `GEPLAND` -- een gewone run van de standaardpijplijn voert `leg_signalen_uit` nu dus echt
+uit in plaats van er een luide `niet_beschikbaar`-stap van te maken (zie
+`tests/test_toezicht_runlog.py::test_de_uitlegger_draait_nu_echt_in_de_standaardpijplijn`).
+`GEPLAND` blijft bestaan als mechanisme voor een toekomstige agent die hetzelfde tussenstadium
+doorloopt -- hij is vandaag alleen leeg.
 
 **Eis (d), uitgezet versus niet beschikbaar.** Beide zijn "luid, nooit stil", maar om een andere
 reden: `uitgezet` is een bewuste keuze van de aanroeper (`invoer["uit"]`), `niet_beschikbaar` is
@@ -75,6 +84,8 @@ from leefomgevinglab.usecases.toezicht import aquo as aquo_mod
 from leefomgevinglab.usecases.toezicht import dossier as dossier_mod
 from leefomgevinglab.usecases.toezicht import graaf as graaf_mod
 from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
+from leefomgevinglab.usecases.toezicht import terugkoppeling as terugkoppeling_mod
+from leefomgevinglab.usecases.toezicht import uitleg as uitleg_mod
 from leefomgevinglab.usecases.toezicht import vraag as vraag_mod
 
 
@@ -181,6 +192,66 @@ def tool_vraag_stellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
                      args={"vraag": staat.get("vraag")})
 
 
+def _uitlegvraag(signaal: dict) -> str:
+    """De vrije-tekstvraag voor `uitleg.waarom()` bij één signaal: de kop van het signaal plus de
+    parameternamen uit zijn bewijs -- niet het hele bewijs (dat zou de vraag net zo onleesbaar
+    maken als een `args`-veld met de hele vestiging erin, zie de moduledocstring 'eis (b),
+    vervolg'). De namen zijn precies waarop `uitleg.zoek_bronnen` woordgrens-matcht."""
+    namen = sorted({b.get("parameter") for b in (signaal.get("bewijs") or []) if b.get("parameter")})
+    return " ".join([signaal.get("signaal") or ""] + namen)
+
+
+def tool_uitleg_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
+    """Vult per signaal in `staat['dossier']` het veld `waarom`, via `uitleg.waarom()` --
+    uitsluitend uit wat `staat` meegeeft (`aquo_ref`, `normenset`, `stelselcatalogus`). Ontbreekt
+    dat, dan vindt `uitleg.zoek_bronnen` niets en blijft `waarom` afwezig op elk signaal, net zoals
+    `tool_atlas_vergunningen` een vestiging onaangeroerd laat zonder `aquo_ref`: deze tool laadt
+    zelf geen bestand en doet zelf geen netwerk, dat is aan wie `staat` samenstelt.
+
+    `waarom` wordt alleen gezet als `uitleg.waarom()` `beschikbaar=True` teruggeeft -- anders
+    blijft de sleutel afwezig (zie `dossier._signaal_deel_b`, die `stap` op dezelfde manier
+    optioneel houdt): een afwezig veld is hier "geen bron gevonden", geen leeg maar aanwezig veld
+    dat een poging suggereert die niets opleverde."""
+    dossier = staat.get("dossier") or {}
+    signalen_lijst = dossier.get("signalen") or []
+    aquo_ref = staat.get("aquo_ref")
+    normenset = staat.get("normenset")
+    catalogus = staat.get("stelselcatalogus")
+
+    def _zoek(vraag, n):
+        return uitleg_mod.zoek_bronnen(vraag, n, aquo_ref=aquo_ref, normenset=normenset,
+                                        catalogus=catalogus)
+
+    bijgewerkt, aantal_beschikbaar = [], 0
+    for s in signalen_lijst:
+        nieuw = dict(s)
+        uit = uitleg_mod.waarom(_uitlegvraag(s), _zoek=_zoek, llm=llm)
+        if uit["beschikbaar"]:
+            nieuw["waarom"] = uit["tekst"]
+            aantal_beschikbaar += 1
+        bijgewerkt.append(nieuw)
+    nieuw_dossier = {**dossier, "signalen": bijgewerkt}
+    return Uitkomst({"dossier": nieuw_dossier}, len(signalen_lijst), aantal_beschikbaar,
+                     args={"vestiging": _vestiging_id(staat), "signalen": len(signalen_lijst),
+                           "met_uitleg": aantal_beschikbaar})
+
+
+def tool_terugkoppeling_genereren(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
+    """Registreert één beoordeling (`terugkoppeling.registreer`) -- `staat` draagt `vestiging`
+    (voor de id), `regel_id`, `oordeel` en optioneel `opmerking`. Geen netwerk, geen taalmodel:
+    dit is boekhouden, geen generatie. Geen taak in de standaardpijplijn roept deze tool aan (zie
+    `tasks.yaml`) -- net als `toezichtgraaf_bouwen`/`vraag_stellen` is dit een los te starten
+    actie, rechtstreeks via `TOOLS['terugkoppeling_genereren']` of een latere eigen taak."""
+    oordeel = terugkoppeling_mod.registreer(
+        _vestiging_id(staat), staat.get("regel_id"), staat.get("oordeel"),
+        opmerking=staat.get("opmerking"))
+    bestaand = staat.get("beoordelingen") or []
+    bijgewerkt = bestaand + [oordeel]
+    return Uitkomst({"beoordelingen": bijgewerkt}, len(bestaand), len(bijgewerkt),
+                     args={"vestiging": _vestiging_id(staat), "regel_id": staat.get("regel_id"),
+                           "oordeel": staat.get("oordeel")})
+
+
 #: Echte, aanroepbare tools -- de enige namen die een agent zonder meer mag gebruiken.
 TOOLS: dict[str, Callable[..., Uitkomst]] = {
     "atlas_vergunningen": tool_atlas_vergunningen,
@@ -188,12 +259,14 @@ TOOLS: dict[str, Callable[..., Uitkomst]] = {
     "dossier_samenstellen": tool_dossier_samenstellen,
     "toezichtgraaf_bouwen": tool_toezichtgraaf_bouwen,
     "vraag_stellen": tool_vraag_stellen,
+    "uitleg_genereren": tool_uitleg_genereren,
+    "terugkoppeling_genereren": tool_terugkoppeling_genereren,
 }
 
-#: Namen die taak 7 nog moet bouwen. Aangekondigd, geen tikfout -- zie de moduledocstring. Een
-#: naam die hier wél en in `TOOLS` níet staat, laadt (`laad_uit_dict`) maar levert bij uitvoering
-#: (`Crew.draai`) een luide `niet_beschikbaar`-stap op, geen crash.
-GEPLAND: set[str] = {"uitleg_genereren", "terugkoppeling_genereren"}
+#: Namen die wel verklaard zijn in `agents.yaml` maar nog niet gebouwd -- zie de moduledocstring.
+#: Sinds taak 7 leeg: `uitleg_genereren` en `terugkoppeling_genereren` zijn nu echte `TOOLS`.
+#: Blijft bestaan als mechanisme voor een volgende agent die hetzelfde tussenstadium doorloopt.
+GEPLAND: set[str] = set()
 
 
 # -- De configuratie: laden en bewaken -----------------------------------------------------------

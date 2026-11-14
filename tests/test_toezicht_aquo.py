@@ -74,6 +74,28 @@ def test_een_naam_met_zowel_een_geldige_als_een_ingetrokken_rij_telt_als_geldig(
     assert ref["vervallen"]["minerale olie"] == "MINOL_OUD"
 
 
+# -- Taak 7: `vervangen_door`, voor de uitlegger ------------------------------------------------
+
+def test_laad_bewaart_vervangen_door_bij_een_ingetrokken_code(tmp_path):
+    """`uitleg.py` moet kunnen zeggen of een ingetrokken code een opvolger heeft -- dat staat in
+    de kolom 'Vervangen door', die `laad()` tot taak 7 niet las (`signalen.py` had hem niet
+    nodig)."""
+    pad = tmp_path / "aquo_Parameter.csv"
+    _schrijf_csv(pad, [_rij(1, "OUD", "oude stof", "Vervallen", vervangen_door="NIEUW")])
+    ref = aquo.laad(str(pad))
+    assert ref["vervangen_door"] == {"oude stof": "NIEUW"}
+
+
+def test_vervangen_door_blijft_leeg_zonder_opvolgerkolom(tmp_path):
+    """'Zwevende stof' is het echte geval (CLAUDE.md): beide rijen zijn `Vervallen` en
+    'Vervangen door' is op geen van beide gevuld -- geen weg terug naar een geldige code."""
+    pad = tmp_path / "aquo_Parameter.csv"
+    _schrijf_csv(pad, [_rij(1, "ZS", "zwevende stof", "Vervallen", vervangen_door="")])
+    ref = aquo.laad(str(pad))
+    assert ref["vervangen_door"] == {}
+    assert ref["vervallen"] == {"zwevende stof": "ZS"}
+
+
 def test_verrijk_zet_aquo_op_een_voorschrift_met_een_geldige_naam(tmp_path):
     pad = tmp_path / "aquo_Parameter.csv"
     _schrijf_csv(pad, [_rij(1, "Zn", "Zink", "Geldig")])

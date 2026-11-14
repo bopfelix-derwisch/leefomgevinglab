@@ -113,20 +113,28 @@ def test_signaalsteller_en_vergunninglezer_dragen_geen_llm_sleutel():
 
 # -- Een verklaarde, nog niet gebouwde tool laadt gewoon; aanroepen is een andere zaak -----------
 
-def test_een_verklaarde_maar_nog_niet_gebouwde_tool_laadt_zonder_te_falen():
-    """`uitlegger` staat al in de configuratie met zijn echte, toekomstige tool (taak 7) -- het
-    laden mag daar niet op stuklopen, want dat zou de hele configuratie onbruikbaar maken zolang
-    taak 7 niet klaar is."""
+def test_uitleg_en_terugkoppeling_zijn_sinds_taak_7_echte_tools_geen_geplande():
+    """Tot taak 7 stonden `uitleg_genereren`/`terugkoppeling_genereren` alleen aangekondigd in
+    `runner.GEPLAND` (zie de git-geschiedenis van deze test). Nu zijn het echte `TOOLS`, en
+    `GEPLAND` draagt geen van beide meer -- het laden mocht toen al niet stuklopen op een
+    aangekondigde-maar-nog-niet-gebouwde tool, en dat blijft zo getest zodra er weer zo'n tool
+    bijkomt (zie `test_een_onbekende_tool_...` hierboven voor dat mechanisme zelf)."""
     crew = runner.laad(AGENTS, TASKS)
     assert "uitleg_genereren" in crew.agents["uitlegger"]["tools"]
-    assert "uitleg_genereren" in runner.GEPLAND
-    assert "uitleg_genereren" not in runner.TOOLS
+    assert "terugkoppeling_genereren" in crew.agents["terugkoppelaar"]["tools"]
+    assert "uitleg_genereren" in runner.TOOLS
+    assert "terugkoppeling_genereren" in runner.TOOLS
+    assert "uitleg_genereren" not in runner.GEPLAND
+    assert "terugkoppeling_genereren" not in runner.GEPLAND
 
 
-def test_het_opvragen_van_een_nog_niet_gebouwde_tool_geeft_nietbeschikbaar():
+def test_het_opvragen_van_de_uitleg_tool_geeft_de_echte_callable():
+    """De pendant van de oude `NietBeschikbaar`-test: nu de tool gebouwd is, geeft `tools_voor`
+    de echte functie terug, niet langer een fout."""
     crew = runner.laad(AGENTS, TASKS)
-    with pytest.raises(runner.NietBeschikbaar):
-        crew.tools_voor("uitlegger")["uitleg_genereren"]
+    assert crew.tools_voor("uitlegger")["uitleg_genereren"] is runner.tool_uitleg_genereren
+    assert (crew.tools_voor("terugkoppelaar")["terugkoppeling_genereren"]
+            is runner.tool_terugkoppeling_genereren)
 
 
 # -- Fixronde 1, bevinding 2 (Important): de guard moet dragend zijn, niet alleen de loopstructuur

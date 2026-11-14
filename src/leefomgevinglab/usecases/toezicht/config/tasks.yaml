@@ -3,13 +3,11 @@
 # volgorde) en geeft dezelfde staat van taak naar taak door. `context` benoemt welke eerdere
 # taken deze taak voedt -- dat is hier ook wat er feitelijk gebeurt, geen losse intentie.
 #
-# `leg_signalen_uit` (agent `uitlegger`) staat hier al, met zijn echte taak, al bestaat de tool
-# die hem moet uitvoeren (`uitleg_genereren`) nog niet (taak 7). Dat is bewust: zo toont een
-# gewone run van vandaag al hoe de runner met een aangekondigde-maar-nog-niet-gebouwde tool omgaat
-# (een luide `niet_beschikbaar`-stap, zie `runner.py`), in plaats van dat dit alleen in een
-# losstaande test te zien is. `vraagsteller` en `terugkoppelaar` hebben nog geen taak: hun werk
-# (een vrije vraag beantwoorden, terugkoppelen) is geen vaste stap in elke dossier-run maar een
-# los te starten actie -- die krijgt een eigen taak zodra een latere taak daar iets mee doet.
+# `leg_signalen_uit` (agent `uitlegger`) draait sinds taak 7 echt: `uitleg_genereren` is een
+# gebouwde tool (`runner.TOOLS`), niet meer aangekondigd in `runner.GEPLAND`. `vraagsteller` en
+# `terugkoppelaar` hebben nog geen taak: hun werk (een vrije vraag beantwoorden, terugkoppelen) is
+# geen vaste stap in elke dossier-run maar een los te starten actie -- die krijgt een eigen taak
+# zodra een latere taak daar iets mee doet.
 
 lees_vergunning:
   description: >
@@ -44,11 +42,11 @@ stel_dossier_samen:
 
 leg_signalen_uit:
   description: >
-    Voeg per signaal een korte uitleg toe waarom het voor een toezichthouder iets betekent.
-    Tot taak 7 bestaat de tool hiervoor nog niet; deze taak staat al in de pijplijn zodat de
-    runlog dat expliciet meldt in plaats van de stap stilzwijgend over te slaan.
+    Voeg per signaal een korte uitleg toe waarom het voor een toezichthouder iets betekent,
+    uitsluitend uit de afgebakende bronnenset van de uitlegger. Zonder treffer blijft het
+    `waarom`-veld van dat signaal afwezig in plaats van gevuld met een gok.
   expected_output: >
-    Het dossier met per signaal een `waarom`-veld.
+    Het dossier met per signaal, waar een bron is gevonden, een `waarom`-veld.
   agent: uitlegger
   context:
     - stel_dossier_samen

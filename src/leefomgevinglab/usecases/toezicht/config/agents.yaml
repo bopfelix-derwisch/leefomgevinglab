@@ -7,10 +7,11 @@
 # afwezigheid en geeft deze twee agents een taalmodel nooit door, ook niet als `draai()` er een
 # meekrijgt -- getoetst per run in `tests/test_toezicht_runner.py` en `tests/test_toezicht_runlog.py`.
 #
-# `uitlegger` en `terugkoppelaar` komen pas in taak 7 tot leven: hun tools staan al hieronder
-# (`uitleg_genereren`, `terugkoppeling_genereren`), aangekondigd in `runner.GEPLAND`, zodat deze
-# configuratie nu al het volledige procesplaatje toont. Draait de pijplijn ze toch aan, dan komt
-# er een luide `niet_beschikbaar`-stap in de runlog, geen stilte en geen crash.
+# `uitlegger` en `terugkoppelaar` zijn sinds taak 7 echt: hun tools (`uitleg_genereren`,
+# `terugkoppeling_genereren`) staan in `runner.TOOLS`, niet meer in `runner.GEPLAND`. `uitlegger`
+# heeft een echte taak in `tasks.yaml` (`leg_signalen_uit`) en draait dus in elke gewone run;
+# `terugkoppelaar` heeft (nog) geen taak -- net als `vraagsteller`s tools is dit een los te
+# starten actie, rechtstreeks via `runner.TOOLS['terugkoppeling_genereren']`.
 
 vergunninglezer:
   role: Vergunninglezer
@@ -53,9 +54,9 @@ uitlegger:
     Per signaal in gewone taal uitleggen waarom het voor een toezichthouder iets betekent --
     zonder zelf een oordeel over de vestiging te vellen.
   backstory: >
-    Komt tot leven in taak 7; staat hier al zodat de configuratie het volledige procesplaatje
-    toont voordat de uitvoering klaar is. Tot die tijd meldt de runlog deze stap als niet
-    beschikbaar, nooit stilzwijgend.
+    Antwoordt uitsluitend uit een afgebakende bronnenset (Aquo-domeintabel, KRW-normen,
+    Stelselcatalogus Omgevingswet) met een benoemde vindplaats erbij, en zegt het eerlijk als die
+    bronnen niets opleveren in plaats van zelf iets te verzinnen. Zie `toezicht.uitleg.waarom`.
   tools:
     - uitleg_genereren
   llm: "qwen2.5-32b, lokaal (derwisch_local-llm:8080) -- geïnjecteerd door de runner, geen eigen verbinding"
@@ -76,12 +77,12 @@ vraagsteller:
 terugkoppelaar:
   role: Terugkoppelaar
   goal: >
-    De uitkomst van dit dossier teruggeven aan wie het heeft aangevraagd, in een vorm die te
-    begrijpen is zonder de code erbij te lezen.
+    Een beoordeling van een toezichthouder (bruikbaar/niet bruikbaar/signaal was juist/signaal
+    was onjuist) vastleggen bij de vestiging, het signaal en de versie van de regel die het
+    opleverde -- zonder zelf een regel bij te stellen.
   backstory: >
-    Komt tot leven in taak 7; staat hier al zodat de configuratie het volledige procesplaatje
-    toont voordat de uitvoering klaar is. Tot die tijd meldt de runlog deze stap als niet
-    beschikbaar, nooit stilzwijgend.
+    Boekhoudt, leert niet: elke beoordeling komt met de regelversie van dit moment erbij, zodat
+    een oordeel over een jaar nog te plaatsen is. Zie `toezicht.terugkoppeling.registreer`.
   tools:
     - terugkoppeling_genereren
   llm: "qwen2.5-32b, lokaal (derwisch_local-llm:8080) -- geïnjecteerd door de runner, geen eigen verbinding"
