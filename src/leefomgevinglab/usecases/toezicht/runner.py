@@ -50,6 +50,20 @@ werkelijke run).
 dezelfde `staat`-dict van taak naar taak door -- elke tool leest en schrijft op die staat, zodat
 `context` in `tasks.yaml` (welke eerdere taken deze voedt) een documentatie is van wat er al
 feitelijk gebeurt, niet een los-van-de-uitvoering intentieverklaring.
+
+**Let op: twee dingen heten hier `context`.** CrewAI's `context` in `tasks.yaml` is een lijst
+taak-ID's (de afhankelijkheden van een taak). Het domein-`context`-dict uit `signalen.signalen`
+en `dossier.dossier` (metingen, normen, stroomrichting) reist hier als `staat["context"]` --
+dezelfde naam, een andere laag. Deze module en `dossier.py` gebruiken het woord correct, elk in
+zijn eigen betekenis; de valkuil zit in het vergelijken van de twee bestanden, niet in de code
+zelf.
+
+**Eis (b), vervolg: `args` is een samenvatting, nooit de payload.** Elke stap in de runlog draagt
+ook `args` -- klein genoeg om te lezen, groot genoeg om te herleiden tegen welke vestiging, welke
+vraag of welke uitgezette agents een stap draaide. Nooit de hele `vestiging` (met al haar
+voorschriften), nooit `context` (metingen/normen) en nooit het register: dat zou de runlog net zo
+onleesbaar maken als een leeg `args`-veld de herkomst onzichtbaar maakt. Zie de `_args_*`-functies
+en `_vestiging_id` hieronder voor wat er precies in gaat -- en waarom dat genoeg is.
 """
 import time
 from collections.abc import Callable, Mapping
@@ -84,12 +98,15 @@ class NietBeschikbaar(Exception):
 # -- De tools: dunne, deterministische wrappers om de modules van taak 1-5 -----------------------
 
 class Uitkomst(NamedTuple):
-    """Wat een tool teruggeeft aan de runner: de staat-sleutels die hij bijwerkt, en de omvang
-    erin en eruit -- gemeten door de tool zelf, nooit door de runner verzonnen (huisregel 'geen
-    getal wordt getypt')."""
+    """Wat een tool teruggeeft aan de runner: de staat-sleutels die hij bijwerkt, de omvang erin
+    en eruit -- gemeten door de tool zelf, nooit door de runner verzonnen (huisregel 'geen getal
+    wordt getypt') -- en `args`: een kleine, menselijk leesbare samenvatting van waarmee de tool
+    draaide (zie de moduledocstring, 'eis (b), vervolg'). Geen van de drie tools die vandaag
+    `args` vullen, stopt er de volledige `vestiging`, `context` of `register` in."""
     updates: dict
     rijen_in: int
     rijen_uit: int
+    args: dict
 
 
 def _tel(waarde) -> int:
@@ -104,6 +121,14 @@ def _tel(waarde) -> int:
     return 1
 
 
+def _vestiging_id(staat: dict) -> str | None:
+    """Het kleinste identificerende veld van de vestiging in `staat` -- `naam`, anders
+    `locatiecode`, anders `None`. Dit is wat elke `args`-samenvatting over de vestiging draagt in
+    plaats van de vestiging zelf (met al haar voorschriften)."""
+    vestiging = staat.get("vestiging") or {}
+    return vestiging.get("naam") or vestiging.get("locatiecode")
+
+
 def tool_atlas_vergunningen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     """Leest de vestiging en verrijkt haar voorschriften met de Aquo-referentie uit
     `staat['aquo_ref']`. Ontbreekt die referentie, dan blijft de vestiging onaangeroerd (zie
@@ -111,16 +136,20 @@ def tool_atlas_vergunningen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     vestiging = staat.get("vestiging") or {}
     ref = staat.get("aquo_ref") or {"beschikbaar": False}
     verrijkt = aquo_mod.verrijk(vestiging, ref)
-    return Uitkomst({"vestiging": verrijkt}, _tel(vestiging), _tel(verrijkt))
+    return Uitkomst({"vestiging": verrijkt}, _tel(vestiging), _tel(verrijkt),
+                     args={"vestiging": _vestiging_id(staat)})
 
 
 def tool_signalen_stellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     """Past de tien deterministische signaalregels toe -- geen netwerk, geen taalmodel, zie
-    `signalen.signalen`."""
+    `signalen.signalen`. `args["regels"]` draagt welke regel-ID's vuurden (niet het bewijs zelf)
+    -- klein genoeg voor de runlog, en genoeg om later tegen het uiteindelijke dossier te
+    vergelijken (zie `test_de_signalen_in_de_runlog_stap_komen_overeen_met_het_dossier`)."""
     vestiging = staat.get("vestiging") or {}
     context = staat.get("context") or {}
     ruw = signalen_mod.signalen(vestiging, context)
-    return Uitkomst({"signalen_ruw": ruw}, _tel(vestiging), _tel(ruw))
+    return Uitkomst({"signalen_ruw": ruw}, _tel(vestiging), _tel(ruw),
+                     args={"vestiging": _vestiging_id(staat), "regels": [s["regel"] for s in ruw]})
 
 
 def tool_dossier_samenstellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
@@ -131,22 +160,25 @@ def tool_dossier_samenstellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst
     context = staat.get("context") or {}
     uitgezet = staat.get("uit")
     d = dossier_mod.dossier(vestiging, context, uit=uitgezet, runlog=runlog)
-    return Uitkomst({"dossier": d}, _tel(vestiging), 1)
+    return Uitkomst({"dossier": d}, _tel(vestiging), 1,
+                     args={"vestiging": _vestiging_id(staat),
+                           "uitgezet": sorted(uitgezet) if uitgezet else []})
 
 
 def tool_toezichtgraaf_bouwen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     """Bouwt de bevraagbare graaf uit het register, de metingen en de normen (`graaf.bouw`)."""
     register = staat.get("register") or []
     g = graaf_mod.bouw(register, staat.get("metingen"), staat.get("normen"), staat.get("aquo_ref"))
-    return Uitkomst({"graaf": g}, _tel(register), 1)
+    return Uitkomst({"graaf": g}, _tel(register), 1, args={"aantal_vestigingen": len(register)})
 
 
 def tool_vraag_stellen(staat: dict, *, llm=None, runlog=None) -> Uitkomst:
     """Beantwoordt `staat['vraag']` via de toezichtgraaf (`vraag.stel`) -- de enige tool hier die
     een taalmodel gebruikt, en dus alleen zinvol voor een agent die `llm` wél in zijn configuratie
-    heeft staan."""
+    heeft staan. `args["vraag"]` draagt de vraagtekst zelf (klein), nooit de graaf of de rijen."""
     antwoord = vraag_mod.stel(staat.get("vraag"), staat.get("graaf"), llm)
-    return Uitkomst({"antwoord": antwoord}, 1, _tel(antwoord.get("rijen")))
+    return Uitkomst({"antwoord": antwoord}, 1, _tel(antwoord.get("rijen")),
+                     args={"vraag": staat.get("vraag")})
 
 
 #: Echte, aanroepbare tools -- de enige namen die een agent zonder meer mag gebruiken.
@@ -272,7 +304,15 @@ class Crew(object):
         taak, en registreert -- als er een `Runlog` is meegegeven -- per taak precies één stap:
         een normale toolaanroep, een bewust uitgezette agent (`uitgezet=True`, geen tool
         aangeroepen), of een verklaarde maar nog niet gebouwde tool (`niet_beschikbaar=True`, de
-        toolnaam staat er wél bij). Geen van de drie is stil: elke taak levert een stap op."""
+        toolnaam staat er wél bij). Geen van de drie is stil: elke taak levert een stap op.
+
+        **De callable komt altijd via `tools_voor(agent_naam)`, nooit rechtstreeks uit `TOOLS`.**
+        Dat is eis (a) in de uitvoering, niet alleen in de loopstructuur: zou deze methode ooit
+        veranderen in iets dat niet meer per se over de eigen `tools`-lijst van de agent itereert,
+        dan vangt `tools_voor` een onverklaarde tool nog steeds af (`NietVerklaardeTool`). Een tool
+        die wél verklaard is maar nog niet gebouwd (`GEPLAND`) geeft via diezelfde weg
+        `NietBeschikbaar` -- dat is hier geen fout om door te laten, maar het signaal om de luide
+        `niet_beschikbaar`-stap te registreren in plaats van de tool aan te roepen."""
         staat = dict(invoer)
         uitgezet = set(staat.get("uit") or ())
         for taak_id, taak in self.tasks.items():
@@ -281,20 +321,23 @@ class Crew(object):
 
             if agent_naam in uitgezet:
                 if runlog is not None:
-                    runlog.stap(agent_naam, taak_id, None, 0, 0, False, uitgezet=True)
+                    runlog.stap(agent_naam, taak_id, None, 0, 0, False, uitgezet=True,
+                                 args={"vestiging": _vestiging_id(staat)})
                 continue
 
             for tool_naam in agent.get("tools") or []:
-                if tool_naam not in TOOLS:
+                try:
+                    fn = self.tools_voor(agent_naam)[tool_naam]
+                except NietBeschikbaar:
                     # Verklaard (anders was dit al bij het laden geweigerd), maar nog niet
                     # gebouwd -- `GEPLAND`. Luid registreren, niet stil overslaan en niet crashen:
                     # de rest van de pijplijn moet kunnen doorlopen zolang taak 7 niet klaar is.
                     if runlog is not None:
                         runlog.stap(agent_naam, taak_id, tool_naam, 0, 0, False,
-                                     niet_beschikbaar=True)
+                                     niet_beschikbaar=True,
+                                     args={"vestiging": _vestiging_id(staat)})
                     continue
 
-                fn = TOOLS[tool_naam]
                 llm_voor_deze_agent = self._llm_voor_deze_agent(agent, llm)
                 begin = time.monotonic()
                 uitkomst = fn(staat, llm=llm_voor_deze_agent, runlog=runlog)
@@ -302,5 +345,6 @@ class Crew(object):
                 staat.update(uitkomst.updates)
                 if runlog is not None:
                     runlog.stap(agent_naam, taak_id, tool_naam, uitkomst.rijen_in,
-                                 uitkomst.rijen_uit, llm_voor_deze_agent is not None, duur=duur)
+                                 uitkomst.rijen_uit, llm_voor_deze_agent is not None, duur=duur,
+                                 args=uitkomst.args)
         return staat

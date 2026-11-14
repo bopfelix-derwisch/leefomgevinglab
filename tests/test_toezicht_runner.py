@@ -129,6 +129,32 @@ def test_het_opvragen_van_een_nog_niet_gebouwde_tool_geeft_nietbeschikbaar():
         crew.tools_voor("uitlegger")["uitleg_genereren"]
 
 
+# -- Fixronde 1, bevinding 2 (Important): de guard moet dragend zijn, niet alleen de loopstructuur
+
+def test_draai_haalt_elke_callable_op_via_tools_voor_niet_rechtstreeks_uit_tools():
+    """Eis (a) moet afgedwongen worden door `tools_voor()` zelf, niet alleen doordat `draai()`
+    toevallig over de eigen `tools`-lijst van de agent itereert. Deze test bewijst dat `draai()`
+    `tools_voor` ook echt aanroept, voor elke taak die een tool draait, door de methode te
+    bespieden -- geen gedragstest op de uitkomst (die was al groen), maar op het mechanisme."""
+    crew = runner.laad(AGENTS, TASKS)
+    aangeroepen_voor: list[str] = []
+    origineel = crew.tools_voor
+
+    def spion(agent_naam: str):
+        aangeroepen_voor.append(agent_naam)
+        return origineel(agent_naam)
+
+    crew.tools_voor = spion
+    crew.draai({"vestiging": VESTIGING_FIXTURE})
+    # De drie deterministische agents draaien allemaal een tool in de standaardpijplijn, en
+    # `uitlegger` ook (zijn tool is alleen nog niet gebouwd) -- `tools_voor` moet voor elk van hen
+    # zijn aangeroepen, niet alleen voor de agents waarvan de tool toevallig al bestaat.
+    assert aangeroepen_voor.count("vergunninglezer") == 1
+    assert aangeroepen_voor.count("signaalsteller") == 1
+    assert aangeroepen_voor.count("dossiersteller") == 1
+    assert aangeroepen_voor.count("uitlegger") == 1
+
+
 # -- De twee tools van `vraagsteller`: nog zonder taak in de standaardpijplijn, maar wél echt en
 # dus hier rechtstreeks getoetst, los van een draaiende crew. ------------------------------------
 

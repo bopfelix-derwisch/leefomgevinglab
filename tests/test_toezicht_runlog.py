@@ -105,3 +105,62 @@ def test_een_nog_niet_gebouwde_tool_krijgt_een_luide_nietbeschikbaar_stap_geen_s
     assert stap["tool"] == "uitleg_genereren"
     assert stap["llm"] is False, "er is niets uitgevoerd, dus is er ook geen taalmodel gebruikt"
     assert uitkomst["dossier"]["signalen"], "de rest van de pijplijn moet toch doorlopen"
+
+
+# -- Fixronde 1, bevinding 1 (Important): args is een samenvatting, nooit leeg en nooit de payload
+
+def test_elke_stap_draagt_een_samenvatting_van_zijn_argumenten_niet_de_hele_payload():
+    """Een leeg `args`-veld is erger dan een afwezig veld: het beweert dat er niets te melden was,
+    terwijl er gewoon niets is vastgelegd. Deze test controleert het omgekeerde ook -- `args` mag
+    nooit de volledige vestiging, context of het register bevatten, want dat zou de runlog net zo
+    onleesbaar maken als leegte hem onzichtbaar maakt."""
+    crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
+    crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, runlog=log)
+    stappen = {s["tool"]: s for s in log.als_gegeven() if s["tool"] and not s["niet_beschikbaar"]}
+
+    lees_stap = stappen["atlas_vergunningen"]
+    assert lees_stap["args"] == {"vestiging": VESTIGING_FIXTURE["naam"]}
+
+    signaal_stap = stappen["signalen_stellen"]
+    assert signaal_stap["args"]["vestiging"] == VESTIGING_FIXTURE["naam"]
+    assert signaal_stap["args"]["regels"], "zonder regel-ID's is er niets om tegen het dossier te toetsen"
+
+    dossier_stap = stappen["dossier_samenstellen"]
+    assert dossier_stap["args"]["vestiging"] == VESTIGING_FIXTURE["naam"]
+    assert dossier_stap["args"]["uitgezet"] == []
+
+    # Geen van de args-dicts mag de volledige payload dragen: geen "voorschriften"-lijst, geen
+    # ruwe context, geen bewijs -- alleen de kleine, identificerende velden hierboven.
+    for stap in stappen.values():
+        assert "voorschriften" not in stap["args"]
+        assert "context" not in stap["args"]
+        assert "bewijs" not in stap["args"]
+
+
+def test_een_uitgezette_stap_en_een_nietbeschikbare_stap_dragen_ook_een_vestiging_in_args():
+    """`args` is geen voorrecht van een normale toolaanroep -- ook de twee luide, niet-uitgevoerde
+    soorten stappen (eis (d) en de GEPLAND-afhandeling) dragen welke vestiging het betrof."""
+    crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
+    crew.draai({"vestiging": VESTIGING_FIXTURE, "uit": {"uitlegger"}}, runlog=log)
+    stap = next(s for s in log.als_gegeven() if s["agent"] == "uitlegger")
+    assert stap["args"] == {"vestiging": VESTIGING_FIXTURE["naam"]}
+
+
+# -- Fixronde 1, bevinding 3: de eigenschap die deze taak moet vastleggen -----------------------
+
+def test_de_signalen_in_de_runlog_stap_komen_overeen_met_het_uiteindelijke_dossier():
+    """`tool_signalen_stellen` en `dossier_samenstellen` (via `dossier.dossier()`) berekenen de
+    signalen vandaag elk apart, en kunnen vandaag niet uiteenlopen -- maar dat is een structureel
+    toeval, door geen test bewaakt totdat deze test hier stond. Een latere filter in `dossier()`,
+    of een mutatie van `context` tussen deze twee taken, zou de runlog iets anders laten beweren
+    dan het dossier bevat; precies de traceerbaarheid waarvoor taak 6b bestaat. Deze test
+    vergelijkt daarom niet alleen de aantallen maar de regel-ID's zelf, in twee richtingen."""
+    crew, log = runner.laad(AGENTS, TASKS), runlog.Runlog()
+    uitkomst = crew.draai({"vestiging": VESTIGING_FIXTURE, "context": CONTEXT}, runlog=log)
+    stap = next(s for s in log.als_gegeven() if s["tool"] == "signalen_stellen")
+
+    regels_in_runlog = sorted(stap["args"]["regels"])
+    regels_in_dossier = sorted(s["regel"] for s in uitkomst["dossier"]["signalen"])
+    assert regels_in_runlog == regels_in_dossier, \
+        "de runlog-stap en het uiteindelijke dossier beweren niet meer hetzelfde"
+    assert stap["rijen_uit"] == len(uitkomst["dossier"]["signalen"])
