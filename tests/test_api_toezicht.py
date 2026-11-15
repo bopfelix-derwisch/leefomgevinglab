@@ -175,24 +175,30 @@ def test_onbekende_vestiging_geeft_404(monkeypatch):
 
 
 # -- Alleen GET, nergens een schrijfpad -----------------------------------------------------------
+#
+# **405, niet `in (404, 405)`** (eindreview, kleinere bevinding 5). Deze drie tests bewaken dat de
+# route bestaat én alleen leest. Met 404 erbij slaagt een test ook als de route helemaal weg is --
+# dan bewaakt zij niets meer, en precies die vorm (een test die groen blijft om de verkeerde
+# reden) is het defect dat dit project het meeste heeft gekost. 405 bewijst beide helften: de
+# padoplossing vond de route, en FastAPI weigerde de methode.
 
 def test_geen_post_op_vestigingen(monkeypatch):
     _monkeypatch_bronnen(monkeypatch)
     r = _client(monkeypatch).post("/api/toezicht/vestigingen")
-    assert r.status_code in (404, 405)
+    assert r.status_code == 405, "405 = route bestaat, methode geweigerd; 404 zou ook slagen als de route weg was"
 
 
 def test_geen_post_op_dossier(monkeypatch):
     _monkeypatch_bronnen(monkeypatch)
     r = _client(monkeypatch).post("/api/toezicht/dossier?vestiging=TEST01")
-    assert r.status_code in (404, 405)
+    assert r.status_code == 405
 
 
 def test_geen_put_nergens(monkeypatch):
     _monkeypatch_bronnen(monkeypatch)
     client = _client(monkeypatch)
-    assert client.put("/api/toezicht/vestigingen").status_code in (404, 405)
-    assert client.put("/api/toezicht/dossier?vestiging=TEST01").status_code in (404, 405)
+    assert client.put("/api/toezicht/vestigingen").status_code == 405
+    assert client.put("/api/toezicht/dossier?vestiging=TEST01").status_code == 405
 
 
 # -- Context werkelijk gevuld: de kern van deze taak ---------------------------------------------

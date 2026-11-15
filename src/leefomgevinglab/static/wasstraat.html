@@ -274,6 +274,10 @@
     const GRONDSLAG_KORT = { code: "gekoppeld op code", ruimtelijk: "gekoppeld op coördinaat",
       heuristiek: "gekoppeld op naam plus afstand", geen: "geen koppeling gelegd" };
 
+    // Dezelfde regel als `wasstraat.dossier._duurtekst`: seconden boven één seconde, anders
+    // milliseconden. "7378 ms" vroeg van de lezer een deling die de pagina zelf kan doen.
+    const duurtekst = sec => sec >= 1 ? `${nl(sec, 1)} s` : `${nl(sec * 1000, 0)} ms`;
+
     // -- Must-fix 2 van de eindreview: de gekozen vergunning staat in de URL -----------------
     //
     // Geen van beide pagina's las een queryparameter, en de link naar de zusterpagina droeg geen
@@ -372,11 +376,13 @@
     }
 
     function tekenAgents(d) {
-      $("pijplijnbron").textContent = (d.bron || "").split("/").slice(-2).join("/");
+      // De API levert het pad al afgekort (zie `api_wasstraat_pijplijn`) -- hier geen tweede
+      // afkorting bovenop, anders staat dezelfde keuze op twee plekken.
+      $("pijplijnbron").textContent = d.bron || "";
       $("agentstabel").querySelector("tbody").innerHTML = (d.agents || []).map(a =>
         `<tr><td class="naam">${esc(a.id)}</td><td>${esc(a.role || "")}</td>` +
         `<td class="toolnaam">${esc((a.tools || []).join(", ") || "—")}</td>` +
-        `<td class="${a.heeft_llm ? "ja" : "nee"}">${a.heeft_llm ? "ja" : "nee"}</td></tr>`
+        `<td class="${a.mag_llm ? "ja" : "nee"}">${a.mag_llm ? "ja" : "nee"}</td></tr>`
       ).join("");
     }
 
@@ -402,7 +408,7 @@
           `<span class="taak">${esc(s.taak)} · <span class="toolnaam">${esc(s.tool || "—")}</span></span>` +
           `<div class="staptekst">${esc(s.uitleg || "")}</div></td>` +
           `<td>${esc(s.rijen_in)} → ${esc(s.rijen_uit)}</td>` +
-          `<td>${s.duur != null ? nl(s.duur * 1000, 0) + " ms" : "—"}</td>` +
+          `<td>${s.duur != null ? duurtekst(s.duur) : "—"}</td>` +
           `<td>${status}</td></tr>`;
       }).join("");
     }

@@ -197,16 +197,31 @@ def test_een_onbekende_taak_krijgt_de_generieke_uitleg_in_plaats_van_te_crashen(
     assert wasstraat_dossier._stap_uitleg("iets_wat_niet_bestaat") == wasstraat_dossier._GEEN_UITLEG
 
 
-def test_de_samenvatting_telt_stappen_rijen_en_duur_op():
+def test_de_samenvatting_noemt_de_rijen_per_stap_en_telt_ze_niet_op():
+    """Eindreview, kleinere bevinding 3: "175 rijen in, 70 rijen uit" was een som over
+    ongelijksoortige dingen (voorschriften, signalen, dossiers, uitleggen) en liet juist het
+    interessante getal verdwijnen -- hoeveel van de signalen een uitleg kregen. De keten staat nu
+    per stap in de zin én in het dict."""
     volledig = _volledig_dossier(runlog=_gevulde_runlog())
     d = wasstraat_dossier.papier_dossier(volledig)
     s = d["runlog"]["samenvatting"]
     assert s["aantal_stappen"] == 4
-    assert s["rijen_in_totaal"] == 1 + 1 + 1 + 10
-    assert s["rijen_uit_totaal"] == 1 + 10 + 1 + 3
+    assert "rijen_in_totaal" not in s and "rijen_uit_totaal" not in s
+    assert [(r["agent"], r["rijen_in"], r["rijen_uit"]) for r in s["rijen_per_stap"]] == [
+        ("vergunninglezer", 1, 1), ("signaalsteller", 1, 10),
+        ("dossiersteller", 1, 1), ("uitlegger", 10, 3)]
+    assert "uitlegger 10 \u2192 3" in s["zin"], "de uitleggerstap hoort herleidbaar in de zin"
     assert abs(s["totale_duur"] - 0.10) < 1e-9
     assert s["stappen_met_taalmodel"] == []
     assert "Geen van de stappen heeft een taalmodel aangeroepen" in s["zin"]
+
+
+def test_de_duur_staat_in_seconden_zodra_zij_boven_een_seconde_komt():
+    """Eindreview, kleinere bevinding 4: "in 7378 ms" (en onder belasting "in 91773 ms") vroeg
+    van de lezer een deling die de pagina zelf kan doen."""
+    assert wasstraat_dossier._duurtekst(0.0123) == "12 ms"
+    assert wasstraat_dossier._duurtekst(7.378) == "7,4 s"
+    assert wasstraat_dossier._duurtekst(91.773) == "91,8 s"
 
 
 def test_de_samenvatting_noemt_de_agents_die_echt_een_taalmodel_gebruikten():

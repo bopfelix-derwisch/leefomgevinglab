@@ -4,18 +4,23 @@ from leefomgevinglab.usecases.toezicht import pijplijn
 from tests.test_toezicht_runner import AGENTS, TASKS
 
 
-def test_als_gegeven_leest_de_zes_agents_met_hun_llm_status():
+def test_als_gegeven_leest_de_zes_agents_met_hun_llm_gerechtigdheid():
+    """De sleutel heet `mag_llm`, niet `heeft_llm` (eindreview, kleinere bevinding 6): hij meet
+    of deze agent een taalmodel krijgt als er één wordt meegegeven, niet of er in een run echt
+    één is aangeroepen -- dat laatste staat per stap in de runlog."""
     gegeven = pijplijn.als_gegeven(AGENTS, TASKS)
     namen = {a["id"] for a in gegeven["agents"]}
     assert namen == {"vergunninglezer", "signaalsteller", "dossiersteller", "uitlegger",
                       "vraagsteller", "terugkoppelaar"}
-    heeft_llm = {a["id"]: a["heeft_llm"] for a in gegeven["agents"]}
-    assert heeft_llm["signaalsteller"] is False
-    assert heeft_llm["vergunninglezer"] is False
-    assert heeft_llm["dossiersteller"] is False
-    assert heeft_llm["uitlegger"] is True
-    assert heeft_llm["vraagsteller"] is True
-    assert heeft_llm["terugkoppelaar"] is True
+    assert not any("heeft_llm" in a for a in gegeven["agents"]), (
+        "`heeft_llm` suggereert gebruik; deze API publiceert gerechtigdheid")
+    mag_llm = {a["id"]: a["mag_llm"] for a in gegeven["agents"]}
+    assert mag_llm["signaalsteller"] is False
+    assert mag_llm["vergunninglezer"] is False
+    assert mag_llm["dossiersteller"] is False
+    assert mag_llm["uitlegger"] is True
+    assert mag_llm["vraagsteller"] is True
+    assert mag_llm["terugkoppelaar"] is True
 
 
 def test_als_gegeven_leest_de_taken_met_hun_eigen_context_en_agent():

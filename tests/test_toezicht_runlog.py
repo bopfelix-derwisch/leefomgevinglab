@@ -229,7 +229,7 @@ def test_een_toekomstig_geplande_maar_nog_niet_gebouwde_tool_geeft_nog_steeds_ni
 # -- Fix-ronde 2, bevinding D (R21) — de "mag een taalmodel" kant is nu ook runtime bewezen ------
 
 def test_een_agent_met_llm_sleutel_kan_het_taalmodel_ook_echt_ontvangen_in_een_run():
-    """`test_toezicht_pijplijn.py` toetst alleen de YAML (`heeft_llm`) -- niets bewees dat
+    """`test_toezicht_pijplijn.py` toetst alleen de YAML (`mag_llm`) -- niets bewees dat
     `_llm_voor_deze_agent` een eligible agent ook werkelijk een aanroepbaar taalmodel geeft in
     een echte `draai()`. Een regressie die hem altijd `None` laat teruggeven (te voorzichtig,
     blokkeert iedereen) zou de rest van de suite ongemerkt laten slagen, want alle bestaande

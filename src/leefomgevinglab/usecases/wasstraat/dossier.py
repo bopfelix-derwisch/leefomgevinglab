@@ -23,7 +23,8 @@ oplossen, en een lezer die twee vergunningen vergeleek rekende die mee als versc
 
 **De runlog zelf is ongewijzigd** (dezelfde stappen als `/toezicht` -- dit is dezelfde pijplijn),
 maar krijgt hier de samenvatting die de taakbrief vraagt en die nergens anders bestaat: hoeveel
-stappen, hoeveel rijen erin/eruit in totaal, de totale duur, en in welke stappen een taalmodel
+stappen, hoeveel rijen er per stap in en uit gingen (niet opgeteld -- zie `_samenvatting`), de
+totale duur in een leesbare eenheid, en in welke stappen een taalmodel
 *werkelijk* is aangeroepen -- niet alleen eligible was (zie `runner.py`, "Fix-ronde 2, bevinding
 E": het `llm`-veld meet gebruik, niet gerechtigdheid, en die twee blijven in de samenvattingstekst
 hier bewust uit elkaar). Plus per stap één vaste, menselijke zin over wat die stap doet
@@ -202,6 +203,16 @@ def _stap_uitleg(taak: str | None) -> str:
     return _STAP_UITLEG.get(taak, _GEEN_UITLEG)
 
 
+def _duurtekst(seconden: float) -> str:
+    """Duur in de eenheid waarin een mens haar leest: seconden boven één seconde, anders
+    milliseconden. "in 7378 ms" (en onder belasting "in 91773 ms") vroeg van de lezer een deling
+    die de pagina net zo goed zelf kan doen -- eindreview, kleinere bevinding 4. Komma als
+    decimaalteken, zoals elders in dit lab."""
+    if seconden >= 1:
+        return f"{seconden:.1f} s".replace(".", ",", 1)
+    return f"{seconden * 1000:.0f} ms"
+
+
 def _samenvatting(stappen: list[dict]) -> dict:
     """Eén uitgelegde samenvatting van de runlog: afgeleide aantallen (nooit getypt) plus een
     zin die ze in gewone taal samenvoegt, zodat de pagina niet alleen de tabel herhaalt.
@@ -211,19 +222,28 @@ def _samenvatting(stappen: list[dict]) -> dict:
     een taalmodel bij was. Dat laatste wordt met de namen van de betrokken agents genoemd, niet
     alleen een getal: de belofte van dit lab is dat `llm` in de runlog *gebruik* meet, niet
     *gerechtigdheid* (zie `runner.py`, "Fix-ronde 2, bevinding E"), en een samenvattingszin die
-    dat verschil weer laat verdwijnen zou de duur betaalde correctie ongedaan maken."""
+    dat verschil weer laat verdwijnen zou de duur betaalde correctie ongedaan maken.
+
+    **Eindreview, kleinere bevinding 3: geen som meer over ongelijksoortige dingen.** Hier stond
+    "175 rijen in, 70 rijen uit" -- niet onwaar, maar onherleidbaar: bij NATRON waren dat
+    54 voorschriften -> 54, 54 -> 13 signalen, 54 -> 1 dossier en 13 -> 2 uitleggen, en juist het
+    interessante getal (de uitlegger legde 2 van de 13 signalen uit) verdween in de optelling.
+    De zin noemt nu de keten per stap, met de agentnaam ervoor, en het dict draagt
+    `rijen_per_stap` in plaats van twee totalen die niemand kan narekenen."""
     n = len(stappen)
-    rijen_in = sum(s.get("rijen_in") or 0 for s in stappen)
-    rijen_uit = sum(s.get("rijen_uit") or 0 for s in stappen)
+    rijen_per_stap = [{"agent": s.get("agent"), "taak": s.get("taak"),
+                       "rijen_in": s.get("rijen_in"), "rijen_uit": s.get("rijen_uit")}
+                      for s in stappen]
     duur = sum(s["duur"] for s in stappen if s.get("duur") is not None)
     met_taalmodel = sorted({s["agent"] for s in stappen if s.get("llm")})
 
     if not n:
         zin = "Nog geen dossier opgevraagd."
     else:
-        kern = (f"Deze run doorliep {n} {'stap' if n == 1 else 'stappen'}: {rijen_in} "
-                f"{'rij' if rijen_in == 1 else 'rijen'} in, {rijen_uit} "
-                f"{'rij' if rijen_uit == 1 else 'rijen'} uit, in {duur * 1000:.0f} ms.")
+        keten = "; ".join(f"{r['agent']} {r['rijen_in']} → {r['rijen_uit']}"
+                          for r in rijen_per_stap)
+        kern = (f"Deze run doorliep {n} {'stap' if n == 1 else 'stappen'} in "
+                f"{_duurtekst(duur)}. Rijen per stap: {keten}.")
         if met_taalmodel:
             zin = kern + f" Een taalmodel is echt aangeroepen bij: {', '.join(met_taalmodel)}."
         else:
@@ -231,9 +251,9 @@ def _samenvatting(stappen: list[dict]) -> dict:
 
     return {
         "aantal_stappen": n,
-        "rijen_in_totaal": rijen_in,
-        "rijen_uit_totaal": rijen_uit,
+        "rijen_per_stap": rijen_per_stap,
         "totale_duur": duur,
+        "totale_duur_tekst": _duurtekst(duur),
         "stappen_met_taalmodel": met_taalmodel,
         "zin": zin,
     }

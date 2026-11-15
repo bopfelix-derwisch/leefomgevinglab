@@ -84,9 +84,23 @@ def test_de_pijplijn_komt_uit_dezelfde_configuratie_als_de_runner(monkeypatch):
 
 
 def test_de_pagina_rendert_de_takenorde(monkeypatch):
+    """Toetst de *inhoud*, niet het element-id (eindreview, kleinere bevinding 5). `"takentabel"
+    in r.text` bewees alleen dat er een `<table id="takentabel">` in de HTML staat -- een tabel
+    die nooit gevuld wordt, of een JS-functie die stilletjes weg is, liet die assertie net zo
+    goed slagen. Wat deze pagina moet doen is de takenorde uit de API renderen, dus toets dat de
+    tabel bestaat én dat de code die hem vult de velden van de API gebruikt.
+
+    De tweede assertie blijft de belangrijkste: geen enkele taaknaam staat hardgecodeerd in de
+    HTML. Zou dat wel zo zijn, dan kan de pagina een andere orde tonen dan de pijplijn draait --
+    en juist dát is wat deze tab belooft te laten zien."""
     r = _client(monkeypatch).get("/wasstraat")
-    assert "takentabel" in r.text
-    assert "bepaal_signalen" not in r.text  # niet hardgecodeerd in de HTML, komt uit de API
+    assert 'id="takentabel"' in r.text, "de tabel zelf"
+    assert "tekenTaken" in r.text, "en de functie die hem uit de API vult"
+    for veld in ("t.id", "t.agent", "t.context"):
+        assert veld in r.text, f"de takentabel leest {veld} uit /api/wasstraat/pijplijn"
+    for taaknaam in ("bepaal_signalen", "lees_vergunning", "stel_dossier_samen"):
+        assert taaknaam not in r.text, (
+            f"{taaknaam} staat hardgecodeerd in de HTML; de orde moet uit de API komen")
 
 
 # -- Vestigingen/vergunningen -------------------------------------------------------------------
@@ -171,6 +185,7 @@ def test_de_runlog_draagt_een_samenvatting(monkeypatch):
     d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
     samenvatting = d["runlog"]["samenvatting"]
     assert samenvatting["aantal_stappen"] == len(d["runlog"]["stappen"])
+    assert len(samenvatting["rijen_per_stap"]) == len(d["runlog"]["stappen"])
     assert samenvatting["stappen_met_taalmodel"] == []
     assert "Geen van de stappen heeft een taalmodel aangeroepen" in samenvatting["zin"]
 
@@ -223,11 +238,19 @@ def test_een_bevinding_is_nooit_een_vaststelling(monkeypatch):
 # -- Geen schrijfpaden ---------------------------------------------------------------------------
 
 def test_er_is_geen_schrijfpad_op_de_wasstraat_routes(monkeypatch):
+    """**405, niet `in (405, 404)`** (eindreview, kleinere bevinding 5). Deze test bewaakt twee
+    dingen tegelijk: dat de route bestaat, en dat zij alleen leest. Met 404 erbij slaagt hij ook
+    als de route helemaal verdwenen is -- dan bewaakt hij niets meer, en een test die groen blijft
+    om de verkeerde reden is precies het defect dat dit project het meeste heeft gekost. 405
+    bewijst beide helften: de padoplossing vond de route, en de methode is geweigerd."""
     client = _client(monkeypatch)
     for pad in ("/api/wasstraat/pijplijn", "/api/wasstraat/vestigingen",
                 "/api/wasstraat/dossier?vergunning=X"):
-        r = client.post(pad)
-        assert r.status_code in (405, 404), pad
+        for methode in ("post", "put", "patch", "delete"):
+            r = getattr(client, methode)(pad)
+            assert r.status_code == 405, (
+                f"{methode.upper()} {pad} gaf {r.status_code}; 405 = route bestaat en weigert de "
+                "methode, 404 zou ook slagen als de route weg was")
 
 
 # -- Must-fix 2 van de eindreview: de gekozen vergunning staat in de URL ----------------------

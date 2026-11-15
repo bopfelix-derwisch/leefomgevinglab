@@ -828,7 +828,12 @@ def api_wasstraat_pijplijn():
     Geen crew gestart, geen validatie (R4): de pagina moet de configuratie kunnen tonen zonder
     het proces uit te voeren."""
     gegeven = toezicht_pijplijn.als_gegeven(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
-    return {**gegeven, "bron": TOEZICHT_AGENTS_PAD}
+    # Afgekort tot de laatste twee padsegmenten (eindreview, kleinere bevinding 7): hier stond
+    # het absolute serverpad (`/mnt/nvme/workspaces/.../config/agents.yaml`) op een publiek
+    # eindpunt. De pagina kortte het al af, de API niet -- en de volgende lezer van deze API
+    # hoeft die afkorting dan niet opnieuw te bedenken.
+    bron_kort = "/".join(TOEZICHT_AGENTS_PAD.split(os.sep)[-2:])
+    return {**gegeven, "bron": bron_kort}
 
 
 @app.get("/api/wasstraat/vestigingen")

@@ -11,10 +11,18 @@ rechtstreeks, en projecteert alleen de velden die een pagina nodig heeft. Een to
 bestaat (een tikfout, of een agent die wacht op een latere taak) mag de pagina daarom nooit laten
 crashen -- zie `test_als_gegeven_start_geen_crew_en_valideert_dus_geen_tools`.
 
-**Wat "hetzelfde tonen" hier betekent.** `heeft_llm` is afgeleid van de aan- of afwezigheid van de
+**Wat "hetzelfde tonen" hier betekent.** `mag_llm` is afgeleid van de aan- of afwezigheid van de
 `llm`-sleutel in de agent-configuratie -- exact de sleutel die `runner.Crew._llm_voor_deze_agent`
 gebruikt om de §4.4-grens te trekken. Zo kan de pagina "2 agents met taalmodel" tonen zonder dat
 getal ooit apart te typen: het is precies wat de runner ook leest.
+
+**De naam is `mag_llm`, niet `heeft_llm` (eindreview, kleinere bevinding 6).** Dit veld meet
+*gerechtigdheid*: of deze agent een taalmodel toegewezen krijgt als er één wordt meegegeven. Het
+meet geen gebruik -- `/api/wasstraat/pijplijn` gaf `uitlegger: true` terwijl die route `llm=None`
+doorgeeft en er dus nooit één is. De pagina deed het al goed (kolomkop "mag taalmodel"); de
+API-sleutel zei "heeft", en precies die verwarring heeft dit dossier eerder duur betaald (zie
+`runner.py`, "Fix-ronde 2, bevinding E"). Wat er in een run werkelijk is aangeroepen staat in de
+runlog (`llm` per stap), nergens anders.
 """
 from pathlib import Path
 
@@ -40,7 +48,7 @@ def als_gegeven(agents_pad: str, tasks_pad: str) -> dict:
             "goal": cfg.get("goal"),
             "backstory": cfg.get("backstory"),
             "tools": list(cfg.get("tools") or []),
-            "heeft_llm": "llm" in cfg,
+            "mag_llm": "llm" in cfg,
         }
         for naam, cfg in agents.items()
     ]
