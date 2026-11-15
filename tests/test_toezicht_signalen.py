@@ -605,6 +605,40 @@ def test_de_twee_lagen_dekken_samen_de_tien_regels():
     assert len(papier) == 7 and len(werkelijkheid) == 3
 
 
+# -- De tweede as: voorbehoud of bevinding (fixronde eindreview, must-fix 5+6) -----------------
+
+def test_de_twee_sentinelregels_zijn_een_voorbehoud_en_de_andere_acht_niet():
+    """`is_voorbehoud` is afgeleid uit de drempel in `DREMPELS`, niet uit een lijst regel-id's --
+    precies de les die dit project duur heeft betaald bij `Regel.laag`. De twee van vandaag zijn
+    `niet_regime_zuiver` (vuurt juist omdat het regime er staat) en `geen_geldigheidsduur` (een
+    tekort van de Atlas dat voor het hele register geldt)."""
+    voorbehouden = {r for r in signalen.DREMPELS if signalen.is_voorbehoud(r)}
+    assert voorbehouden == {"niet_regime_zuiver", "geen_geldigheidsduur"}
+    assert len(set(signalen.DREMPELS) - voorbehouden) == 8
+
+
+def test_een_voorbehoudregel_weegt_altijd_laag_en_omgekeerd():
+    """De twee assen moeten één ding zeggen: een regel met de sentinel weegt altijd `laag`, wat
+    de omvang ook is -- dus `is_voorbehoud` en `zwaarte()` leiden uit dezelfde drempel af."""
+    for regel_id in signalen.DREMPELS:
+        # `norm_aanwezig=True` zodat `geen_onafhankelijke_meting` (de enige regel in
+        # `NORM_BEPAALT_ZWAARTE`) niet op `midden` blijft hangen om een andere reden dan de
+        # sentinel -- deze test gaat over de sentinel, niet over de normpoot.
+        gewogen = signalen.zwaarte(regel_id, 10_000, norm_aanwezig=True)
+        if signalen.is_voorbehoud(regel_id):
+            assert gewogen == "laag", regel_id
+        else:
+            assert gewogen == "hoog", regel_id
+
+
+def test_is_voorbehoud_werpt_keyerror_op_een_onbekende_regel():
+    """Een nieuwe regel zonder drempel is een vergeten keuze, geen stilzwijgend voorbehoud --
+    zelfde keuze als in `zwaarte()`."""
+    import pytest as _pytest
+    with _pytest.raises(KeyError):
+        signalen.is_voorbehoud("bestaat_niet")
+
+
 def test_een_signaal_is_nooit_een_vaststelling():
     """Dezelfde taalregel als /kmg, hier op de gegenereerde signaaltekst."""
     for s in signalen.signalen(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES):

@@ -57,6 +57,24 @@ FIXTURE_VESTIGING_VERVALLEN = {
 FIXTURE_AQUO_REF_VERVALLEN = {"beschikbaar": True, "geldig": {},
                               "vervallen": {"zwevende stof": "ZS"}, "vervangen_door": {}}
 
+# Een vergunning waarop géén van de vijf papierbevindingen vuurt: alle drie de identificerende
+# velden aanwezig (`vergunning_niet_te_vinden` zwijgt), één voorschrift met een geldige Aquo-code
+# (`niet_in_referentie`/`vervallen_code` zwijgen), geen tweede grenswaarde voor dezelfde stof
+# (`meerdere_grenswaarden` zwijgt) en een vrachteenheid in plaats van een concentratie
+# (`vracht_onbepaald` zwijgt). De twee sentinelregels vuren wél -- `geen_geldigheidsduur` altijd,
+# `niet_regime_zuiver` omdat het voorschrift een bemonsteringsregime draagt -- en dat is precies
+# de toestand die `wasstraat.op_orde` waar hoort te maken (eindreview, must-fix 5+6).
+FIXTURE_VESTIGING_PAPIER_OP_ORDE = {
+    "naam": "Schoonpapier BV", "plaats": "Roermond", "locatie": None,
+    "locatiecode": "TEST03", "vestigingsnummer_kvk": "000011112222",
+    "kenmerk": "RWS-2021/1", "besluitdatum": "2021-01-01",
+    "url": "https://example.org/schoonpapier",
+    "voorschriften": [
+        {"parameter": "Zink", "waarde": 120.0, "eenheid": "kilogram per jaar",
+         "bemonstering": "Steekmonster", "rd": [190000.0, 350000.0]},
+    ],
+}
+
 # Eén meetpunt op het waterlichaam van FIXTURE_VESTIGING, met zowel zink als stikstof boven de
 # norm -- zink via de chemische norm (NORMEN, jaargemiddelde 7,8 ug/l), stikstof via het
 # ecologische doel (DOELEN, zomergemiddelde 2,5 mg/l). Beide waarden en fixtures komen letterlijk
@@ -227,17 +245,39 @@ def test_de_context_komt_niet_meer_terug_als_voorbehoud_als_zij_gevuld_is(monkey
 
 # -- De wasstraat-uitkomst: context, geen opdracht -----------------------------------------------
 
-def test_de_wasstraat_uitkomst_telt_de_papiersignalen_van_dezelfde_vestiging(monkeypatch):
-    """`FIXTURE_VESTIGING` mist `vestigingsnummer_kvk`? Nee -- maar zij draagt geen
-    geldigheidsduur (regel 10 vuurt altijd zodra er voorschriften zijn) en geen debietvoorschrift
-    bij een concentratiegrens (regel 5) -- dus de wasstraat-telling moet minstens 1 open
-    bevinding tonen, puur uit het papier, los van de context die deze route voor de drie
-    werkelijkheidsregels aanlevert."""
+def test_de_wasstraat_uitkomst_telt_de_papierbevindingen_van_dezelfde_vestiging(monkeypatch):
+    """`FIXTURE_VESTIGING` draagt een concentratiegrens zonder debietvoorschrift (regel 5) en
+    mist haar `kenmerk` (regel 8) -- precies twee papierbevindingen, puur uit het papier, los van
+    de context die deze route voor de drie werkelijkheidsregels aanlevert.
+
+    **Eindreview, must-fix 5+6.** Deze test toetste eerder `aantal_open >= 1`, en dat was op elke
+    vergunning in het register waar: `geen_geldigheidsduur` vuurt op 69 van de 69. Een exact
+    getal legt nu vast welke regels echt meetellen -- de twee sentinelregels vuren hier óók (het
+    voorschrift draagt een bemonsteringsregime) en mogen er niet bij opgeteld worden."""
     _monkeypatch_bronnen(monkeypatch)
     d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
     assert d["wasstraat"]["pad"] == "/wasstraat"
-    assert d["wasstraat"]["aantal_open"] >= 1
+    assert d["wasstraat"]["aantal_open"] == 2
     assert d["wasstraat"]["op_orde"] is False
+
+
+def test_de_wasstraat_uitkomst_kan_op_orde_zijn_op_een_echte_vergunning(monkeypatch):
+    """De True-tak van `op_orde`, op een vergunning die de twee sentinelvoorbehouden wél draagt.
+
+    Vóór must-fix 5+6 was deze tak onbereikbaar en dus dode code op `toezicht.html`: de bodem van
+    `aantal_open` bestond uit `geen_geldigheidsduur` (69/69) en `niet_regime_zuiver` (68/69).
+    Hier vuren beide -- de assertie eronder bewijst dat -- en toch is het papier op orde, want
+    geen van de vijf papierbevindingen vuurt."""
+    _monkeypatch_bronnen(monkeypatch, register=(FIXTURE_VESTIGING_PAPIER_OP_ORDE,))
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST03").json()
+    assert d["wasstraat"]["aantal_open"] == 0
+    assert d["wasstraat"]["op_orde"] is True
+
+    # Controle dat de twee sentinelregels hier echt vuren -- anders zou deze test de True-tak op
+    # een lege signaallijst toetsen, precies de toestand die het register niet kent.
+    papier = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST03").json()
+    assert papier["signalen"] == []
+    assert papier["telling"]["aantal_voorbehouden"] == 2
 
 
 # -- De metingen bij het waterlichaam -------------------------------------------------------------

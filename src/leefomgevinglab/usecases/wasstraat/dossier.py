@@ -11,6 +11,16 @@ inspecteursvraag die `toezicht.dossier._WAT_TE_DOEN_PER_REGEL` voor `/toezicht` 
 `telling`/`voorbehouden` opnieuw af, uitsluitend uit de gefilterde lijst. Zonder dat zou het
 dossier drie signalen meetellen die deze pagina niet toont.
 
+**Twee assen, niet één (eindreview, must-fix 5+6).** `Regel.laag` zegt wie de lezer is (papier of
+werkelijkheid); `signalen.is_voorbehoud` zegt of een regel iets over *dit* dossier beweert. Van de
+zeven papierregels zijn er vijf een **bevinding** (met een reparatie) en twee een **voorbehoud**
+(`niet_regime_zuiver`, `geen_geldigheidsduur`). Die tweede groep is afgeleid uit de
+`ALTIJD_LAAG`-drempel in `signalen.DREMPELS`, niet uit een tweede lijst regel-id's, en landt in
+het voorbehouden-blok in plaats van in de bevindingenlijst -- met de bewering (en haar getal)
+intact, zie `_voorbehoud_zin`. Beide vuurden namelijk op vrijwel elke vergunning (69/69 en 68/69),
+dus de bevindingenlijst droeg twee register-brede constanten die de vergunningverlener niet kan
+oplossen, en een lezer die twee vergunningen vergeleek rekende die mee als verschil.
+
 **De runlog zelf is ongewijzigd** (dezelfde stappen als `/toezicht` -- dit is dezelfde pijplijn),
 maar krijgt hier de samenvatting die de taakbrief vraagt en die nergens anders bestaat: hoeveel
 stappen, hoeveel rijen erin/eruit in totaal, de totale duur, en in welke stappen een taalmodel
@@ -21,6 +31,7 @@ hier bewust uit elkaar). Plus per stap één vaste, menselijke zin over wat die 
 """
 from collections import Counter
 
+from leefomgevinglab.usecases.toezicht import dossier as toezicht_dossier
 from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
 
 # Per papierregel: wat er aan de vergunning moet "rechtkomen" -- een reparatie-instructie voor
@@ -44,12 +55,36 @@ _REPARATIE_PER_REGEL: dict[str, str] = {
     "vergunning_niet_te_vinden":
         "Vul het ontbrekende identificerende veld aan -- url, kenmerk of besluitdatum -- zodat "
         "deze vergunning op haar eigen document is terug te vinden.",
+}
+
+# Per sentinelregel (`signalen.is_voorbehoud`): waarom haar uitkomst een **voorbehoud** is en
+# geen bevinding met een reparatie. Zelfde vorm als `_REPARATIE_PER_REGEL`, en de twee catalogi
+# dekken samen precies de zeven papierregels zonder overlap -- een test dwingt dat af, afgeleid
+# uit de drempel, zodat een derde sentinelregel niet stil zonder tekst kan vallen.
+#
+# **Eindreview, must-fix 5+6.** Beide stonden eerder in `_REPARATIE_PER_REGEL`, met een
+# instructie die de vergunningverlener niet kan of niet hoeft uit te voeren:
+#   - `niet_regime_zuiver` zei "vermeld het bemonsteringsregime bij het voorschrift zelf" terwijl
+#     de regel juist alléén vuurt als dat regime er al staat (`signalen.py`: `if
+#     v.get("bemonstering")`). Op 68 van de 69 vergunningen opende de lezer de vergunning, zag
+#     het regime staan, en concludeerde dat de wasstraat niet klopt.
+#   - `geen_geldigheidsduur` zei "voeg een geldigheidsperiode toe" terwijl het tekort in de Atlas
+#     zit: die bron kent geen geldigheidsperiode per voorschrift. 69 van de 69 kregen die
+#     instructie.
+# Omdat beide op vrijwel elke vergunning vuren, bestond de bodem van `aantal_open` op `/toezicht`
+# uit twee register-brede constanten en kon `wasstraat.op_orde` nooit waar zijn (gemeten: minimum
+# 1 papiersignaal over alle 69). Ze landen daarom nu in het voorbehouden-blok, wat de regels zelf
+# in hun docstring al over zich zeggen.
+_VOORBEHOUD_PER_REGEL: dict[str, str] = {
     "niet_regime_zuiver":
-        "Vermeld het bemonsteringsregime bij het voorschrift zelf, zodat een latere meting er "
-        "regime-zuiver tegen te houden is.",
+        "Dit is een voorbehoud bij elke vergelijking op deze pagina, geen bevinding over deze "
+        "vergunning: de regel vuurt juist omdat het bemonsteringsregime er staat, en een meting "
+        "in het watersysteem meldt haar eigen regime niet. Aan het papier valt hier niets te "
+        "repareren.",
     "geen_geldigheidsduur":
-        "Voeg een geldigheidsperiode aan het voorschrift toe, of leg vast dat de vergunning "
-        "zonder einddatum van kracht blijft.",
+        "Dit tekort zit in de bron, niet in deze vergunning: de Atlas voor een Schone Maas voert "
+        "geen geldigheidsperiode per voorschrift, alleen een besluitdatum per vergunning. Het "
+        "geldt daarmee voor elke vergunning in het register in één keer.",
 }
 
 # Per taak-id uit `tasks.yaml`: één zin die uitlegt wat die stap doet, voor wie de keten wil
@@ -82,13 +117,22 @@ def _is_papier(regel_id: str) -> bool:
     return False
 
 
+def _is_bevinding(regel_id: str) -> bool:
+    """Een papierregel die iets over **deze** vergunning beweert -- dus niet een sentinelregel.
+    Afgeleid uit `signalen.is_voorbehoud` (en daarmee uit `signalen.DREMPELS`), nooit uit een
+    tweede lijst regel-id's: dezelfde les als bij `Regel.laag`, die precies daarom één
+    `frozenset` is."""
+    return not signalen_mod.is_voorbehoud(regel_id)
+
+
 def _werkelijkheid_kops() -> set[str]:
     """De koppen van de drie werkelijkheidsregels -- voor het filteren van de voorbehouden die
     alleen over hén gaan (zie `_voorbehouden_papier`), afgeleid uit `signalen.REGELS`."""
     return {r.kop for r in signalen_mod.REGELS if r.laag == "werkelijkheid"}
 
 
-def _telling_papier(signalen_lijst: list[dict], aantal_voorschriften: int | None) -> dict:
+def _telling_papier(signalen_lijst: list[dict], aantal_voorschriften: int | None,
+                     aantal_voorbehouden: int = 0) -> dict:
     """Zelfde vorm als `toezicht.dossier._telling`, maar uitsluitend over de gefilterde
     (papier-)lijst -- anders telt dit dossier drie signalen mee die de pagina niet toont.
     `aantal_voorschriften` komt ongewijzigd over uit het volledige dossier (dat telt de hele
@@ -100,12 +144,21 @@ def _telling_papier(signalen_lijst: list[dict], aantal_voorschriften: int | None
         "aantal_voorschriften": aantal_voorschriften,
         "aantal_signalen": len(signalen_lijst),
         "aantal_regels_die_vuurden": len(per_regel),
+        "aantal_voorbehouden": aantal_voorbehouden,
         "per_zwaarte": {z: per_zwaarte.get(z, 0) for z in ("hoog", "midden", "laag")},
         "per_regel": dict(per_regel),
     }
 
 
-def _voorbehouden_papier(voorbehouden: list[str]) -> list[str]:
+def _voorbehoud_zin(signaal: dict) -> str:
+    """Eén sentinelsignaal als voorbehoudzin: de bewering die het signaal al droeg (met haar
+    getal erin -- dat verdwijnt niet, het verhuist alleen van de bevindingenlijst naar het
+    voorbehoud) plus de uitleg waarom zij geen bevinding is."""
+    bewering = signaal.get("bewering") or signaal.get("signaal") or ""
+    return f"{bewering} {_VOORBEHOUD_PER_REGEL[signaal['regel']]}".strip()
+
+
+def _voorbehouden_papier(voorbehouden: list[str], eigen: list[str] | None = None) -> list[str]:
     """Laat alleen de voorbehouden staan die ook over het papier gaan. Een voorbehoud dat een van
     de drie werkelijkheidssignalen noemt (de ontbrekende meetset, het ontbrekende waterlichaam,
     de ontbrekende registercodes, de ontbrekende normenset -- zie `toezicht.dossier.
@@ -113,7 +166,16 @@ def _voorbehouden_papier(voorbehouden: list[str]) -> list[str]:
     verwarren. Herkend op de kop van het signaal, tussen aanhalingstekens in de brontekst van
     `_voorbehouden` zelf -- geen tweede, eigen lijst contextsleutels."""
     kops = _werkelijkheid_kops()
-    return [v for v in voorbehouden if not any(f"'{kop}'" in v for kop in kops)]
+    overgebleven = [v for v in voorbehouden if not any(f"'{kop}'" in v for kop in kops)]
+    eigen = eigen or []
+    if not eigen:
+        return overgebleven
+    # De generieke slotzin (`toezicht.dossier.SLOTZIN`) hoort altijd achteraan te blijven staan;
+    # de eigen voorbehouden van deze pagina komen er net vóór. Herkend op de constante zelf, niet
+    # op een tekstfragment.
+    if overgebleven and overgebleven[-1] == toezicht_dossier.SLOTZIN:
+        return overgebleven[:-1] + eigen + [overgebleven[-1]]
+    return overgebleven + eigen
 
 
 def _stap_uitleg(taak: str | None) -> str:
@@ -169,9 +231,12 @@ def papier_dossier(volledig: dict) -> dict:
     staan maar is niet wat deze pagina toont). `telling` en `voorbehouden` zijn opnieuw afgeleid
     uit de gefilterde lijst. `runlog` krijgt, naast de ongewijzigde `stappen` (nu elk met een
     `uitleg`-zin erbij), een `samenvatting`."""
-    papier_signalen = []
+    papier_signalen, eigen_voorbehouden = [], []
     for s in volledig.get("signalen") or []:
         if not _is_papier(s["regel"]):
+            continue
+        if not _is_bevinding(s["regel"]):
+            eigen_voorbehouden.append(_voorbehoud_zin(s))
             continue
         nieuw = dict(s)
         nieuw["reparatie"] = _REPARATIE_PER_REGEL[s["regel"]]
@@ -185,8 +250,10 @@ def papier_dossier(volledig: dict) -> dict:
     return {
         "kaart": volledig.get("kaart"),
         "signalen": papier_signalen,
-        "telling": _telling_papier(papier_signalen, aantal_voorschriften),
-        "voorbehouden": _voorbehouden_papier(volledig.get("voorbehouden") or []),
+        "telling": _telling_papier(papier_signalen, aantal_voorschriften,
+                                    len(eigen_voorbehouden)),
+        "voorbehouden": _voorbehouden_papier(volledig.get("voorbehouden") or [],
+                                              eigen_voorbehouden),
         "runlog": {
             "uitgezet": runlog.get("uitgezet", []),
             "stappen": stappen_met_uitleg,

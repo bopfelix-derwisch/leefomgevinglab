@@ -410,6 +410,13 @@ def _telling(vestiging: dict, signalen_lijst: list[dict]) -> dict:
     }
 
 
+# De generieke slotzin van elk voorbehouden-blok, als constante in plaats van inline: zij staat
+# altijd áchteraan, en `wasstraat.dossier._voorbehouden_papier` moet haar kunnen herkennen om de
+# eigen voorbehouden ervóór te kunnen zetten zonder op de tekst te raden.
+SLOTZIN = ("Een signaal in dit dossier stelt nooit vast dat iets niet mag; het vraagt aandacht "
+           "voor nader onderzoek, meer niet.")
+
+
 def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
     """Wat dit dossier niet kon toetsen, in woorden -- nooit een vaststelling (zelfde taalregel
     als de signalen zelf). De uitgezette-agent-zin staat altijd vooraan: dat is waar een latere
@@ -438,9 +445,7 @@ def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
             "Geen Aquo-codes met een KRW-norm aangeleverd (context['stoffen_met_norm'] ontbreekt "
             "of is leeg): het signaal 'geen onafhankelijke meting' kan voor deze vestiging niet "
             "boven 'midden' uitkomen.")
-    voorbehouden.append(
-        "Een signaal in dit dossier stelt nooit vast dat iets niet mag; het vraagt aandacht voor "
-        "nader onderzoek, meer niet.")
+    voorbehouden.append(SLOTZIN)
     return voorbehouden
 
 

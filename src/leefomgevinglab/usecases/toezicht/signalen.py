@@ -113,6 +113,12 @@ class Regel(NamedTuple):
         return _laag(self.id)
 
 
+# De sentinelwaarde in `DREMPELS` voor een regel die per ontwerp altijd `laag` weegt: geen
+# telling om te halen, maar "deze regel is een voorbehoud, geen bevinding". Eén constante in
+# plaats van het getal 99 op drie plekken (de tabel, `zwaarte()` en `is_voorbehoud()`), zodat die
+# drie niet uit de pas kunnen lopen.
+ALTIJD_LAAG = 99
+
 # Per regel: de drempel waarboven het signaal zwaar weegt, en wat `omvang` daar betekent.
 # Eén tabel in plaats van zes if-takken, zodat de drempel te zien is zonder de code te lezen.
 DREMPELS = {
@@ -124,9 +130,28 @@ DREMPELS = {
     "norm_overschreden_bovenstrooms": (1, "aantal overschreden stoffen benedenstrooms"),
     "stof_buiten_register":       (1, "aantal gemeten stoffen zonder enig voorschrift"),
     "vergunning_niet_te_vinden":  (3, "aantal ontbrekende identificerende velden"),
-    "niet_regime_zuiver":         (99, "altijd laag; dit is een voorbehoud, geen bevinding"),
-    "geen_geldigheidsduur":       (99, "altijd laag; geldt voor het hele register"),
+    "niet_regime_zuiver":         (ALTIJD_LAAG, "altijd laag; dit is een voorbehoud, geen bevinding"),
+    "geen_geldigheidsduur":       (ALTIJD_LAAG, "altijd laag; geldt voor het hele register"),
 }
+
+
+def is_voorbehoud(regel_id: str) -> bool:
+    """Of deze regel per ontwerp een **voorbehoud** is in plaats van een bevinding -- afgeleid uit
+    `DREMPELS`, nooit uit een tweede lijst regel-id's.
+
+    Dit is een **tweede as**, los van `Regel.laag` (papier of werkelijkheid): die eerste zegt wie
+    de lezer is, deze zegt of een regel iets over dít dossier beweert. Een regel met de
+    `ALTIJD_LAAG`-sentinel vuurt met opzet op elk dossier waar haar voorwaarde geldt en weegt
+    altijd `laag` (zie `zwaarte()`); haar uitkomst is dus een voorbehoud bij alles wat eromheen
+    staat, geen bevinding die iemand kan oplossen. De twee van vandaag zeggen dat zelf al in hun
+    docstring: `niet_regime_zuiver` vuurt juist *omdat* het regime er staat, en
+    `geen_geldigheidsduur` constateert een tekort van de Atlas dat voor het hele register in één
+    keer geldt.
+
+    Een onbekende regel-id werpt een `KeyError`, net als `zwaarte()`: een regel zonder drempel is
+    een vergeten keuze, geen voorbehoud."""
+    drempel, _ = DREMPELS[regel_id]
+    return drempel >= ALTIJD_LAAG
 
 
 # Regels waarvan de zwaarte afhangt van het bestaan van een norm: zonder norm is er niets om de
@@ -143,7 +168,7 @@ def zwaarte(regel_id: str, omvang: float, norm_aanwezig: bool = False) -> str:
     voorschriften. Een onbekende regel werpt een KeyError in plaats van stil `laag` te geven:
     een nieuwe regel zonder drempel is een vergeten keuze, niet een lichte bevinding.
 
-    Drempel `99` is geen telling om te halen maar een sentinel (zie `DREMPELS`,
+    Drempel `ALTIJD_LAAG` is geen telling om te halen maar een sentinel (zie `DREMPELS`,
     `niet_regime_zuiver` en `geen_geldigheidsduur`): zo'n regel weegt per ontwerp altijd `laag`,
     wat de werkelijke omvang ook is. Die garantie zit daarom hier, in de afleiding zelf, en niet
     in een nep-omvang die een aanroeper verzint om er toevallig op uit te komen -- anders stopt
@@ -156,7 +181,7 @@ def zwaarte(regel_id: str, omvang: float, norm_aanwezig: bool = False) -> str:
     `norm_aanwezig`.
     """
     drempel, _ = DREMPELS[regel_id]
-    if drempel >= 99:
+    if drempel >= ALTIJD_LAAG:
         return "laag"
     if omvang >= drempel:
         if regel_id in NORM_BEPAALT_ZWAARTE and not norm_aanwezig:

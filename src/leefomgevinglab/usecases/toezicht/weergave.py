@@ -10,7 +10,8 @@ werkelijkheidssignalen (`signalen.Regel.laag == "werkelijkheid"`) en voegt twee 
 geen van de twee andere modules kan leveren:
 
 - **`wasstraat`** — is het papier van déze vestiging op orde, en zo niet hoeveel bevindingen
-  staan open. Geteld uit de **papier**-signalen van datzelfde, al-berekende dossier, niet door de
+  staan open. Geteld uit de **papierbevindingen** van datzelfde, al-berekende dossier (de vijf
+  papierregels die geen sentinel zijn, zie `_is_papierbevinding`), niet door de
   wasstraat-pijplijn nog een keer te draaien: de zeven papierregels hebben geen context nodig
   (dat is precies waarom zij op `/wasstraat` staan) en vuren dus identiek, met of zonder de
   context die deze route voor de drie werkelijkheidsregels aanlevert. Dit is **context voor de
@@ -62,13 +63,33 @@ def _telling_werkelijkheid(signalen_lijst: list[dict], aantal_voorschriften: int
     }
 
 
+def _is_papierbevinding(regel_id: str) -> bool:
+    """Een papierregel die iets over **deze** vergunning beweert.
+
+    **Eindreview, must-fix 5+6.** Hier stond eerder alleen `not _is_werkelijkheid(...)`, en
+    daardoor telden twee sentinelregels mee die op bijna elke vergunning in het register vuren:
+    `geen_geldigheidsduur` op 69 van de 69 (de Atlas kent geen geldigheidsperiode per voorschrift)
+    en `niet_regime_zuiver` op 68 van de 69 (de regel vuurt juist als het regime er staat). Het
+    minimum over het hele register was daarmee 1 en `op_orde` was onbereikbaar — de True-tak op
+    `toezicht.html` was dode code. Erger: een inspecteur die "13 open" tegen "5 open" legde, las
+    een rangorde waarvan 2 van elk getal een register-brede constante was en dus niets over die
+    vergunning zei. De tweede as (`signalen.is_voorbehoud`, afgeleid uit de `ALTIJD_LAAG`-drempel)
+    houdt die twee er nu buiten; zij staan op `/wasstraat` in het voorbehouden-blok, zie
+    `wasstraat.dossier`."""
+    return not _is_werkelijkheid(regel_id) and not signalen_mod.is_voorbehoud(regel_id)
+
+
 def wasstraat_samenvatting(alle_signalen: list[dict]) -> dict:
     """Is het papier van deze vestiging op orde, en zo niet hoeveel bevindingen staan open —
-    geteld uit de papiersignalen van het al-berekende volledige dossier (`alle_signalen`, alle
-    tien), niet door de wasstraat-pijplijn nog een keer te draaien. Context voor de inspecteur,
-    geen opdracht: de pagina presenteert dit als één regel met een link, nooit als een oordeel
-    over of er bezocht moet worden."""
-    aantal_open = sum(1 for s in alle_signalen if not _is_werkelijkheid(s["regel"]))
+    geteld uit de **papierbevindingen** van het al-berekende volledige dossier (`alle_signalen`,
+    alle tien), niet door de wasstraat-pijplijn nog een keer te draaien. Context voor de
+    inspecteur, geen opdracht: de pagina presenteert dit als één regel met een link, nooit als een
+    oordeel over of er bezocht moet worden.
+
+    De twee sentinelregels tellen hier niet mee — zie `_is_papierbevinding` voor waarom dat het
+    verschil maakt tussen een getal dat over deze vergunning gaat en een getal dat over het
+    register gaat."""
+    aantal_open = sum(1 for s in alle_signalen if _is_papierbevinding(s["regel"]))
     return {"op_orde": aantal_open == 0, "aantal_open": aantal_open, "pad": "/wasstraat"}
 
 

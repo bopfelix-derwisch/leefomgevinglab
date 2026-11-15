@@ -52,6 +52,7 @@
 
     .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
       color:var(--dim); margin:28px 0 10px; }
+    .section-noot { font-size:11.5px; color:var(--dim); margin:-6px 0 10px; max-width:74ch; }
 
     .kiezer { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:14px;
       background:var(--panel); border:1px solid var(--border); border-radius:10px;
@@ -168,19 +169,27 @@
       <h2>Is deze vergunning handhaafbaar opgeschreven?</h2>
       <p>Niet "waar moet een toezichthouder gaan kijken", maar "wat moet hier recht". Zeven
         deterministische regels (geen taalmodel, geen netwerk) op het Maas-lozingenregister van de
-        <b>Atlas voor een Schone Maas</b> toetsen of elke vergunning tegen zichzelf klopt — met
-        bewijs en, per bevinding, de reparatie die eruit volgt. De drie regels die meetdata nodig
-        hebben, staan op <a href="/toezicht">/toezicht</a>, bij de toezichthouder.</p>
+        <b>Atlas voor een Schone Maas</b> toetsen of elke vergunning tegen zichzelf klopt. <b>Vijf
+        daarvan leveren een bevinding op</b>, elk met bewijs en de reparatie die eruit volgt; de
+        andere twee zijn een <b>voorbehoud</b> &mdash; ze vuren op vrijwel elke vergunning in het
+        register en zeggen dus niets over déze. Die twee staan onder de bevindingen, niet ertussen.
+        De drie regels die meetdata nodig hebben, staan op
+        <a href="/toezicht">/toezicht</a>, bij de toezichthouder.</p>
     </div>
 
     <div class="uitleg">
       <p><b>Wat hier gebeurt.</b> Het register komt binnen en wordt ontdubbeld (een letterlijk
         herhaald voorschrift telt maar één keer). Elke parameter gaat tegen de Aquo-domeintabel —
         een geldige code, een ingetrokken code, of geen koppeling. Daarna kijken zeven regels of
-        de vergunning <i>tegen zichzelf</i> klopt: een grenswaarde op een ingetrokken code, een
-        parameter buiten de referentie, twee grenswaarden voor dezelfde stof, een concentratie
-        zonder debiet, een ontbrekend identificerend veld, een onvermeld bemonsteringsregime, geen
-        geldigheidsperiode. Geen taalmodel in die zeven regels — rekenen en vergelijken.</p>
+        de vergunning <i>tegen zichzelf</i> klopt. <b>Vijf leveren een bevinding op:</b> een
+        grenswaarde op een ingetrokken code, een parameter buiten de referentie, twee
+        grenswaarden voor dezelfde stof in dezelfde eenheid, een concentratie zonder debiet, een
+        ontbrekend identificerend veld. <b>Twee zijn een voorbehoud:</b> het bemonsteringsregime
+        dat een meting niet meldt &mdash; die regel vuurt juist omdát het regime in de vergunning
+        staat &mdash; en de ontbrekende geldigheidsperiode, die de Atlas per voorschrift
+        helemaal niet voert. Aan die twee valt aan het papier niets te repareren, dus ze staan
+        hieronder bij de voorbehouden. Geen taalmodel in die zeven regels &mdash; rekenen en
+        vergelijken.</p>
     </div>
 
     <div class="kiezer">
@@ -193,7 +202,11 @@
     <div class="section-title">De kaart van deze vergunning</div>
     <div class="kaart" id="kaart"></div>
 
-    <div class="section-title">De zeven bevindingen (<span id="aantalsignalen">0</span>)</div>
+    <div class="section-title">De bevindingen (<span id="aantalsignalen">0</span>)</div>
+    <div class="section-noot">Vijf van de zeven papierregels kunnen hier een bevinding opleveren,
+      elk met de reparatie die eruit volgt. De twee andere &mdash; het bemonsteringsregime en de
+      geldigheidsperiode &mdash; vuren op vrijwel elke vergunning in het register en staan daarom
+      hieronder als voorbehoud, met hun aantal erbij.</div>
     <div class="signalen" id="signalen"></div>
     <ul class="voorbehouden" id="voorbehouden"></ul>
 

@@ -26,17 +26,28 @@ VOLLEDIG = {
 
 # -- wasstraat_samenvatting -----------------------------------------------------------------
 
-def test_wasstraat_samenvatting_telt_alleen_de_papiersignalen():
+def test_wasstraat_samenvatting_telt_alleen_de_papierbevindingen():
+    """`geen_geldigheidsduur` is een sentinelregel (`signalen.is_voorbehoud`) en telt dus niet
+    mee -- alleen `vervallen_code` blijft over (eindreview, must-fix 5+6)."""
     s = weergave.wasstraat_samenvatting(VOLLEDIG["signalen"])
-    assert s["aantal_open"] == 2  # vervallen_code + geen_geldigheidsduur
+    assert s["aantal_open"] == 1
     assert s["op_orde"] is False
     assert s["pad"] == "/wasstraat"
 
 
-def test_wasstraat_samenvatting_is_op_orde_zonder_papiersignalen():
-    alleen_werkelijkheid = [s for s in VOLLEDIG["signalen"]
-                             if s["regel"] in ("geen_onafhankelijke_meting", "stof_buiten_register")]
-    s = weergave.wasstraat_samenvatting(alleen_werkelijkheid)
+def test_wasstraat_samenvatting_is_op_orde_op_een_vergunning_met_alleen_voorbehouden():
+    """De True-tak op een toestand die het register wél kent.
+
+    Vóór must-fix 5+6 toetste deze test de True-tak op een lege signaallijst -- een vergunning
+    zonder enig papiersignaal, en die bestaat in het Maas-register niet: `geen_geldigheidsduur`
+    vuurt op 69 van de 69 en `niet_regime_zuiver` op 68 van de 69, dus het minimum was 1 en
+    `op_orde` was onbereikbaar. Hier staat de echte toestand: twee werkelijkheidssignalen plus de
+    twee sentinelvoorbehouden die élke vergunning draagt, en geen bevinding. Dát is "het papier
+    is op orde"."""
+    met_voorbehouden = [s for s in VOLLEDIG["signalen"] if s["regel"] != "vervallen_code"]
+    assert {s["regel"] for s in met_voorbehouden} == {
+        "geen_geldigheidsduur", "geen_onafhankelijke_meting", "stof_buiten_register"}
+    s = weergave.wasstraat_samenvatting(met_voorbehouden)
     assert s["aantal_open"] == 0
     assert s["op_orde"] is True
 
@@ -59,7 +70,7 @@ def test_werkelijkheid_dossier_telt_opnieuw_over_de_gefilterde_lijst():
 
 def test_werkelijkheid_dossier_draagt_de_wasstraat_samenvatting():
     d = weergave.werkelijkheid_dossier(VOLLEDIG)
-    assert d["wasstraat"]["aantal_open"] == 2
+    assert d["wasstraat"]["aantal_open"] == 1
     assert d["wasstraat"]["op_orde"] is False
 
 
