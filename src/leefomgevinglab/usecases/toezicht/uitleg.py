@@ -63,6 +63,7 @@ triggerwoorden, want die komen niet uit chemische nomenclatuur maar uit dit lab 
 import re
 
 from leefomgevinglab.usecases.kmg import proclaimer as proclaimer_mod
+from leefomgevinglab.usecases.toezicht.woordvorm import hoofdletter_bij_zinsbegin
 
 _VERBODEN = ("overtreding", "veroorzaakt door", "in strijd met")
 
@@ -114,7 +115,17 @@ def _aquo_treffers(vraag_lower: str, aquo_ref: dict) -> list[dict]:
     "geldig" en "ingetrokken" over precies dezelfde naam, in één `waarom`-tekst geplakt. `aquo.
     verrijk()` kent dit geval al en laat de geldige code winnen (zie haar eigen test
     `test_een_naam_met_zowel_een_geldige_als_een_ingetrokken_rij_telt_als_geldig`); deze functie
-    past nu dezelfde regel toe, in plaats van er een eigen, afwijkende voorrang naast te zetten."""
+    past nu dezelfde regel toe, in plaats van er een eigen, afwijkende voorrang naast te zetten.
+
+    **Fix-ronde 2 (publieke review op `/toezicht`, 2026-11-14).** `naam` komt uit `aquo.laad()`,
+    die elke naam als dict-sleutel altijd volledig kleine letters geeft (zie `aquo.py`) -- dus
+    elke `naam` hier is bijvoorbeeld "ijzer", nooit "Ijzer" of "IJzer". `naam.capitalize()` gaf
+    daarop "Ijzer": `str.capitalize()` kent de Nederlandse ij-digraaf niet (bij een hoofdletter
+    worden het er twee, "IJzer"). `hoofdletter_bij_zinsbegin()` (uit `woordvorm.py`, dezelfde
+    reparatie als `dossier._bewering`'s ratio-tak) raakt dat wél goed, en verlaagt -- in
+    tegenstelling tot `.capitalize()` -- ook nooit de rest van het woord; hier zonder gevolg
+    omdat die rest door `aquo.laad()` al volledig kleine letters is, maar wel de juiste reden om
+    niet gewoon weer `.capitalize()` elders te kopiëren."""
     uit = []
     geldig = aquo_ref.get("geldig") or {}
     vervallen = aquo_ref.get("vervallen") or {}
@@ -123,8 +134,8 @@ def _aquo_treffers(vraag_lower: str, aquo_ref: dict) -> list[dict]:
         if not _bevat_stofnaam(vraag_lower, naam):
             continue
         uit.append({
-            "tekst": f"'{naam.capitalize()}' is in de Aquo-domeintabel Parameter een geldige "
-                     f"parameter (code {code}).",
+            "tekst": f"'{hoofdletter_bij_zinsbegin(naam)}' is in de Aquo-domeintabel Parameter "
+                     f"een geldige parameter (code {code}).",
             "vindplaats": f"Aquo-domeintabel Parameter, code {code}, status Geldig",
         })
     for naam, code in vervallen.items():
@@ -138,8 +149,8 @@ def _aquo_treffers(vraag_lower: str, aquo_ref: dict) -> list[dict]:
         vervolg = (f" Vervangen door code {vervanger}." if vervanger
                    else " Er is geen vervangende code geregistreerd.")
         uit.append({
-            "tekst": f"'{naam.capitalize()}' is in de Aquo-domeintabel Parameter ingetrokken "
-                     f"(code {code}, status Vervallen).{vervolg}",
+            "tekst": f"'{hoofdletter_bij_zinsbegin(naam)}' is in de Aquo-domeintabel Parameter "
+                     f"ingetrokken (code {code}, status Vervallen).{vervolg}",
             "vindplaats": f"Aquo-domeintabel Parameter, code {code}, status Vervallen",
         })
     return uit

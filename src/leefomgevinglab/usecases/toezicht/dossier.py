@@ -67,6 +67,7 @@ from collections import Counter
 from leefomgevinglab.usecases.kmg.lozingsmodel import ZEKERHEDEN
 from leefomgevinglab.usecases.maaskaart import GRONDSLAG
 from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
+from leefomgevinglab.usecases.toezicht.woordvorm import hoofdletter_bij_zinsbegin
 
 # Geen van de tien regels levert vandaag een `aangenomen`-zekerheid op (zie `_HERKOMST_PER_REGEL`
 # hieronder), vandaar de `_` -- de volgorde komt wel uit `ZEKERHEDEN` zelf, niet opnieuw getypt.
@@ -304,6 +305,23 @@ def _kies_vorm(n: int, enkelvoud: str, meervoud: str, **velden) -> str:
     return sjabloon.format(n=n, **velden)
 
 
+def _eenheid_van_bewijs(bewijs: list[dict] | None) -> str | None:
+    """De eenheid van één signaalexemplaar van `meerdere_grenswaarden`, gelezen van het eerste
+    bewijsvoorschrift. Die regel groepeert op `(parameter, eenheid)` (zie `signalen.
+    regel_meerdere_grenswaarden`), dus binnen één exemplaar is de eenheid altijd gelijk -- en dat
+    is precies waarom dezelfde parameter *twee* exemplaren kan opleveren: één per eenheidsgroep.
+
+    **Fix-ronde 2 (publieke review).** Zonder de eenheid in de bewering waren twee van die
+    exemplaren bij Tata Steel (Warmte, megajoule per dag naast megajoule per jaar) woordelijk
+    identiek -- beide rondden toevallig af op dezelfde factor ("2,5×"). De eenheid staat er
+    hieronder **altijd** bij, niet alleen zodra er toevallig meer dan één groep is: dat is
+    eenvoudiger dan zelf tellen hoeveel groepen een parameter heeft, en blijft kloppen als een
+    derde eenheidsgroep er ooit bijkomt."""
+    if not bewijs:
+        return None
+    return bewijs[0].get("eenheid")
+
+
 def _stof_van_bewijs(bewijs: list[dict] | None) -> str:
     """De naam van de stof waarover één signaalexemplaar gaat, gelezen van het eerste
     bewijsvoorschrift (`bewijs[0]["parameter"]`) -- nooit geraden, nooit uit `omvang` afgeleid
@@ -336,16 +354,25 @@ def _bewering(omvang: float, regel_id: str, bewijs: list[dict] | None = None) ->
         # een `ValueError` op `.1f` (die bestaat niet voor `inf`, maar de tekst zelf zou onleesbaar
         # zijn). De stof komt vóór "draagt" (zinsbegin), met een hoofdletter ook als de bron de
         # naam met een kleine letter schrijft -- een Nederlandse zin begint met een hoofdletter,
-        # los van hoe de bron een parameternaam spelt.
+        # los van hoe de bron een parameternaam spelt. `hoofdletter_bij_zinsbegin` (niet
+        # `str.capitalize()`/`stof[0].upper()`) houdt de ij-digraaf intact: "ijzer" -> "IJzer",
+        # niet "Ijzer" (fix-ronde 2, publieke review -- zie `woordvorm.py`).
         stof = _stof_van_bewijs(bewijs)
-        stof_bij_zinsbegin = stof[0].upper() + stof[1:] if stof else stof
+        stof_bij_zinsbegin = hoofdletter_bij_zinsbegin(stof)
+        # De eenheid staat er altijd bij (fix-ronde 2), want deze regel groepeert op
+        # `(parameter, eenheid)`: dezelfde parameter kan dus twee exemplaren opleveren, één per
+        # eenheidsgroep, en zonder de eenheid waren die bij Tata Steel (Warmte) woordelijk
+        # identiek -- zie `_eenheid_van_bewijs`.
+        eenheid = _eenheid_van_bewijs(bewijs)
+        eenheid_zin = f" in {eenheid}" if eenheid else ""
         if omvang == float("inf"):
-            return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde, "
-                     "waarvan er één 0 is -- de laagste en de hoogste staan daardoor niet in een "
-                     "zinvolle verhouding tot elkaar.")
+            return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde"
+                     f"{eenheid_zin}, waarvan er één 0 is -- de laagste en de hoogste staan "
+                     "daardoor niet in een zinvolle verhouding tot elkaar.")
         factor = f"{omvang:.1f}".replace(".", ",", 1)
-        return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde, met "
-                 f"een factor {factor}× verschil tussen de hoogste en de laagste.")
+        return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde"
+                 f"{eenheid_zin}, met een factor {factor}× verschil tussen de hoogste en de "
+                 "laagste.")
     enkelvoud, meervoud = _BEWERING_PER_REGEL[regel_id]
     velden = {"stof": _stof_van_bewijs(bewijs)} if regel_id == "geen_onafhankelijke_meting" else {}
     return _kies_vorm(round(omvang), enkelvoud, meervoud, **velden)

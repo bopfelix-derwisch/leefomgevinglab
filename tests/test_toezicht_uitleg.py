@@ -104,6 +104,18 @@ def test_zoek_bronnen_vindt_een_geldige_aquo_naam():
     assert "Zn" in treffers[0]["vindplaats"]
 
 
+def test_zoek_bronnen_houdt_de_ij_digraaf_intact():
+    """Fix-ronde 2 (publieke review op `/toezicht`, 2026-11-14): `aquo.laad()` geeft elke naam
+    als dict-sleutel volledig kleine letters, dus "ijzer" komt hier binnen zonder hoofdletter.
+    `str.capitalize()` gaf daarop "Ijzer" -- de Nederlandse ij-digraaf wordt bij een hoofdletter
+    "IJ", geen enkele losse letter. Gerepareerd via `woordvorm.hoofdletter_bij_zinsbegin`."""
+    aquo_ref = {"geldig": {"ijzer": "Fe"}, "vervallen": {}, "vervangen_door": {}}
+    treffers = uitleg.zoek_bronnen("Wat betekent ijzer hier?", 3, aquo_ref=aquo_ref)
+    assert len(treffers) == 1
+    assert "'IJzer'" in treffers[0]["tekst"]
+    assert "'Ijzer'" not in treffers[0]["tekst"]
+
+
 def test_zoek_bronnen_vindt_een_ingetrokken_aquo_naam_met_vervanger():
     aquo_ref = {"geldig": {}, "vervallen": {"zwevende stof": "ZS"},
                 "vervangen_door": {"zwevende stof": "ZSNIEUW"}}
