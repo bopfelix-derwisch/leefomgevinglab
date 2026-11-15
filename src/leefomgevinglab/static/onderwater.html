@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Onder water: de anatomie van wasstraat en toezicht</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      --papier:#e8b84b; --werkelijk:#4fc3f7; --weg:#ff7a6b; }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); flex:none; }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--border);
+      color:var(--muted); }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .waternav { display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+                padding:10px 20px; background:var(--panel);
+                border-bottom:1px solid var(--border); }
+    .waternav-kop { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+                    color:var(--dim); margin-right:10px; }
+    .waternav a { color:var(--dim); text-decoration:none; font-size:13px;
+                  padding:5px 11px; border-radius:6px; }
+    .waternav a:hover { color:var(--text); background:#12283f; }
+    .waternav a[aria-current] { color:var(--bg); background:var(--accent); font-weight:600; }
+
+    .wrap { max-width:940px; margin:0 auto; padding:0 20px 60px; }
+
+    .hero { padding:20px 0 16px; border-bottom:1px solid var(--border); }
+    .hero h2 { font-size:24px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero p { color:var(--muted); font-size:13.5px; max-width:76ch; }
+    .hero b { color:var(--text); }
+
+    .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--dim); margin:30px 0 10px; }
+    .section-noot { font-size:11.5px; color:var(--dim); margin:-6px 0 12px; max-width:76ch; }
+
+    /* Onderdelen: wat / waarom / waar. `waarom` is het veld dat deze pagina onderscheidt van
+       een gegenereerde API-referentie, dus het krijgt de nadruk en niet de kleine letter. */
+    .onderdelen { display:grid; gap:12px; }
+    .onderdeel { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; }
+    .onderdeel h3 { font-size:14.5px; color:#eafff6; margin-bottom:6px; }
+    .onderdeel .wat { font-size:13px; color:var(--text); max-width:78ch; }
+    .onderdeel .waarom { font-size:13px; color:var(--muted); margin-top:7px; max-width:78ch;
+      border-left:2px solid var(--accent2); padding-left:11px; }
+    .onderdeel .waar { font-size:11px; color:var(--dim); margin-top:8px; font-family:ui-monospace,
+      'SF Mono',Menlo,monospace; }
+
+    /* De twee pagina's naast elkaar, met hun eigen afgeleide aantallen. */
+    .paginas { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .pagina { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; }
+    .pagina .pad { font-size:13px; font-weight:700; color:var(--accent); text-decoration:none; }
+    .pagina .lezer { font-size:11.5px; color:var(--dim); margin-top:2px; }
+    .pagina .vraag { font-size:14px; color:#eafff6; margin-top:9px; font-style:italic; }
+    .pagina .cijfers { margin-top:11px; display:flex; gap:16px; flex-wrap:wrap; }
+    .pagina .cijfer { font-size:11.5px; color:var(--muted); }
+    .pagina .cijfer b { display:block; font-size:21px; color:var(--text); font-weight:800;
+      line-height:1.2; font-variant-numeric:tabular-nums; }
+
+    /* De regels, gegroepeerd op pagina en rol. */
+    .regelgroep { margin-top:14px; }
+    .regelgroep > .kop { font-size:12.5px; color:var(--text); margin-bottom:7px;
+      display:flex; align-items:center; gap:8px; }
+    .pil { font-size:10px; padding:2px 8px; border-radius:10px; border:1px solid var(--border);
+      color:var(--dim); }
+    .pil.papier { color:var(--papier); border-color:#4a3a14; }
+    .pil.werkelijk { color:var(--werkelijk); border-color:#13415c; }
+    .pil.voorbehoud { color:var(--dim); }
+    .regel { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:11px 14px; margin-bottom:8px; }
+    .regel .naam { font-size:13.5px; color:#eafff6; font-weight:600; }
+    .regel .id { font-size:10.5px; color:var(--dim); font-family:ui-monospace,'SF Mono',Menlo,
+      monospace; margin-left:7px; }
+    .regel .uitleg { font-size:12.5px; color:var(--muted); margin-top:5px; max-width:78ch; }
+    .regel .meta { font-size:11.5px; color:var(--dim); margin-top:7px; display:flex; gap:18px;
+      flex-wrap:wrap; }
+    .regel .meta b { color:var(--muted); font-weight:600; }
+
+    /* Openklapbare rijen -- agents hier en op /wasstraat. Een <details> doet dit zonder JS,
+       dus zonder toetsenbordval: de samenvatting is van zichzelf al focusbaar. */
+    details.kaartje { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      margin-bottom:8px; }
+    details.kaartje > summary { padding:11px 14px; cursor:pointer; list-style:none;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    details.kaartje > summary::-webkit-details-marker { display:none; }
+    details.kaartje > summary::before { content:"▸"; color:var(--dim); font-size:11px;
+      flex:none; transition:transform .12s; }
+    details.kaartje[open] > summary::before { transform:rotate(90deg); }
+    details.kaartje > summary:hover { background:#12283f; border-radius:9px; }
+    details.kaartje > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    details.kaartje .rol { font-size:13.5px; color:#eafff6; font-weight:600; }
+    details.kaartje .agentid { font-size:10.5px; color:var(--dim);
+      font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+    details.kaartje .rechts { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    .ja { color:var(--papier); font-size:11px; }
+    .nee { color:var(--dim); font-size:11px; }
+    .binnen { padding:0 14px 13px; border-top:1px solid var(--border); margin-top:2px; }
+    .veld { margin-top:10px; }
+    .veld .label { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--dim); }
+    .veld .waarde { font-size:12.5px; color:var(--text); max-width:78ch; }
+    .veld .waarde.mono { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11.5px;
+      color:var(--muted); }
+    .veld .waarde.leeg { color:var(--dim); font-style:italic; }
+
+    /* De pijplijn als keten. */
+    .keten { display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; }
+    .stap { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:10px 13px; flex:1 1 190px; min-width:0; }
+    .stap .nr { font-size:10px; color:var(--dim); }
+    .stap .taak { font-size:12.5px; color:#eafff6; font-weight:600; word-break:break-word; }
+    .stap .agent { font-size:11.5px; color:var(--muted); margin-top:3px; }
+    .stap .ctx { font-size:10.5px; color:var(--dim); margin-top:6px; }
+
+    .grens { background:var(--panel2); border:1px solid var(--border); border-radius:10px;
+      padding:13px 16px; margin-top:12px; }
+    .grens .rij { font-size:12.5px; color:var(--muted); margin-top:6px; }
+    .grens .rij:first-child { margin-top:0; }
+    .grens .rij b { color:var(--text); }
+    .grens code { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11.5px;
+      color:var(--accent); }
+
+    table.rijen { width:100%; border-collapse:collapse; font-size:12.5px; }
+    table.rijen th { text-align:left; font-size:10px; text-transform:uppercase;
+      letter-spacing:.07em; color:var(--dim); font-weight:600; padding:0 10px 7px;
+      border-bottom:1px solid var(--border); }
+    table.rijen td { padding:9px 10px; border-bottom:1px solid #112a42; vertical-align:top;
+      color:var(--muted); }
+    table.rijen tr:last-child td { border-bottom:none; }
+    table.rijen td.naam { color:var(--text); font-weight:600; }
+    table.rijen td.mono { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11.5px; }
+    .tabelhuls { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 5px 6px; overflow-x:auto; }
+
+    .bron { background:var(--panel); border:1px solid var(--border); border-radius:9px;
+      padding:12px 15px; margin-bottom:8px; }
+    .bron .naam { font-size:13.5px; color:#eafff6; font-weight:600; }
+    .bron .houder { font-size:11.5px; color:var(--dim); margin-top:1px; }
+    .bron .levert { font-size:12.5px; color:var(--text); margin-top:7px; max-width:78ch; }
+    .bron .rij { font-size:11.5px; color:var(--muted); margin-top:5px; max-width:78ch; }
+    .bron .rij .label { color:var(--dim); }
+    .bron .rij.licentie { color:var(--papier); }
+    .bron .waar { font-size:10.5px; color:var(--dim); margin-top:6px;
+      font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+
+    .ontbreekt { color:var(--weg); }
+
+    footer { margin-top:38px; padding-top:16px; border-top:1px solid var(--border);
+      font-size:11.5px; color:var(--dim); }
+    footer p { margin-bottom:7px; max-width:80ch; }
+    footer b { color:var(--muted); }
+
+    .status { font-size:12px; color:var(--dim); }
+
+    @media (max-width:640px) {
+      .wrap { padding:0 14px 50px; }
+      .paginas { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">onder water</span>
+    <nav><a href="/">Home</a><a href="/water">Waterdossier</a></nav>
+  </header>
+  __WATERNAV__
+
+  <div class="wrap">
+    <div class="hero">
+      <h2>Wat gebeurt er onder water?</h2>
+      <p>In dit lab is de <b>herkomst</b> van de gegevens zichtbaar: elke pagina noemt haar
+        bronnen. De <b>bewerking</b> niet. Welke regel vuurt waarop, met welke drempel, welke
+        agent doet wat, en waar mag een taalmodel bij komen — dat staat verspreid over YAML, een
+        signaalcatalogus, een runner en twee routes. Deze pagina brengt het bij elkaar voor
+        <a href="/wasstraat">/wasstraat</a> en <a href="/toezicht">/toezicht</a>.</p>
+      <p style="margin-top:9px"><b>Alle aantallen hieronder zijn afgeleid uit de code</b>, geen
+        enkele is ingetypt. Dat is geen nettigheid: een uitlegpagina die haar getallen typt gaat
+        liegen zodra de code verschuift, en juist hier heeft u niets anders om dat tegen te
+        houden. Komt er een elfde regel bij, dan staat hij hier van zichzelf.</p>
+    </div>
+
+    <div class="section-title">Hoe het in elkaar zit</div>
+    <div class="onderdelen" id="onderdelen"></div>
+
+    <div class="section-title">Twee lezers, één regelset</div>
+    <p class="section-noot">Dezelfde regels op hetzelfde register, verdeeld over twee pagina's.
+      De aantallen komen uit de regelcatalogus zelf.</p>
+    <div class="paginas" id="paginas"></div>
+
+    <div class="section-title">De regels, met hun drempel</div>
+    <p class="section-noot">Twee assen, en die zijn niet hetzelfde ding. <b>Laag</b>
+      (papier/werkelijkheid) bepaalt op wélke pagina een regel landt: heeft zij meetdata of
+      stroomrichting nodig? <b>Rol</b> bepaalt of een papierregel een bevinding is of een
+      voorbehoud — een regel met drempel 99 vuurt op vrijwel het hele register en zegt dus niets
+      over één vergunning. Die twee verwarren kostte eerder een onbereikbare "op orde"-melding en
+      twee reparatie-instructies die niemand kon uitvoeren.</p>
+    <div id="regels"></div>
+
+    <div class="section-title">De agents — klik een rij open</div>
+    <p class="section-noot">Rol, doel, achtergrond, tools en eventueel een taalmodel, precies
+      zoals de runner ze uit <span class="agentsbron" id="agentsbron">de configuratie</span>
+      leest. De kolom <b>mag taalmodel</b> is <i>gerechtigdheid</i>, geen gebruik: of er in een
+      run werkelijk een model is aangeroepen staat per stap in de runlog, en op
+      <a href="/toezicht">/toezicht</a> bij de agents die daar hebben gedraaid.</p>
+    <div id="agents"></div>
+
+    <div class="section-title">De pijplijn, in deze volgorde</div>
+    <p class="section-noot">Sequentieel: elke taak krijgt dezelfde staat doorgegeven, en
+      <b>context</b> noemt welke eerdere taken haar voeden.</p>
+    <div class="keten" id="taken"></div>
+
+    <div class="section-title">Waar het taalmodel wel en niet mag komen</div>
+    <div class="grens" id="grens"></div>
+
+    <div class="section-title">De bronnen</div>
+    <p class="section-noot">Met houder, bevragingswijze, licentiepositie en de plek in de code
+      waar zij gelezen wordt — zonder vindplaats is een bronnenlijst niet te controleren, en
+      controleerbaar maken is de hele reden dat deze pagina bestaat.</p>
+    <div id="bronnen"></div>
+
+    <div class="section-title">De configuratiesleutels die het gedrag bepalen</div>
+    <p class="section-noot">Een <b>witte lijst</b>, geen sectiedump: het configuratiebestand
+      draagt ook een wachtwoord en api-headernamen, en die horen niet op een publieke pagina.
+      Paden staan afgekort tot hun laatste twee segmenten. Een sleutel die ontbreekt staat als
+      ontbrekend — stil weglaten zou precies de misconfiguratie verbergen die deze pagina hoort
+      te laten zien.</p>
+    <div class="tabelhuls">
+      <table class="rijen" id="configtabel">
+        <thead><tr><th>Sleutel</th><th>Waarde</th><th>Waarvoor</th>
+          <th>Als hij mist</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p class="status" id="status">Anatomie laden…</p>
+
+    <footer>
+      <p><b>Deze pagina beschrijft, zij bedient niet.</b> Alles hier is alleen-lezen. Wie de
+        agents of de regels wil veranderen, verandert de YAML of de code in de repository — dan
+        is de wijziging ook terug te vinden in de geschiedenis, in plaats van ongezien ingevoerd.</p>
+      <p>Zie ook <a href="/wasstraat">/wasstraat</a> (het papier van een vergunning),
+        <a href="/toezicht">/toezicht</a> (waar te gaan kijken) en het
+        <a href="/water">waterdossier</a>.</p>
+    </footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+      c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+    function veld(label, waarde, mono) {
+      const leeg = waarde == null || waarde === "" ||
+        (Array.isArray(waarde) && !waarde.length);
+      const tekst = leeg ? "— niet in de configuratie" :
+        (Array.isArray(waarde) ? waarde.join(", ") : waarde);
+      return `<div class="veld"><div class="label">${esc(label)}</div>` +
+        `<div class="waarde${mono ? " mono" : ""}${leeg ? " leeg" : ""}">${esc(tekst)}</div></div>`;
+    }
+
+    function tekenOnderdelen(lijst) {
+      $("onderdelen").innerHTML = lijst.map(o =>
+        `<div class="onderdeel"><h3>${esc(o.kop)}</h3>` +
+        `<div class="wat">${esc(o.wat)}</div>` +
+        `<div class="waarom">${esc(o.waarom)}</div>` +
+        `<div class="waar">${esc(o.waar)}</div></div>`
+      ).join("");
+    }
+
+    function tekenPaginas(lijst) {
+      $("paginas").innerHTML = lijst.map(p => {
+        // De cijfers komen uit het antwoord; welke sleutels een pagina heeft verschilt per
+        // pagina, dus ze worden gelezen in plaats van verondersteld.
+        const cijfers = [];
+        if (p.aantal_bevindingen != null)
+          cijfers.push([p.aantal_bevindingen, "bevindingen"]);
+        if (p.aantal_voorbehouden != null)
+          cijfers.push([p.aantal_voorbehouden, "voorbehouden"]);
+        if (p.aantal_signalen != null)
+          cijfers.push([p.aantal_signalen, "signalen"]);
+        return `<div class="pagina">` +
+          `<a class="pad" href="${esc(p.pad)}">${esc(p.label)} →</a>` +
+          `<div class="lezer">voor ${esc(p.lezer)}</div>` +
+          `<div class="vraag">“${esc(p.vraag)}”</div>` +
+          `<div class="cijfers">` + cijfers.map(([n, w]) =>
+            `<div class="cijfer"><b>${esc(n)}</b>${esc(w)}</div>`).join("") +
+          `</div></div>`;
+      }).join("");
+    }
+
+    function tekenRegels(regels) {
+      // Gegroepeerd op pagina en rol, in een vaste leesorde: eerst wat werk oplevert, dan de
+      // voorbehouden, dan de meetkant. De groepen worden uit de regels zelf opgebouwd, zodat een
+      // nieuwe combinatie niet stil wegvalt.
+      const groepen = [
+        { pad: "/wasstraat", rol: "bevinding",
+          kop: "Papier — leveren een bevinding op", pil: "papier" },
+        { pad: "/wasstraat", rol: "voorbehoud",
+          kop: "Papier — voorbehoud, geen bevinding", pil: "voorbehoud" },
+        { pad: "/toezicht", rol: "bevinding",
+          kop: "Werkelijkheid — hebben meetdata of stroomrichting nodig", pil: "werkelijk" },
+      ];
+      let html = "";
+      const gezien = new Set();
+      for (const g of groepen) {
+        const rijen = regels.filter(r => r.pagina === g.pad && r.rol === g.rol);
+        rijen.forEach(r => gezien.add(r.id));
+        if (!rijen.length) continue;
+        html += `<div class="regelgroep"><div class="kop">${esc(g.kop)}` +
+          `<span class="pil ${g.pil}">${esc(g.pad)}</span></div>` +
+          rijen.map(r =>
+            `<div class="regel"><div><span class="naam">${esc(r.kop)}</span>` +
+            `<span class="id">${esc(r.id)}</span></div>` +
+            `<div class="uitleg">${esc(r.uitleg)}</div>` +
+            `<div class="meta"><span><b>drempel</b> ${esc(r.drempel)}</span>` +
+            `<span><b>omvang</b> ${esc(r.omvang_betekent)}</span></div></div>`
+          ).join("") + `</div>`;
+      }
+      // Een regel die in geen groep valt is een echte afwijking (een nieuwe combinatie van laag
+      // en rol). Hem overslaan zou hem verbergen op precies de pagina die alles hoort te tonen.
+      const rest = regels.filter(r => !gezien.has(r.id));
+      if (rest.length) {
+        html += `<div class="regelgroep"><div class="kop ontbreekt">` +
+          `Niet in een bekende groep — nieuwe combinatie van laag en rol</div>` +
+          rest.map(r => `<div class="regel"><div><span class="naam">${esc(r.kop)}</span>` +
+            `<span class="id">${esc(r.id)}</span></div><div class="meta">` +
+            `<span><b>laag</b> ${esc(r.laag)}</span><span><b>rol</b> ${esc(r.rol)}</span>` +
+            `</div></div>`).join("") + `</div>`;
+      }
+      $("regels").innerHTML = html;
+    }
+
+    function tekenAgents(agents) {
+      $("agents").innerHTML = agents.map(a =>
+        `<details class="kaartje"><summary>` +
+          `<span class="rol">${esc(a.role || a.id)}</span>` +
+          `<span class="agentid">${esc(a.id)}</span>` +
+          `<span class="rechts">` +
+            `<span class="nee">${a.taken && a.taken.length
+                 ? esc(a.taken.length) + (a.taken.length === 1 ? " taak" : " taken")
+                 : "geen taak in de pijplijn"}</span>` +
+            `<span class="${a.mag_llm ? "ja" : "nee"}">` +
+              `${a.mag_llm ? "mag taalmodel" : "geen taalmodel"}</span>` +
+          `</span></summary>` +
+          `<div class="binnen">` +
+            veld("Doel", a.goal) +
+            veld("Achtergrond", a.backstory) +
+            veld("Tools", a.tools, true) +
+            veld("Taken in de pijplijn", a.taken, true) +
+            veld("Taalmodel", a.llm, true) +
+          `</div></details>`
+      ).join("");
+    }
+
+    function tekenTaken(taken) {
+      $("taken").innerHTML = taken.map((t, i) =>
+        `<div class="stap"><div class="nr">stap ${i + 1}</div>` +
+        `<div class="taak">${esc(t.id)}</div>` +
+        `<div class="agent">${esc(t.agent || "—")}</div>` +
+        `<div class="ctx">context: ${esc((t.context || []).join(", ") || "geen")}</div></div>`
+      ).join("");
+    }
+
+    function tekenGrens(g) {
+      const mag = g.mag_wel || [];
+      // Geen agentnaam in deze proza: zou een agent zijn taalmodel verliezen, dan zou een
+      // ingetypte naam hier blijven staan en de pagina liegen. Het aantal en de namen komen
+      // daarom uit `mag_wel` zelf.
+      const mocht = mag.length === 1 ? "één agent mág er een"
+                  : `${mag.length} agents mógen er een`;
+      $("grens").innerHTML =
+        `<div class="rij"><b>Mag een taalmodel krijgen:</b> ` +
+          `<code>${esc(mag.join(", ") || "geen")}</code></div>` +
+        `<div class="rij"><b>Krijgt er nooit een:</b> ` +
+          `<code>${esc((g.mag_niet || []).join(", ") || "geen")}</code> — die grens staat in de ` +
+          `configuratie als een <i>afwezig veld</i>, niet als belofte in proza. Een afwezigheid ` +
+          `is te controleren.</div>` +
+        `<div class="rij"><b>In de dossierroutes werkelijk aangeroepen:</b> ` +
+          `${g.in_de_dossierroutes_aangeroepen ? "ja" : "nee"} — beide routes geven geen model ` +
+          `door. Dus ${esc(mocht)} en geen enkele doet het, en dat verschil hoort leesbaar te ` +
+          `zijn in plaats van weggepoetst.</div>` +
+        `<div class="rij"><b>Waar gemeten:</b> <code>${esc(g.waar_gemeten)}</code></div>`;
+    }
+
+    function tekenBronnen(bronnen) {
+      $("bronnen").innerHTML = bronnen.map(b =>
+        `<div class="bron"><div class="naam">${esc(b.naam)}</div>` +
+        `<div class="houder">${esc(b.houder)}</div>` +
+        `<div class="levert">${esc(b.levert)}</div>` +
+        `<div class="rij"><span class="label">Hoe bevraagd:</span> ${esc(b.hoe)}</div>` +
+        `<div class="rij licentie"><span class="label">Licentie:</span> ` +
+          `${esc(b.licentie)}</div>` +
+        `<div class="waar">${esc(b.waar_in_de_code)}</div></div>`
+      ).join("");
+    }
+
+    function tekenConfig(config) {
+      $("configtabel").querySelector("tbody").innerHTML = config.map(c =>
+        `<tr><td class="naam mono">${esc(c.sleutel)}</td>` +
+        `<td class="mono ${c.aanwezig ? "" : "ontbreekt"}">` +
+          `${c.aanwezig ? esc(c.waarde == null ? "(leeg)" : c.waarde) : "ontbreekt"}</td>` +
+        `<td>${esc(c.waarvoor)}</td><td>${esc(c.wat_als_hij_mist)}</td></tr>`
+      ).join("");
+    }
+
+    async function laad() {
+      try {
+        const r = await fetch("/api/onderwater");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const a = await r.json();
+        tekenOnderdelen(a.onderdelen || []);
+        tekenPaginas(a.paginas || []);
+        tekenRegels(a.regels || []);
+        tekenAgents(a.agents || []);
+        tekenTaken(a.taken || []);
+        tekenGrens(a.grens || {});
+        tekenBronnen(a.bronnen || []);
+        tekenConfig(a.config || []);
+        const n = (a.regels || []).length;
+        $("status").textContent =
+          `${n} ${n === 1 ? "regel" : "regels"} en ${(a.agents || []).length} agents gelezen ` +
+          `uit de code zelf, niet uit deze pagina.`;
+      } catch (e) {
+        $("status").className = "status ontbreekt";
+        $("status").textContent = `De anatomie kon niet worden geladen: ${e.message}`;
+      }
+    }
+
+    laad();
+  </script>
+</body>
+</html>

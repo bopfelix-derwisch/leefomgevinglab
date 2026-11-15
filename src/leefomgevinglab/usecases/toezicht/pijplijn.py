@@ -49,6 +49,12 @@ def als_gegeven(agents_pad: str, tasks_pad: str) -> dict:
             "backstory": cfg.get("backstory"),
             "tools": list(cfg.get("tools") or []),
             "mag_llm": "llm" in cfg,
+            # De `llm`-regel zelf, niet alleen het feit dat zij bestaat. Zij noemt welk model,
+            # waar het draait en dat de runner het injecteert ("geen eigen verbinding") -- en dat
+            # is precies het antwoord op "wat gebeurt hier onder water". `None` bij een agent
+            # zonder de sleutel, want afwezig en leeg zijn hier twee verschillende dingen: de
+            # §4.4-grens staat in `agents.yaml` als een *afwezig veld*.
+            "llm": cfg.get("llm"),
         }
         for naam, cfg in agents.items()
     ]
@@ -63,3 +69,53 @@ def als_gegeven(agents_pad: str, tasks_pad: str) -> dict:
         for naam, cfg in tasks.items()
     ]
     return {"agents": agents_uit, "tasks": tasks_uit}
+
+
+def gedraaide_agents(stappen: list[dict], agents_pad: str) -> list[dict]:
+    """De agents die in **deze** run echt hebben gedraaid, in de volgorde waarin zij voor het
+    eerst voorkwamen, elk met de uitleg uit de configuratie erbij.
+
+    **De runlog is de bron, niet `agents.yaml`.** Dat is het hele punt van deze functie: zes
+    agents staan in de configuratie, vier draaien in de standaardpijplijn, en `vraagsteller` en
+    `terugkoppelaar` hebben geen taak. Zou de configuratie de bron zijn, dan beweerde `/toezicht`
+    dat er zes hebben gedraaid -- precies de mocht/heeft-verwarring die dit dossier duur heeft
+    betaald (zie `runner.py`, "Fix-ronde 2, bevinding E", en `mag_llm` hierboven).
+
+    Daarom staan `mag_llm` (gerechtigdheid, uit de configuratie) en `llm_aangeroepen` (gebruik,
+    uit de runlog) náást elkaar in het antwoord, niet in plaats van elkaar. Draaide een agent
+    twee keer, dan staat hij één keer met al zijn stapnummers, en is één echte aanroep genoeg om
+    `llm_aangeroepen` waar te maken.
+
+    Een agent in de runlog die niet in de configuratie staat, krijgt `onbekend: True` en blijft
+    staan in plaats van stil weg te vallen: configuratie en run zijn dan uit de pas, en dat is
+    een afwijking die de pagina hoort te laten zien.
+    """
+    cfgs = _laad_yaml(agents_pad)
+    uit: dict[str, dict] = {}
+    for stap in stappen:
+        naam = stap.get("agent")
+        if naam is None:
+            continue
+        if naam not in uit:
+            cfg = cfgs.get(naam)
+            uit[naam] = {
+                "id": naam,
+                "role": (cfg or {}).get("role"),
+                "goal": (cfg or {}).get("goal"),
+                "backstory": (cfg or {}).get("backstory"),
+                "tools": list((cfg or {}).get("tools") or []),
+                "mag_llm": cfg is not None and "llm" in cfg,
+                "llm": (cfg or {}).get("llm"),
+                "onbekend": cfg is None,
+                "stappen": [],
+                "taken": [],
+                "llm_aangeroepen": False,
+            }
+        post = uit[naam]
+        if stap.get("nr") is not None:
+            post["stappen"].append(stap["nr"])
+        if stap.get("taak") and stap["taak"] not in post["taken"]:
+            post["taken"].append(stap["taak"])
+        if stap.get("llm"):
+            post["llm_aangeroepen"] = True
+    return list(uit.values())

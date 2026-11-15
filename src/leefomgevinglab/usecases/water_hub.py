@@ -103,6 +103,15 @@ LEDEN = [
      "live": ["Atlas voor een Schone Maas", "Aquo-domeintabel Parameter",
               "KRW-toetsresultaten (krw_normen.json)", "Stelselcatalogus Omgevingswet"],
      "synthetisch": ["geen — dit dossier draait op open data, zonder eigen register"]},
+    {"id": "onderwater", "pad": "/onderwater", "label": "Onder water",
+     "titel": "De technische anatomie van wasstraat en toezicht",
+     "samenvatting": "Wat er onder water gebeurt bij de twee signaalpagina's: elke regel met "
+                     "haar drempel en de pagina waar zij landt, de agents en taken zoals de "
+                     "runner ze leest, waar een taalmodel wel en niet mag komen, de bronnen met "
+                     "hun licentiepositie, en de configuratiesleutels die het gedrag bepalen — "
+                     "alle aantallen afgeleid uit de code, geen enkele ingetypt.",
+     "live": ["de signaalcatalogus zelf", "agents.yaml en tasks.yaml", "core/config.yaml"],
+     "synthetisch": ["geen — deze pagina beschrijft alleen wat er al draait"]},
     {"id": "eindbeeld", "pad": "/eindbeeld", "label": "Eindbeeld",
      "titel": "Vrachtenbalans zink \u2014 Zandmaas, traject Roermond\u2013Venlo",
      "samenvatting": "Hoe het informatieproduct eruitziet als de gaten dicht zijn. Volledig "

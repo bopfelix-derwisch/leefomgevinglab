@@ -295,3 +295,42 @@ def test_de_kiezer_schrijft_de_keuze_terug_in_de_url(monkeypatch):
     assert "history.replaceState(" in html
     assert "history.pushState(" not in html
     assert "u.searchParams.set(PARAM, id)" in html
+
+
+# -- De agents als openklapbare rijen ------------------------------------------------------------
+
+def test_de_agents_staan_als_openklapbare_rijen_en_niet_als_platte_tabel(monkeypatch):
+    """Vraag van Bob: de agents transparanter maken -- klikken en dan zie je de instellingen.
+    `goal` en `backstory` zaten al in `/api/wasstraat/pijplijn` en werden door de pagina
+    weggegooid; dat is hetzelfde patroon als de uitlegger-bevinding uit de eindreview, waar de
+    pijplijn zeven seconden rekende voor velden die de pagina niet toonde.
+
+    Een `<details>` en niet een eigen klikafhandeling op een `div`: dan is de rij van zichzelf
+    toetsenbordbereikbaar en open-/dichtklapbaar, zonder dat dat nagebouwd hoeft te worden."""
+    r = _client(monkeypatch).get("/wasstraat")
+    assert "<details" in r.text and "<summary" in r.text
+    assert 'id="agentstabel"' not in r.text, "de platte tabel is vervangen"
+    # De instellingen komen uit de API, niet uit de HTML.
+    for veld in ("a.goal", "a.backstory", "a.llm"):
+        assert veld in r.text, f"de agentrij toont {veld} uit /api/wasstraat/pijplijn"
+
+
+def test_geen_agentnaam_of_rol_staat_hardgecodeerd_in_de_wasstraatpagina(monkeypatch):
+    """Zelfde reden als bij de regels: staat een naam in de HTML, dan kan de pagina iets anders
+    tonen dan de configuratie zegt -- en dan is "alleen-lezen inzicht in de configuratie" een
+    holle belofte."""
+    r = _client(monkeypatch).get("/wasstraat")
+    for agent in ("vergunninglezer", "signaalsteller", "dossiersteller", "uitlegger",
+                   "vraagsteller", "terugkoppelaar"):
+        assert agent not in r.text, f"{agent} hoort uit de API te komen"
+
+
+def test_de_pagina_wijst_naar_de_anatomie_voor_de_rest_van_de_techniek(monkeypatch):
+    """De configuratiesectie toont de agents en taken; de drempels, bronnen en
+    configuratiesleutels staan op `/onderwater`. Zonder die verwijzing is dat tweede niet te
+    vinden."""
+    r = _client(monkeypatch).get("/wasstraat")
+    # Niet alleen via de dossierbalk (die noemt elk lid): een expliciete verwijzing vanuit de
+    # configuratiesectie zelf, anders is het tweede deel van de techniek niet te vinden voor wie
+    # hier staat te kijken.
+    assert 'data-anatomie="/onderwater"' in r.text

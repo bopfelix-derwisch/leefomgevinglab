@@ -19,7 +19,7 @@ _TELWOORD = {"een": 1, "twee": 2, "drie": 3, "vier": 4, "vijf": 5, "zes": 6, "ze
 
 
 def test_elk_lid_heeft_een_pad_een_label_en_een_verantwoording():
-    assert len(wh.LEDEN) == 14
+    assert len(wh.LEDEN) == 15
     for l in wh.LEDEN:
         assert l["pad"].startswith("/")
         assert l["label"] and l["titel"] and l["samenvatting"]
