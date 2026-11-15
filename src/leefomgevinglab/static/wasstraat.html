@@ -258,7 +258,8 @@
         rel="noopener">Atlas voor een Schone Maas</a> (Schone Maaswaterketen) en de
         Aquo-domeintabel Parameter — dezelfde pijplijn als <a href="/toezicht">/toezicht</a>,
         hier gefilterd naar wat er aan het papier zelf moet rechtkomen.</p>
-      <p>Zie ook het <a href="/water">waterdossier</a> en <a href="/toezicht">toezicht</a>, dat
+      <p>Zie ook het <a href="/water">waterdossier</a> en
+        <a data-zuster="/toezicht" href="/toezicht">toezicht</a>, dat
         de drie overige signalen toont — die hebben meetdata of stroomrichting nodig en gaan over
         de werkelijkheid, niet over het papier.</p>
     </footer>
@@ -272,6 +273,47 @@
 
     const GRONDSLAG_KORT = { code: "gekoppeld op code", ruimtelijk: "gekoppeld op coördinaat",
       heuristiek: "gekoppeld op naam plus afstand", geen: "geen koppeling gelegd" };
+
+    // -- Must-fix 2 van de eindreview: de gekozen vergunning staat in de URL -----------------
+    //
+    // Geen van beide pagina's las een queryparameter, en de link naar de zusterpagina droeg geen
+    // id: wie bij Solvay las "13 bevindingen staan open ... voor deze vergunning" en doorklikte,
+    // kreeg Mebin BV te zien en dacht dat het Solvay was. De parameternamen zijn die van de
+    // API's zelf (`?vergunning=` hier, `?vestiging=` op de zusterpagina), niet een derde
+    // vocabulaire. Een onbekende of afwezige id valt terug op de eerste: nooit een lege pagina en
+    // nooit een 404 uit een verouderde link.
+    const PARAM = "vergunning";
+    const ZUSTER_PARAM = "vestiging";
+    let huidigeId = null;
+
+    function gevraagdeId() {
+      try { return new URLSearchParams(location.search).get(PARAM); } catch (e) { return null; }
+    }
+
+    function kiesId(lijst, gevraagd) {
+      return (gevraagd && lijst.some(v => v.id === gevraagd)) ? gevraagd : lijst[0].id;
+    }
+
+    function zetUrl(id) {
+      // `replaceState`, geen `pushState`: wisselen in de kiezer is geen navigatie, maar de URL
+      // moet wel deelbaar zijn. Faalt dit (bv. een browser zonder History API), dan is dat geen
+      // reden om het dossier niet te tonen.
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set(PARAM, id);
+        history.replaceState(null, "", u.toString());
+      } catch (e) { /* stil: een niet-deelbare URL is geen storing */ }
+    }
+
+    function werkZusterLinks(id) {
+      // Elke link naar de zusterpagina draagt de id mee -- één plek, zodat een link die iemand
+      // later toevoegt alleen `data-zuster` nodig heeft en niet opnieuw deze logica.
+      document.querySelectorAll("[data-zuster]").forEach(a => {
+        const pad = a.getAttribute("data-zuster");
+        a.setAttribute("href", id ? `${pad}?${ZUSTER_PARAM}=${encodeURIComponent(id)}` : pad);
+      });
+    }
+
 
     function hoeZeker(s) {
       const g = GRONDSLAG_KORT[s.grondslag] || s.grondslag || "onbekend";
@@ -377,6 +419,9 @@
     }
 
     async function laadDossier(vergunningId) {
+      huidigeId = vergunningId;
+      zetUrl(vergunningId);
+      werkZusterLinks(vergunningId);
       $("status").textContent = "Dossier wordt samengesteld…";
       try {
         const r = await fetch(`/api/wasstraat/dossier?vergunning=${encodeURIComponent(vergunningId)}`);
@@ -410,8 +455,9 @@
           `<option value="${esc(v.id)}">${esc(v.naam || v.locatiecode)}` +
           (v.plaats ? ` — ${esc(v.plaats)}` : "") +
           ` (${esc(v.kenmerk || "geen kenmerk")})` + `</option>`).join("");
-        sel.value = vergunningen[0].id;
-        await laadDossier(vergunningen[0].id);
+        const gekozen = kiesId(vergunningen, gevraagdeId());
+        sel.value = gekozen;
+        await laadDossier(gekozen);
       } catch (e) {
         $("status").textContent = `Vergunningen ophalen mislukt: ${esc(e.message)}`;
       }

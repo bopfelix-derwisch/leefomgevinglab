@@ -298,3 +298,47 @@ def test_metingen_bij_een_bekend_waterlichaam_toont_de_rijen(monkeypatch):
     codes = {r["stof"]["code"] for r in d["metingen"]["rijen"]}
     assert codes == {"Zn", "Ntot"}
     assert d["kaart"]["waterlichaam"] == {"waarde": "NL91ZM", "zekerheid": "afgeleid"}
+
+
+# -- Must-fix 2 van de eindreview: de gekozen vestiging staat in de URL ----------------------
+
+def test_de_link_naar_de_zusterpagina_draagt_de_gekozen_id(monkeypatch):
+    """De link droeg alleen `/wasstraat`, zonder id, en geen van beide pagina's las een
+    queryparameter: wie bij Solvay las dat er bevindingen openstaan "voor deze vergunning" en
+    doorklikte, kreeg de eerste vergunning uit de lijst (Mebin BV) te zien en dacht dat het
+    Solvay was.
+
+    Deze test staat op de geserveerde HTML, want de keuze gebeurt in de browser. Wat zij vastlegt
+    is het mechanisme: er is een `data-zuster`-link, er is één plek die daar de id in zet, en die
+    gebruikt de parameternaam van de zuster-API (`vergunning`) -- niet een derde vocabulaire."""
+    html = _client(monkeypatch).get("/toezicht").text
+    assert 'data-zuster="/wasstraat"' in html, "geen enkele link naar de zusterpagina is gemarkeerd"
+    assert "function werkZusterLinks(" in html
+    assert 'const ZUSTER_PARAM = "vergunning";' in html
+    assert "${ZUSTER_PARAM}=${encodeURIComponent(id)}" in html
+
+
+def test_een_onbekende_id_in_de_url_valt_terug_op_de_eerste(monkeypatch):
+    """`?vestiging=` wordt gelezen, maar alleen als de id in de lijst voorkomt -- een
+    verouderde of verzonnen link mag geen lege pagina en geen 404 opleveren. De keuze staat in
+    `kiesId`, één plek, met de lidmaatschapstoets erin.
+
+    De terugval zelf is in deze omgeving met Node nagelopen op de uit de pagina geknipte functie:
+    bekend -> die id, onbekend -> de eerste, afwezig -> de eerste."""
+    html = _client(monkeypatch).get("/toezicht").text
+    assert 'const PARAM = "vestiging";' in html
+    assert "new URLSearchParams(location.search).get(PARAM)" in html
+    assert "function kiesId(lijst, gevraagd)" in html
+    # De lidmaatschapstoets én de terugval, in één regel -- zonder de `.some(...)` zou een
+    # onbekende id gewoon doorgegeven worden aan de API en een 404 opleveren.
+    assert "lijst.some(v => v.id === gevraagd)) ? gevraagd : lijst[0].id" in html
+    assert "const gekozen = kiesId(" in html
+
+
+def test_de_kiezer_schrijft_de_keuze_terug_in_de_url(monkeypatch):
+    """Wisselen in de kiezer maakt de link deelbaar: `replaceState`, geen `pushState` -- een
+    keuze in een kiezer is geen navigatie."""
+    html = _client(monkeypatch).get("/toezicht").text
+    assert "history.replaceState(" in html
+    assert "history.pushState(" not in html
+    assert "u.searchParams.set(PARAM, id)" in html

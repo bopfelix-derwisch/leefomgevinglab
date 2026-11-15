@@ -176,7 +176,8 @@
         deterministische regels (geen taalmodel) die meetdata of stroomrichting nodig hebben,
         naast de metingen bij het waterlichaam van deze vergunning en de uitkomst van de
         papiercontrole. De zeven regels die alleen het papier van de vergunning zelf toetsen
-        staan op <a href="/wasstraat">/wasstraat</a>, bij de vergunningverlener.</p>
+        staan op <a data-zuster="/wasstraat" href="/wasstraat">/wasstraat</a>, bij de
+        vergunningverlener.</p>
     </div>
 
     <div class="kiezer">
@@ -212,7 +213,8 @@
         Aquo-domeintabel Parameter — live bevraagd en lokaal verdicht, geen eigen register.</p>
       <p>Een toerekening op deze pagina is altijd een <b>bovengrens, nooit een vaststelling</b>:
         welk aandeel aan wie toekomt, stelt het toezicht vast, niet deze pagina. Zie ook
-        <a href="/wasstraat">/wasstraat</a> (het papier van deze vergunning), het
+        <a data-zuster="/wasstraat" href="/wasstraat">/wasstraat</a> (het papier van deze
+        vergunning), het
         <a href="/water">waterdossier</a> en <a href="/kmg">kan · mag · gebeurt</a>, dat dezelfde
         bronnen gebruikt voor een ander doel.</p>
     </footer>
@@ -226,6 +228,47 @@
 
     const GRONDSLAG_KORT = { code: "gekoppeld op code", ruimtelijk: "gekoppeld op coördinaat",
       heuristiek: "gekoppeld op naam plus afstand", geen: "geen koppeling gelegd" };
+
+    // -- Must-fix 2 van de eindreview: de gekozen vestiging staat in de URL -----------------
+    //
+    // Geen van beide pagina's las een queryparameter, en de link naar de zusterpagina droeg geen
+    // id: wie bij Solvay las "13 bevindingen staan open ... voor deze vergunning" en doorklikte,
+    // kreeg Mebin BV te zien en dacht dat het Solvay was. De parameternamen zijn die van de
+    // API's zelf (`?vestiging=` hier, `?vergunning=` op de zusterpagina), niet een derde
+    // vocabulaire. Een onbekende of afwezige id valt terug op de eerste: nooit een lege pagina en
+    // nooit een 404 uit een verouderde link.
+    const PARAM = "vestiging";
+    const ZUSTER_PARAM = "vergunning";
+    let huidigeId = null;
+
+    function gevraagdeId() {
+      try { return new URLSearchParams(location.search).get(PARAM); } catch (e) { return null; }
+    }
+
+    function kiesId(lijst, gevraagd) {
+      return (gevraagd && lijst.some(v => v.id === gevraagd)) ? gevraagd : lijst[0].id;
+    }
+
+    function zetUrl(id) {
+      // `replaceState`, geen `pushState`: wisselen in de kiezer is geen navigatie, maar de URL
+      // moet wel deelbaar zijn. Faalt dit (bv. een browser zonder History API), dan is dat geen
+      // reden om het dossier niet te tonen.
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set(PARAM, id);
+        history.replaceState(null, "", u.toString());
+      } catch (e) { /* stil: een niet-deelbare URL is geen storing */ }
+    }
+
+    function werkZusterLinks(id) {
+      // Elke link naar de zusterpagina draagt de id mee -- één plek, zodat een link die iemand
+      // later toevoegt alleen `data-zuster` nodig heeft en niet opnieuw deze logica.
+      document.querySelectorAll("[data-zuster]").forEach(a => {
+        const pad = a.getAttribute("data-zuster");
+        a.setAttribute("href", id ? `${pad}?${ZUSTER_PARAM}=${encodeURIComponent(id)}` : pad);
+      });
+    }
+
 
     function hoeZeker(s) {
       const g = GRONDSLAG_KORT[s.grondslag] || s.grondslag || "onbekend";
@@ -279,8 +322,10 @@
         ? "Het papier van deze vergunning is op orde volgens de wasstraat."
         : `${w.aantal_open} ${w.aantal_open === 1 ? "bevinding staat" : "bevindingen staan"} ` +
           "open op de wasstraat voor deze vergunning.";
+      const pad = w.pad || "/wasstraat";
       $("wasstraatregel").innerHTML =
-        `<p>${esc(zin)}</p><a href="${esc(w.pad || "/wasstraat")}">Naar /wasstraat →</a>`;
+        `<p>${esc(zin)}</p><a data-zuster="${esc(pad)}" href="${esc(pad)}">Naar /wasstraat →</a>`;
+      werkZusterLinks(huidigeId);
     }
 
     function oordeelKlasse(oordeel) {
@@ -332,6 +377,9 @@
     }
 
     async function laadDossier(vestigingId) {
+      huidigeId = vestigingId;
+      zetUrl(vestigingId);
+      werkZusterLinks(vestigingId);
       $("status").textContent = "Dossier wordt samengesteld…";
       try {
         const r = await fetch(`/api/toezicht/dossier?vestiging=${encodeURIComponent(vestigingId)}`);
@@ -369,8 +417,9 @@
           `<option value="${esc(v.id)}">${esc(v.naam || v.locatiecode)}` +
           (v.plaats ? ` — ${esc(v.plaats)}` : "") +
           ` (${esc(v.kenmerk || "geen kenmerk")})` + `</option>`).join("");
-        sel.value = vestigingen[0].id;
-        await laadDossier(vestigingen[0].id);
+        const gekozen = kiesId(vestigingen, gevraagdeId());
+        sel.value = gekozen;
+        await laadDossier(gekozen);
       } catch (e) {
         $("status").textContent = `Vestigingen ophalen mislukt: ${esc(e.message)}`;
       }
