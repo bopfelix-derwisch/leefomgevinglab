@@ -117,6 +117,26 @@ def _is_papier(regel_id: str) -> bool:
     return False
 
 
+# Kaartvelden die op de papierpagina niet thuishoren. Het waterlichaam is een feit over de
+# werkelijkheid, niet over het papier: het staat in geen van de vijf papierbevindingen en de
+# vergunningverlener kan er niets mee. `toezicht.dossier._kaart` leest het rechtstreeks van de
+# Atlas-vestiging, en die draagt het veld nooit -- dus stond hier voor alle 69 vergunningen
+# `{"waarde": None, "zekerheid": "ontbreekt"}`, met het rode ontbrekend-signaal van de kaart
+# erop, terwijl `/toezicht` het via een coördinaatopzoeking wél weet (zekerheid `afgeleid`). Twee
+# publieke pagina's die elkaar tegenspreken over hetzelfde feit (eindreview, must-fix 3). De
+# opzoeking hier kopiëren zou deze pagina een netwerkronde kosten voor een veld dat zij niet
+# nodig heeft; daarom laten we het veld weg in plaats van het te vullen.
+_NIET_OP_DE_PAPIERKAART = ("waterlichaam",)
+
+
+def _kaart_papier(kaart: dict | None) -> dict | None:
+    """De kaart van het volledige dossier, minus de velden die geen papierfeit zijn (zie
+    `_NIET_OP_DE_PAPIERKAART`). `None` blijft `None`."""
+    if kaart is None:
+        return None
+    return {k: v for k, v in kaart.items() if k not in _NIET_OP_DE_PAPIERKAART}
+
+
 def _is_bevinding(regel_id: str) -> bool:
     """Een papierregel die iets over **deze** vergunning beweert -- dus niet een sentinelregel.
     Afgeleid uit `signalen.is_voorbehoud` (en daarmee uit `signalen.DREMPELS`), nooit uit een
@@ -225,8 +245,8 @@ def papier_dossier(volledig: dict) -> dict:
     zeven papiersignalen en verrijkt met de reparatie per signaal en de samenvatting/uitleg van
     de runlog.
 
-    `kaart` komt ongewijzigd door -- de identiteit van de vestiging is voor beide lezers
-    dezelfde. `signalen` bevat alleen de signalen met `laag == "papier"`, elk met een extra
+    `kaart` komt door op `waterlichaam` na (zie `_NIET_OP_DE_PAPIERKAART`) -- de identiteit van
+    de vestiging is voor beide lezers dezelfde, haar waterlichaam is geen papierfeit. `signalen` bevat alleen de signalen met `laag == "papier"`, elk met een extra
     `reparatie`-veld (`wat_te_doen`, de inspecteursvraag van `/toezicht`, blijft op het signaal
     staan maar is niet wat deze pagina toont). `telling` en `voorbehouden` zijn opnieuw afgeleid
     uit de gefilterde lijst. `runlog` krijgt, naast de ongewijzigde `stappen` (nu elk met een
@@ -248,7 +268,7 @@ def papier_dossier(volledig: dict) -> dict:
     aantal_voorschriften = (volledig.get("telling") or {}).get("aantal_voorschriften")
 
     return {
-        "kaart": volledig.get("kaart"),
+        "kaart": _kaart_papier(volledig.get("kaart")),
         "signalen": papier_signalen,
         "telling": _telling_papier(papier_signalen, aantal_voorschriften,
                                     len(eigen_voorbehouden)),

@@ -296,7 +296,9 @@
       const VELDEN = [["naam", "naam"], ["plaats", "plaats"], ["locatie", "locatie"],
         ["locatiecode", "locatiecode"], ["vestigingsnummer_kvk", "KvK-vestigingsnummer"],
         ["kenmerk", "vergunningkenmerk"], ["besluitdatum", "besluitdatum"],
-        ["waterlichaam", "waterlichaam"], ["url", "vergunningdocument"]];
+        // Géén waterlichaam: dat is een feit over de werkelijkheid, geen papierfeit, en het
+        // staat in geen van de vijf bevindingen hieronder. Zie /toezicht, dat het wél opzoekt.
+        ["url", "vergunningdocument"]];
       $("kaart").innerHTML = VELDEN.map(([sleutel, label]) => {
         const veld = (kaart || {})[sleutel] || { waarde: null, zekerheid: "ontbreekt" };
         const leeg = veld.waarde === null || veld.waarde === undefined || veld.waarde === "";

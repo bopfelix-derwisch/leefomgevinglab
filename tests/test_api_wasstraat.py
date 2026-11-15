@@ -106,6 +106,19 @@ def test_onbekende_vergunning_geeft_404(monkeypatch):
     assert r.status_code == 404
 
 
+def test_de_pagina_vraagt_het_waterlichaam_niet_op_in_de_kaart(monkeypatch):
+    """Must-fix 3 van de eindreview: het waterlichaam is geen papierfeit. Niet in het antwoord en
+    niet in de veldenlijst van de pagina -- stond het er alleen in de API, dan zou de volgende
+    lezer het weer renderen."""
+    _monkeypatch_bronnen(monkeypatch)
+    client = _client(monkeypatch)
+    d = client.get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    assert "waterlichaam" not in d["kaart"]
+    # Op de veldenlijst van de pagina, niet op het woord: de HTML legt in een commentaar uit
+    # waarom het veld er níet staat, en dat commentaar hoort te blijven.
+    assert '["waterlichaam"' not in client.get("/wasstraat").text
+
+
 # -- Het dossier bevat alleen de zeven papierbevindingen ----------------------------------------
 
 def test_het_dossier_endpoint_laat_alleen_papierbevindingen_zien(monkeypatch):

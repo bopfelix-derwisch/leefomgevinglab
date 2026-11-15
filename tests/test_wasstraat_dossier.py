@@ -39,10 +39,28 @@ def test_papier_dossier_bevat_alleen_de_papierbevindingen():
     assert regel_ids.isdisjoint(_VOORBEHOUD_REGELS)
 
 
-def test_papier_dossier_laat_de_kaart_ongewijzigd():
+def test_papier_dossier_laat_de_kaart_ongewijzigd_op_het_waterlichaam_na():
     volledig = _volledig_dossier()
     d = wasstraat_dossier.papier_dossier(volledig)
-    assert d["kaart"] == volledig["kaart"]
+    assert d["kaart"] == {k: v for k, v in volledig["kaart"].items() if k != "waterlichaam"}
+
+
+def test_de_papierkaart_draagt_het_waterlichaam_niet():
+    """**Waarom dit veld hier niet hoort -- lees dit voordat je het terugzet.**
+
+    Het waterlichaam is een feit over de werkelijkheid, niet over het papier: het staat in geen
+    van de vijf papierbevindingen, en de vergunningverlener kan er niets mee. De Atlas draagt het
+    veld nooit (zie `toezicht.dossier._kaart`, die alleen leest), dus `dossier()` gaf hier altijd
+    `{"waarde": None, "zekerheid": "ontbreekt"}` -- en de wasstraatkaart zette daar haar rode
+    ontbrekend-signaal op, voor alle 69 vergunningen. `/toezicht` wéét het wél
+    (`weergave.werkelijkheid_dossier` vult het uit een coördinaatopzoeking, zekerheid
+    `afgeleid`), dus twee publieke pagina's spraken elkaar tegen over hetzelfde feit (eindreview,
+    must-fix 3). De opzoeking hier kopiëren zou deze pagina een netwerkronde kosten voor een veld
+    dat zij niet nodig heeft; het veld weglaten is de goedkopere én de juiste keuze."""
+    volledig = _volledig_dossier()
+    assert "waterlichaam" in volledig["kaart"], "het volledige dossier draagt het veld nog wel"
+    d = wasstraat_dossier.papier_dossier(volledig)
+    assert "waterlichaam" not in d["kaart"]
 
 
 def test_elk_papiersignaal_draagt_een_reparatie():
