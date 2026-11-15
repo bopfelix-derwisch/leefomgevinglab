@@ -87,17 +87,19 @@ LEDEN = [
      "titel": "Papierdossier voor de vergunningverlener",
      "samenvatting": "Niet waar je moet gaan kijken, maar wat er aan de vergunning zelf moet "
                      "rechtkomen: zeven deterministische regels die toetsen of het papier "
-                     "tegen zichzelf klopt, met per bevinding de reparatie — plus de "
+                     "tegen zichzelf klopt — vijf met per bevinding de reparatie die eruit "
+                     "volgt, twee als voorbehoud dat voor het hele register geldt — plus de "
                      "pijplijn en de runlog die laten zien hoe het dossier tot stand kwam.",
      "live": ["Atlas voor een Schone Maas", "Aquo-domeintabel Parameter",
               "KRW-toetsresultaten (krw_normen.json)", "Stelselcatalogus Omgevingswet"],
      "synthetisch": ["geen — dit dossier draait op open data, zonder eigen register"]},
     {"id": "toezicht", "pad": "/toezicht", "label": "Toezicht",
      "titel": "Signaaldossier voor de toezichthouder",
-     "samenvatting": "Niet wat hier nog mag, maar waar je moet gaan kijken: tien "
-                     "deterministische regels op het Maas-lozingenregister, elk met bewijs, "
-                     "herkomst en de vraag die je ter plaatse kunt stellen — plus de "
-                     "pijplijn en de runlog die laten zien hoe het signaal tot stand kwam.",
+     "samenvatting": "Niet wat hier nog mag, maar waar je moet gaan kijken: drie "
+                     "deterministische regels op het Maas-lozingenregister die meetdata of "
+                     "stroomrichting nodig hebben, elk met bewijs, herkomst en de vraag die je "
+                     "ter plaatse kunt stellen — naast de metingen bij het waterlichaam van "
+                     "deze vergunning en de uitkomst van de papiercontrole op /wasstraat.",
      "live": ["Atlas voor een Schone Maas", "Aquo-domeintabel Parameter",
               "KRW-toetsresultaten (krw_normen.json)", "Stelselcatalogus Omgevingswet"],
      "synthetisch": ["geen — dit dossier draait op open data, zonder eigen register"]},
