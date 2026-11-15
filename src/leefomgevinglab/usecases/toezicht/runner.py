@@ -473,6 +473,36 @@ class Crew(object):
         een taalmodel, ook niet als de aanroeper er een aan `draai()` meegeeft."""
         return llm if "llm" in agent else None
 
+    def los_uitvoeren(self, agent_naam: str, tool_naam: str, staat: dict, llm=None,
+                       runlog=None, tool=None) -> dict:
+        """Eén tool van één agent, buiten de pijplijn om -- en toch door de configuratie heen.
+
+        **Waarom dit bestaat.** `vraagsteller` en `terugkoppelaar` hebben geen taak in
+        `tasks.yaml`: hun werk is een los te starten actie, geen vaste stap in elke dossier-run
+        (zo staat het ook in `agents.yaml`). Een route die zo'n actie aanbiedt kon tot nu toe
+        alleen de onderliggende module rechtstreeks aanroepen -- en dan doet die route het werk
+        van een agent achter zijn rug om: de `llm`-sleutel in de configuratie bepaalt dan niets
+        meer, en de runlog ziet de stap niet. Precies de toestand waarvoor
+        `pijplijn.gedraaide_agents` een `onbekend`-melding kent.
+
+        Daarom loopt een losse actie langs dezelfde drie poorten als een pijplijnstap:
+        de tool komt via `tools_voor(agent_naam)` (dus een niet-verklaarde tool werpt
+        `NietVerklaardeTool`), het taalmodel gaat door `_llm_voor_deze_agent` (dus een agent
+        zonder sleutel krijgt er geen), en de stap komt in de runlog met `llm` op *gebruik* in
+        plaats van gerechtigdheid -- gemeten met dezelfde telproxy als `draai()`.
+
+        `tool` is er alleen voor tests, zodat een test het pad kan toetsen zonder een echte tool
+        met echte bronnen nodig te hebben; laat hem in productie weg."""
+        callable_ = tool if tool is not None else self.tools_voor(agent_naam)[tool_naam]
+        agent = self.agents[agent_naam]
+        llm_voor_agent = self._llm_voor_deze_agent(agent, llm)
+        proxy = _AangeroepenLlm(llm_voor_agent) if llm_voor_agent is not None else None
+        uitkomst = callable_(staat, llm=proxy, runlog=runlog)
+        if runlog is not None:
+            runlog.stap(agent_naam, None, tool_naam, uitkomst.rijen_in, uitkomst.rijen_uit,
+                         bool(proxy and proxy.aangeroepen), args=uitkomst.args)
+        return uitkomst.updates
+
     def draai(self, invoer: dict, llm=None, runlog=None) -> dict:
         """Doorloopt de taken in `tasks.yaml`-volgorde, geeft één `staat`-dict door van taak naar
         taak, en registreert -- als er een `Runlog` is meegegeven -- per taak precies één stap:

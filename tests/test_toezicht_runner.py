@@ -197,3 +197,54 @@ def test_vraag_stellen_gebruikt_alleen_de_meegegeven_llm_nooit_een_echte_verbind
     uitkomst = runner.TOOLS["vraag_stellen"](staat, llm=nep_llm)
     assert uitkomst.updates["antwoord"]["beschikbaar"] is True
     assert uitkomst.updates["antwoord"]["sparql"] is not None
+
+
+# -- Een losse actie buiten de pijplijn (de vraagweg) -------------------------------------------
+
+def test_los_uitvoeren_draait_de_tool_van_die_agent_met_zijn_eigen_llm_grens():
+    """`vraagsteller` en `terugkoppelaar` hebben géén taak in `tasks.yaml`: hun werk is een los
+    te starten actie, niet een vaste stap in elke dossier-run (zo staat het ook in `agents.yaml`).
+    Die actie moet toch door de agentconfiguratie heen lopen, anders is die configuratie voor dit
+    pad decoratie -- en dan doet een route het werk van een agent achter zijn rug om, precies de
+    toestand waarvoor `gedraaide_agents` een 'onbekend'-melding kent."""
+    crew = runner.laad(AGENTS, TASKS)
+    log = runlog.Runlog()
+    gezien = {}
+
+    def nep_tool(staat, *, llm=None, runlog=None):
+        gezien["llm"] = llm
+        if llm is not None:
+            llm("prompt")
+        return runner.Uitkomst({"antwoord": "ok"}, 1, 1, args={})
+
+    uit = crew.los_uitvoeren("uitlegger", "uitleg_genereren", {"x": 1},
+                              llm=lambda p: "antwoord", runlog=log, tool=nep_tool)
+    assert uit["antwoord"] == "ok"
+    assert gezien["llm"] is not None, "de uitlegger heeft een llm-sleutel, dus mag er een"
+    stappen = log.als_gegeven()
+    assert len(stappen) == 1
+    assert stappen[0]["agent"] == "uitlegger"
+    assert stappen[0]["llm"] is True, "het model is echt aangeroepen, dus staat dat in de log"
+
+
+def test_los_uitvoeren_geeft_een_agent_zonder_llm_sleutel_nooit_een_model():
+    """De §4.4-grens geldt ook buiten de pijplijn. Zou een losse actie die grens omzeilen, dan is
+    de hele belofte van dit lab via één route te ontlopen."""
+    crew = runner.laad(AGENTS, TASKS)
+    gezien = {}
+
+    def nep_tool(staat, *, llm=None, runlog=None):
+        gezien["llm"] = llm
+        return runner.Uitkomst({"antwoord": None}, 0, 0, args={})
+
+    crew.los_uitvoeren("signaalsteller", "signalen_stellen", {},
+                        llm=lambda p: "x", tool=nep_tool)
+    assert gezien["llm"] is None, (
+        "signaalsteller heeft geen llm-sleutel en mag er dus ook in een losse actie geen krijgen")
+
+
+def test_los_uitvoeren_weigert_een_tool_die_deze_agent_niet_verklaard_heeft():
+    """Zelfde eis als in de pijplijn: de tool komt via de eigen `tools`-lijst van de agent."""
+    crew = runner.laad(AGENTS, TASKS)
+    with pytest.raises(runner.NietVerklaardeTool):
+        crew.los_uitvoeren("signaalsteller", "vraag_stellen", {})

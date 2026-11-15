@@ -24,6 +24,7 @@ from leefomgevinglab.connectors.base import ConnectorError
 from leefomgevinglab.connectors.rev import RevConnector
 from leefomgevinglab.usecases.rev_viewer import service as rev_service
 import os
+import time
 from leefomgevinglab.connectors.dso import DsoConnector
 from leefomgevinglab.connectors.dso_zoek import ZoekConnector
 from leefomgevinglab.usecases.vergunningen import service as vergunningen_service
@@ -53,6 +54,7 @@ from leefomgevinglab.usecases import modellen as modellen_mod
 from leefomgevinglab.usecases.kmg import service as kmg_service
 from leefomgevinglab.usecases.kmg import doelen as kmg_doelen
 from leefomgevinglab.usecases.kmg import metingen as kmg_metingen
+from leefomgevinglab.usecases.kmg import toerekening as kmg_toerekening
 from leefomgevinglab.usecases.toezicht import aquo as toezicht_aquo
 from leefomgevinglab.usecases.toezicht import pijplijn as toezicht_pijplijn
 from leefomgevinglab.usecases.toezicht import runlog as toezicht_runlog
@@ -61,6 +63,7 @@ from leefomgevinglab.usecases.toezicht import register as toezicht_register
 from leefomgevinglab.usecases.toezicht import graaf as toezicht_graaf
 from leefomgevinglab.usecases.toezicht import context as toezicht_context
 from leefomgevinglab.usecases.toezicht import weergave as toezicht_weergave
+from leefomgevinglab.usecases.toezicht import vraag as toezicht_vraag
 from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -808,6 +811,126 @@ def api_toezicht_dossier(vestiging: str):
     dossier_uit["agents_gedraaid"] = toezicht_pijplijn.gedraaide_agents(
         dossier_uit["runlog"]["stappen"], TOEZICHT_AGENTS_PAD)
     return dossier_uit
+
+
+# -- /api/toezicht/vraag: de bevraagbare laag over de toezichtgraaf -----------------------------
+#
+# De brug tussen de twee lezers. `/wasstraat` en `/toezicht` tonen elk hun eigen helft van
+# dezelfde regelset; een vraag kan ze combineren ("welke vergunningen hebben een papierbevinding
+# én een meting boven de norm"). Dat werkt alleen omdat `graaf.bouw` sinds deze taak ook de
+# signalen als `t:Signaal` opneemt, met `t:laag` en `t:rol` als de twee assen.
+#
+# **Dit is de eerste plek in deze twee pagina's waar werkelijk een taalmodel draait.** Beide
+# dossierroutes geven `llm=None` door en hun runlog meldt dat ook; die blijven zoals ze zijn. De
+# `vraagsteller` is de agent die hier wél een model krijgt -- precies de agent die op
+# `/onderwater` tot nu toe als "geen taak in de pijplijn" stond.
+#
+# De graaf wordt gecachet omdat hij duur is om te bouwen: niet de triples (0,5 s voor ~18.000),
+# maar het waterlichaam per vergunning, dat uit de coördinaat van elke vergunning wordt opgezocht
+# (~8 s over 62 vergunningen, al parallel en ontdubbeld in `kmg_service`). Zonder cache zou elke
+# vraag die rekening opnieuw betalen.
+_TOEZICHTGRAAF: dict = {"graaf": None, "gebouwd_op": 0.0, "triples": 0, "vestigingen": 0}
+_TOEZICHTGRAAF_TTL_S = 86400
+
+
+def _toezicht_graaf(nu=None):
+    """De register-brede toezichtgraaf, gecachet. Levert `(graaf, meta)`.
+
+    De context verschilt **per vestiging**: `waterlichaam` wordt uit de eigen coördinaat van elke
+    vergunning opgezocht. Eén waterlichaam aan het hele register toekennen zou
+    `regel_norm_overschreden_bovenstrooms` laten vuren met een richting die voor vrijwel elke
+    vergunning onjuist is, dus `graaf.bouw` krijgt hier een functie in plaats van een dict."""
+    nu = nu if nu is not None else time.time()
+    if (_TOEZICHTGRAAF["graaf"] is not None
+            and nu - _TOEZICHTGRAAF["gebouwd_op"] < _TOEZICHTGRAAF_TTL_S):
+        return _TOEZICHTGRAAF["graaf"], _graaf_meta()
+
+    register = _toezicht_register()
+    aquo_ref = _toezicht_aquo_ref()
+    normenset = _toezicht_normenset()
+    doelenset = _toezicht_doelenset()
+    getoetst = toezicht_context.toetsing(
+        kmg_metingen.punten(_toezicht_metingen()), doelenset, normenset)
+    gedeeld = {
+        "stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset),
+        "gemeten_codes": _toezicht_gemeten_codes(),
+        "overschrijdingen": toezicht_context.overschrijdingen(getoetst),
+        "register_codes": toezicht_aquo.register_codes(
+            [toezicht_aquo.verrijk(p, aquo_ref) for p in register]),
+    }
+    per_sleutel, _redenen = kmg_service._waterlichaam_per_vergunning(register, True)
+    # `kmg_toerekening.sleutel_post` is `kenmerk or locatiecode or "#<positie>"`, en die positie
+    # kent `context_voor` niet: `graaf.bouw` geeft een door `aquo.verrijk` gemaakte kópie door,
+    # dus noch de index noch de objectidentiteit reist mee. Daarom wordt hier één keer een
+    # mapping gelegd op de twee velden die de verrijking ongemoeid laat. Een post zonder kenmerk
+    # én zonder locatiecode krijgt zo geen waterlichaam -- dat is dezelfde eerlijke uitkomst als
+    # `mag.buiten_toerekening` op `/kmg`, en in dit register komt het niet voor (alle 69 dragen
+    # een locatiecode).
+    per_vergunning = {}
+    for i, post in enumerate(register):
+        sleutel = kmg_toerekening.sleutel_post(post, i)
+        if sleutel in per_sleutel:
+            per_vergunning[(post.get("kenmerk"), post.get("locatiecode"))] = per_sleutel[sleutel]
+
+    def context_voor(vestiging: dict) -> dict:
+        paar = (vestiging.get("kenmerk"), vestiging.get("locatiecode"))
+        return {**gedeeld, "waterlichaam": per_vergunning.get(paar)}
+
+    graaf = toezicht_graaf.bouw(register, _toezicht_metingen(), normenset, aquo_ref,
+                                 context=context_voor)
+    _TOEZICHTGRAAF.update({"graaf": graaf, "gebouwd_op": nu, "triples": len(graaf),
+                            "vestigingen": len(register)})
+    return graaf, _graaf_meta()
+
+
+def _graaf_meta() -> dict:
+    """Wat de pagina over de graaf mag vertellen. Afgeleid, niet getypt: het aantal triples komt
+    uit de graaf zelf, zodat de pagina niet kan beweren dat er meer in zit dan er in zit."""
+    return {"triples": _TOEZICHTGRAAF["triples"],
+            "vestigingen": _TOEZICHTGRAAF["vestigingen"],
+            "gebouwd_op": _TOEZICHTGRAAF["gebouwd_op"]}
+
+
+class ToezichtVraagRequest(BaseModel):
+    vraag: str
+
+
+@app.post("/api/toezicht/vraag")
+def api_toezicht_vraag(req: ToezichtVraagRequest):
+    """Een vrije vraag over de toezichtgraaf: NL -> SPARQL -> **validatie** -> uitvoering.
+
+    De validatie is niet-optioneel en strenger dan haar SQL-tegenhanger op `/afval`: alleen
+    SELECT en ASK, een verplichte `LIMIT`, een te grote `LIMIT` geweigerd in plaats van
+    herschreven, en geen `SERVICE`- of `FROM`-clause -- alles via de SPARQL-parseboom en niet via
+    een patroon op tekst (zie `toezicht.vraag`). De uitgevoerde query gaat mee in het antwoord,
+    zodat wat de lezer ziet letterlijk is wat er is uitgevoerd.
+
+    Dit is een POST omdat er een vraag in de body gaat, niet omdat er iets wordt opgeslagen: de
+    graaf is in het geheugen en wordt niet door een vraag gewijzigd. De read-only belofte van
+    `/wasstraat` en `/toezicht` blijft dus staan."""
+    if not (req.vraag or "").strip():
+        raise HTTPException(status_code=422, detail="vraag mag niet leeg zijn")
+    try:
+        graaf, meta = _toezicht_graaf()
+    except ConnectorError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    cfg = _llm_cfg()
+    llm = toezicht_vraag.taalmodel(cfg["llm_base_url"], cfg["model"], cfg["timeout_s"])
+    # Via de agent, niet om hem heen. `vraagsteller` heeft geen taak in `tasks.yaml` -- zijn werk
+    # is een losse actie -- maar die actie loopt wél door dezelfde drie poorten als een
+    # pijplijnstap: de tool komt uit zijn eigen `tools`-lijst, het taalmodel door de §4.4-grens
+    # (geen `llm`-sleutel in de configuratie = geen model, ook hier), en de stap komt in de
+    # runlog met `llm` op gebruik. Zou deze route `vraag.stel` rechtstreeks aanroepen, dan deed
+    # zij het werk van een agent achter zijn rug om en bepaalde `agents.yaml` voor dit pad niets.
+    crew = toezicht_runner.laad(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD)
+    log = toezicht_runlog.Runlog()
+    updates = crew.los_uitvoeren("vraagsteller", "vraag_stellen",
+                                  {"vraag": req.vraag, "graaf": graaf}, llm=llm, runlog=log)
+    uit = updates.get("antwoord") or {}
+    stappen = log.als_gegeven()
+    return {**uit, "graaf": meta, "runlog": {"uitgezet": [], "stappen": stappen},
+            "agents_gedraaid": toezicht_pijplijn.gedraaide_agents(stappen,
+                                                                   TOEZICHT_AGENTS_PAD)}
 
 
 # -- /wasstraat: de papierbevindingen op het Maas-lozingenregister -------------------------------

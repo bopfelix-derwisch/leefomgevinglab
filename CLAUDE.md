@@ -394,6 +394,45 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   worden, want de zinnen zijn op leeslengte afgebroken en zonder dat raakt geen enkel patroon
   iets — de bewaking is dan groen en leeg. Er staat ook een ondergrens op het aantal gevonden
   claims, en de niet-leegheid is met een mutatie op de echte pagina bewezen.
+- ✅ **De vraagweg (`POST /api/toezicht/vraag`, chatbox op `/toezicht`):** een vrije vraag over
+  de toezichtgraaf — NL → SPARQL → **validatie** → uitvoering, met de uitgevoerde query zichtbaar.
+  Vierde toepassing van hetzelfde huisstramien naast `/chatbot` (RAG), `/datavraag` (NL→SPARQL) en
+  `/afval` (NL→SQL). De machinerie (`graaf.py`, `vraag.py`) bestond al en getest; wat ontbrak was
+  een route — en één inhoudelijk stuk.
+  **Dat stuk is de brug: `graaf.bouw` neemt nu ook de signalen op als `t:Signaal`**, met `t:laag`
+  (papier/werkelijkheid) en `t:rol` (bevinding/voorbehoud) als de twee assen. Zonder die klasse kon
+  de graaf wél zeggen welke grenswaarde aangenomen is, maar niet welke vergunning een open
+  wasstraatbevinding heeft — en juist de vraag die over de twee lezers heen loopt heeft waarde.
+  Live geverifieerd: *"Welke vergunningen hebben een papierbevinding en ook een
+  werkelijkheidssignaal?"* geeft **58 vergunningen** met naam, locatiecode en kenmerk.
+  **`context` mag een functie `vestiging -> dict` zijn, en dat is noodzaak geen gemak:**
+  `waterlichaam` wordt uit de eigen coördinaat van elke vergunning opgezocht. Eén waterlichaam aan
+  het hele register toekennen zou `regel_norm_overschreden_bovenstrooms` laten vuren met een
+  richting die voor vrijwel elke vergunning onjuist is.
+  **De graaf wordt gecachet (TTL 1 dag), want hij is duur** — niet de triples (~72.000 in 0,5 s)
+  maar het waterlichaam per vergunning (~8 s over 62, al parallel in `kmg_service`). Koud duurt
+  een vraag ~38 s, warm ~10 s; dat laatste is vrijwel geheel het taalmodel.
+  **De route loopt dóór de `vraagsteller`-agent, niet eromheen** (`runner.Crew.los_uitvoeren`).
+  Die agent heeft geen taak in `tasks.yaml` — zijn werk is een losse actie — maar de actie gaat
+  langs dezelfde drie poorten als een pijplijnstap: de tool komt uit zijn eigen `tools`-lijst, het
+  taalmodel door de §4.4-grens, en de stap komt in de runlog met `llm` op **gebruik**. Haal de
+  `llm`-sleutel bij `vraagsteller` weg en de vraagweg weigert, in plaats van stil toch een model te
+  gebruiken; een test dwingt dat af. Zonder deze omweg deed de route het werk van een agent achter
+  zijn rug om en bepaalde `agents.yaml` voor dit pad niets.
+  **Dit is de eerste plek bij deze pagina's waar werkelijk een taalmodel draait** — beide
+  dossierroutes geven `llm=None` door en blijven dat doen. De pagina zegt dat expliciet, en een
+  test bewaakt die zin: anders wordt "geen taalmodel" stil onwaar.
+  **Twee dingen die alleen uit het bevragen van de draaiende dienst kwamen:** (1) het model schreef
+  een correcte brugvraag maar selecteerde het vestigingsknooppunt, en dat is een **blank node** —
+  100 rijen met `Na5f43702f94c…`, onbruikbaar. De naam zat alleen drie stappen diep achter
+  `t:heeftVeld` → Bewering → `t:waarde`. `naam`, `locatiecode` en `kenmerk` staan nu óók als
+  gewone literal op de vestiging (`IDENTIFICERENDE_VELDEN`), met de Bewering ernaast voor de
+  zekerheid; de grounding zegt expliciet die te selecteren. (2) Zonder `DISTINCT` levert een dubbel
+  `t:heeftSignaal`-pad het kruisproduct op — 100 rijen over 69 vergunningen — dus de grounding
+  schrijft `SELECT DISTINCT` voor bij twee paden. **En de validator bewees zich live:** gevraagd om
+  alles te verwijderen schreef het model `DELETE WHERE { ?signaal a t:Signaal }. LIMIT 1000000`,
+  en die is geweigerd, zichtbaar als geweigerde query, met nul rijen. De pagina labelt zo'n query
+  dan ook als *"Geweigerde query — niet uitgevoerd"* en niet als uitgevoerd.
 - **`.env` wordt in `tests/conftest.py` geladen, niet per ongeluk.** De live-tests lezen hun
   sleutel rechtstreeks uit `os.environ`, en die stond daar tot 2026-11-15 alleen omdat
   `geluidsmeter/api.py` bij import `load_dotenv()` aanroept en bijna elk testbestand `api`

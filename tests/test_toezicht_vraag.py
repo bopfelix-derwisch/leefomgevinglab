@@ -165,3 +165,71 @@ def test_stel_zonder_graaf_is_niet_beschikbaar():
     uit = vraag.stel("iets", None, lambda prompt: "SELECT * WHERE { ?s ?p ?o } LIMIT 10")
     assert uit["beschikbaar"] is False
     assert uit["rijen"] == []
+
+
+# -- De grounding moet de graaf beschrijven die er werkelijk is ---------------------------------
+
+def test_de_grounding_beschrijft_elke_klasse_die_de_graaf_bouwt():
+    """**Waarom dit een test is en geen afspraak.** De grounding is het enige wat het taalmodel
+    van de graaf weet. Staat er een klasse in de graaf die de grounding niet noemt, dan bestaat
+    zij wel maar is zij onvindbaar -- het model kan er geen query op maken, en de gebruiker krijgt
+    "geen resultaten" op een vraag die prima te beantwoorden was. Dat is het stilste soort fout
+    dat deze use-case kent, en precies de reden dat de signalen in de graaf gezet zijn.
+
+    De lijst klassen wordt uit de gebouwde graaf gehaald, niet hier opgesomd: komt er een zesde
+    klasse bij, dan valt deze test om in plaats van de grounding stil achter te laten."""
+    from leefomgevinglab.usecases.toezicht import graaf as graaf_mod
+    from tests.test_toezicht_graaf import AQUO_FIXTURE, REGISTER_FIXTURE, _CONTEXT
+
+    g = graaf_mod.bouw(REGISTER_FIXTURE, None, None, AQUO_FIXTURE, context=_CONTEXT)
+    klassen = {str(o).rsplit("#", 1)[-1]
+               for o in g.objects(predicate=rdflib.RDF.type)}
+    assert klassen, "lege graaf -- deze test kan niets toetsen"
+    for klasse in sorted(klassen):
+        assert klasse in vraag.GROUNDING, (
+            f"de graaf bouwt t:{klasse}, maar de grounding noemt die klasse niet -- het "
+            "taalmodel kan er dus geen query op maken en de gebruiker krijgt 'geen resultaten' "
+            "op een vraag die te beantwoorden was")
+
+
+def test_de_grounding_noemt_de_twee_assen_van_een_signaal():
+    """`laag` en `rol` zijn wat een brugvraag mogelijk maakt ("papierbevinding én meting boven de
+    norm"). Noemt de grounding ze niet, dan is de brug er maar onbelopen."""
+    for veld in ("t:laag", "t:rol"):
+        assert veld in vraag.GROUNDING, veld
+    assert "papier" in vraag.GROUNDING and "werkelijkheid" in vraag.GROUNDING
+    assert "bevinding" in vraag.GROUNDING and "voorbehoud" in vraag.GROUNDING
+
+
+# -- De factory die het injectiecontract invult voor echt gebruik -------------------------------
+
+def test_taalmodel_levert_een_aanroepbare_functie_zonder_meteen_te_bellen():
+    """Het bouwen van de functie mag geen netwerk raken -- anders kan geen enkele route haar
+    aanmaken zonder het model te wekken."""
+    fn = vraag.taalmodel("http://localhost:9/v1", "test-model", timeout_s=0.01)
+    assert callable(fn)
+
+
+def test_een_onbereikbaar_model_laat_stel_netjes_antwoorden_in_plaats_van_te_crashen():
+    """`stel()` moet een onbereikbaar model als "AI tijdelijk niet beschikbaar" melden. Een lege
+    string teruggeven zou van een netwerkfout een lege query maken, en dat leest als "deze vraag
+    kon niet veilig worden vertaald" -- de verkeerde diagnose."""
+    g = graaf.bouw([], None, None, None)
+    fn = vraag.taalmodel("http://127.0.0.1:1/v1", "test-model", timeout_s=0.05)
+    uit = vraag.stel("wat dan ook", g, fn)
+    assert uit["beschikbaar"] is False
+    assert "niet beschikbaar" in uit["antwoord"].lower()
+    assert uit["sparql"] is None
+    assert uit["rijen"] == []
+
+
+def test_de_grounding_wijst_het_model_naar_de_leesbare_ingang():
+    """Live bewees dit zijn nut: zonder deze aanwijzing selecteerde het model het
+    vestigingsknooppunt en kreeg de gebruiker 100 blank-node-id's te zien. De grounding noemt nu
+    expliciet welke velden leesbaar zijn en dat het knooppunt zelf dat niet is."""
+    assert "t:naam" in vraag.GROUNDING
+    laag = vraag.GROUNDING.lower()
+    assert "blank node" in laag, "zeg waarom het knooppunt zelf niet bruikbaar is"
+    assert "distinct" in laag, (
+        "zonder DISTINCT levert een dubbel pad het kruisproduct op, en dan zegt het aantal rijen "
+        "niets over het aantal vergunningen -- live gezien: 100 rijen over 69 vergunningen")
