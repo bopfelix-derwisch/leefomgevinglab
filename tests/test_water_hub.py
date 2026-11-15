@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import leefomgevinglab.geluidsmeter.api as api
 from leefomgevinglab.usecases import water_hub as wh
 from leefomgevinglab.usecases.toezicht import signalen
+from tests import telwoorden
 
 
 def _client(monkeypatch):
@@ -14,8 +15,9 @@ def _client(monkeypatch):
 
 # Nederlandse telwoorden, voor de samenvattingen die een aantal regels claimen. Alleen de getallen
 # die in dit dossier voorkomen; een nieuw telwoord valt luid om in plaats van stil over te slaan.
-_TELWOORD = {"een": 1, "twee": 2, "drie": 3, "vier": 4, "vijf": 5, "zes": 6, "zeven": 7,
-             "acht": 8, "negen": 9, "tien": 10, "elf": 11, "twaalf": 12}
+# Eén telwoordtabel voor de hele suite (`tests/telwoorden.py`), niet hier een tweede: twee
+# lijsten die uit de pas kunnen lopen is in dit project al duur geweest.
+_TELWOORD = telwoorden.TELWOORD
 
 
 def test_elk_lid_heeft_een_pad_een_label_en_een_verantwoording():
