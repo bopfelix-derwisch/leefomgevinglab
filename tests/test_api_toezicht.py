@@ -591,3 +591,14 @@ def test_de_vraagsteller_krijgt_geen_model_als_zijn_configuratie_er_geen_noemt(m
     assert d["beschikbaar"] is False, (
         "zonder model kan er geen query gemaakt worden; dat hoort eerlijk 'niet beschikbaar' te "
         "zijn in plaats van een stille lege uitkomst")
+
+
+def test_de_vraagbox_toont_voortgang_tijdens_het_wachten(monkeypatch):
+    """Het lokale taalmodel doet er ~10 s over, en de eerste vraag na een herstart bouwt
+    bovendien de graaf op (~8 s extra). Eén stilstaande regel tekst is in die tijd niet van
+    kapot te onderscheiden -- en dat was precies de melding: "de vraag werkt niet". De status
+    tikt daarom mee en zegt bij de eerste vraag expliciet dat die het langst duurt."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "setInterval" in r.text, "een stilstaande status leest als vastgelopen"
+    assert "eerste vraag duurt het langst" in r.text
+    assert 'textContent = "Bezig…"' in r.text, "de knop hoort ook te laten zien dat hij loopt"

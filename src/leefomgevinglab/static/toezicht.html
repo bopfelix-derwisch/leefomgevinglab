@@ -595,11 +595,36 @@
         `</tbody></table></div>`;
     }
 
+    // Een tikkende statusregel. Zonder dit staat de pagina tien tot veertig seconden stil met
+    // één regel tekst, en dat is niet van kapot te onderscheiden -- het lokale taalmodel doet er
+    // ~10 s over, en de eerste vraag na een herstart bouwt bovendien de graaf op (~8 s extra).
+    // Daarom ook expliciet gezegd dát de eerste vraag langer duurt, in plaats van de lezer te
+    // laten denken dat het altijd zo traag is.
+    let _tik = null;
+    function startTik() {
+      const begin = Date.now();
+      const eerste = !window._vraagEerderGesteld;
+      const schrijf = () => {
+        const s = Math.round((Date.now() - begin) / 1000);
+        $("vraagstatus").textContent =
+          `Bezig… ${s} s. Het taalmodel schrijft een query` +
+          (eerste ? " en de graaf wordt eenmalig opgebouwd — de eerste vraag duurt het langst."
+                  : ".");
+      };
+      schrijf();
+      _tik = setInterval(schrijf, 1000);
+    }
+    function stopTik() {
+      if (_tik) { clearInterval(_tik); _tik = null; }
+      window._vraagEerderGesteld = true;
+    }
+
     async function stelVraag() {
       const vraag = ($("vraaginput").value || "").trim();
       if (!vraag) return;
       $("vraagknop").disabled = true;
-      $("vraagstatus").textContent = "Het taalmodel zet uw vraag om in een query…";
+      $("vraagknop").textContent = "Bezig…";
+      startTik();
       $("vraagantwoord").innerHTML = "";
       try {
         const r = await fetch("/api/toezicht/vraag", {
@@ -608,6 +633,7 @@
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const d = await r.json();
+        stopTik();
         $("vraagstatus").textContent = "";
         const g = d.graaf || {};
         $("vraagantwoord").innerHTML =
@@ -627,9 +653,12 @@
                `${esc(g.vestigingen)} vergunningen.` : "") +
           `</div>`;
       } catch (e) {
+        stopTik();
         $("vraagstatus").textContent = `De vraag kon niet worden gesteld: ${e.message}`;
       } finally {
+        stopTik();
         $("vraagknop").disabled = false;
+        $("vraagknop").textContent = "Vraag";
       }
     }
 
