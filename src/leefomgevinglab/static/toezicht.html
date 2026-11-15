@@ -180,6 +180,34 @@
       color:var(--muted); }
     .aveld .awaarde.leeg { color:var(--dim); font-style:italic; }
     .agentmelding { font-size:11.5px; color:var(--weg); }
+
+    /* De vraagbox. Geen chatgeschiedenis: één vraag, één antwoord, met de query erbij -- zoals
+       /afval en /datavraag het ook doen. Een gesprekslog zou suggereren dat het model context
+       meeneemt, en dat doet het hier niet. */
+    .vraagbox { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 15px; }
+    .vraagbox form { display:flex; gap:8px; flex-wrap:wrap; }
+    .vraagbox input { flex:1 1 280px; min-width:0; background:var(--panel2);
+      border:1px solid var(--border); border-radius:7px; color:var(--text); padding:9px 11px;
+      font-size:13px; font-family:inherit; }
+    .vraagbox input:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+    .vraagbox button { background:var(--accent); color:#06231a; border:none; border-radius:7px;
+      padding:9px 17px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .vraagbox button:disabled { opacity:.5; cursor:default; }
+    .voorbeelden { margin-top:9px; display:flex; gap:6px; flex-wrap:wrap; }
+    .voorbeelden button { background:transparent; color:var(--muted); border:1px solid
+      var(--border); border-radius:12px; padding:4px 10px; font-size:11.5px; font-weight:400; }
+    .voorbeelden button:hover { color:var(--accent); border-color:var(--accent); }
+    .vraagstatus { font-size:12px; color:var(--dim); margin-top:9px; }
+    .vraagantwoord { font-size:13.5px; color:#eafff6; margin-top:10px; }
+    .vraagsparql { margin-top:9px; background:var(--panel2); border:1px solid var(--border);
+      border-radius:7px; padding:9px 11px; font-family:ui-monospace,'SF Mono',Menlo,monospace;
+      font-size:11px; color:var(--muted); white-space:pre-wrap; word-break:break-word; }
+    .vraagsparql .kop { font-size:9.5px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--dim); font-family:inherit; display:block; margin-bottom:4px; }
+    .vraagtabel { margin-top:10px; overflow-x:auto; }
+    .vraagvoet { font-size:11px; color:var(--dim); margin-top:9px; }
+    .vraagvoet b { color:var(--muted); }
   </style>
 </head>
 <body>
@@ -243,6 +271,27 @@
       configuratiesleutels — staat op
       <a data-anatomie="/onderwater" href="/onderwater">/onderwater</a>.</p>
     <div id="agents"></div>
+
+    <div class="section-title">Vraag het de graaf</div>
+    <p class="section-noot">Hier kunt u iets vragen dat <b>over de twee pagina's heen loopt</b> —
+      bijvoorbeeld welke vergunningen zowel een papierbevinding op
+      <a href="/wasstraat">/wasstraat</a> hebben als een meting boven de norm. Dat kan omdat
+      register, metingen, normen én de bevindingen in één graaf staan, met per signaal of het
+      papier of werkelijkheid betreft.
+      <b>Let op: dit is de enige plek op deze pagina waar een taalmodel draait.</b> Het zet uw
+      vraag om in een SPARQL-query; die wordt eerst <b>gevalideerd</b> (alleen lezen, altijd een
+      limiet) en daarna uitgevoerd. De uitgevoerde query staat eronder, zodat u zelf kunt zien
+      wat er is gevraagd. Het antwoord is indicatief en nooit een vaststelling.</p>
+    <div class="vraagbox">
+      <form id="vraagform">
+        <input id="vraaginput" type="text" autocomplete="off"
+               placeholder="Welke vergunningen hebben een papierbevinding én een meting boven de norm?" />
+        <button type="submit" id="vraagknop">Vraag</button>
+      </form>
+      <div class="voorbeelden" id="voorbeelden"></div>
+      <div class="vraagstatus" id="vraagstatus"></div>
+      <div id="vraagantwoord"></div>
+    </div>
 
     <footer>
       <p><b>Bron.</b> <a href="https://atlas-smwk.hub.arcgis.com/" target="_blank"
@@ -514,6 +563,78 @@
 
     $("vestiging").addEventListener("change", e => laadDossier(e.target.value));
     laadVestigingen();
+
+    // -- De vraagbox ---------------------------------------------------------------------------
+    //
+    // Eén vraag, één antwoord. Geen gesprekslog: dat zou suggereren dat het model eerdere vragen
+    // meeneemt, en dat doet het niet -- elke vraag wordt los omgezet in een query.
+    const VOORBEELDVRAGEN = [
+      "Welke vergunningen hebben een papierbevinding en een meting boven de norm?",
+      "Welke grenswaarden zijn aangenomen in plaats van uit de bron gelezen?",
+      "Welke vergunningen missen een kenmerk?",
+      "Welke stoffen zijn op meer dan één meetpunt boven de norm gemeten?",
+    ];
+
+    function tekenVoorbeelden() {
+      $("voorbeelden").innerHTML = VOORBEELDVRAGEN.map((v, i) =>
+        `<button type="button" data-vraag="${esc(v)}">${esc(v)}</button>`).join("");
+      $("voorbeelden").querySelectorAll("button").forEach(b => {
+        b.onclick = () => { $("vraaginput").value = b.dataset.vraag; stelVraag(); };
+      });
+    }
+
+    function tekenRijen(rijen) {
+      if (!rijen || !rijen.length) return "";
+      // De kolommen komen uit de rijen zelf: welke variabelen een query teruggeeft, bepaalt het
+      // taalmodel, dus die kunnen hier niet vastliggen.
+      const kolommen = [...new Set(rijen.flatMap(r => Object.keys(r)))];
+      return `<div class="vraagtabel"><table class="rijen"><thead><tr>` +
+        kolommen.map(k => `<th>${esc(k)}</th>`).join("") + `</tr></thead><tbody>` +
+        rijen.map(r => `<tr>` + kolommen.map(k =>
+          `<td>${esc(r[k] == null ? "—" : r[k])}</td>`).join("") + `</tr>`).join("") +
+        `</tbody></table></div>`;
+    }
+
+    async function stelVraag() {
+      const vraag = ($("vraaginput").value || "").trim();
+      if (!vraag) return;
+      $("vraagknop").disabled = true;
+      $("vraagstatus").textContent = "Het taalmodel zet uw vraag om in een query…";
+      $("vraagantwoord").innerHTML = "";
+      try {
+        const r = await fetch("/api/toezicht/vraag", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vraag }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        $("vraagstatus").textContent = "";
+        const g = d.graaf || {};
+        $("vraagantwoord").innerHTML =
+          `<div class="vraagantwoord">${esc(d.antwoord || "")}</div>` +
+          (d.sparql
+            // `beschikbaar: false` met een query erin betekent: de validator heeft hem
+            // geweigerd, of hij liep stuk. Hem dan "Uitgevoerde query" noemen zou de lezer laten
+            // denken dat dit op de graaf heeft gedraaid.
+            ? `<div class="vraagsparql"><span class="kop">${d.beschikbaar === false
+                 ? "Geweigerde query -- niet uitgevoerd" : "Uitgevoerde query"}</span>` +
+              `${esc(d.sparql)}</div>`
+            : "") +
+          tekenRijen(d.rijen) +
+          `<div class="vraagvoet"><b>${esc(d.disclaimer || "")}</b> ` +
+            `${esc(d.vangnet || "")} ${esc(d.bron || "")}` +
+            (g.triples ? ` Graaf: ${esc(g.triples)} triples over ` +
+               `${esc(g.vestigingen)} vergunningen.` : "") +
+          `</div>`;
+      } catch (e) {
+        $("vraagstatus").textContent = `De vraag kon niet worden gesteld: ${e.message}`;
+      } finally {
+        $("vraagknop").disabled = false;
+      }
+    }
+
+    $("vraagform").addEventListener("submit", ev => { ev.preventDefault(); stelVraag(); });
+    tekenVoorbeelden();
   </script>
 </body>
 </html>

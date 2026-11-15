@@ -434,3 +434,160 @@ def test_de_pagina_wijst_naar_de_anatomie(monkeypatch):
     moet wel te vinden zijn."""
     r = _client(monkeypatch).get("/toezicht")
     assert 'data-anatomie="/onderwater"' in r.text
+
+
+# -- /api/toezicht/vraag: de brug tussen de twee lezers ------------------------------------------
+#
+# Geen enkele test hier roept een taalmodel aan: `vraag.stel` neemt `llm` als geïnjecteerde
+# functie, en de route bouwt die met `vraag.taalmodel`. Die ene regel wordt gemonkeypatcht, zodat
+# de SPARQL vastligt en de rest van het pad (validatie, uitvoering, antwoordvorm) echt draait.
+
+def _monkeypatch_graaf(monkeypatch, sparql: str):
+    """Alle bronnen voor de register-brede graaf, plus een 'taalmodel' dat één vaste query geeft.
+    Ook de cache wordt leeggemaakt: anders bepaalt de testvolgorde wat er in de graaf zit."""
+    _monkeypatch_bronnen(monkeypatch)
+    monkeypatch.setattr(api.kmg_service, "_waterlichaam_per_vergunning",
+                        lambda *a, **k: ({}, {}))
+    monkeypatch.setattr(api.toezicht_vraag, "taalmodel",
+                        lambda *a, **k: (lambda prompt: sparql))
+    api._TOEZICHTGRAAF.update({"graaf": None, "gebouwd_op": 0.0, "triples": 0,
+                                "vestigingen": 0})
+    return _client(monkeypatch)
+
+
+_VRAAG_SPARQL = (
+    "PREFIX t: <https://leefomgevinglab.felixisfelix.com/toezicht#> "
+    "SELECT ?regel WHERE { ?s a t:Signaal ; t:regel ?regel } LIMIT 50")
+
+
+def test_een_vraag_levert_de_uitgevoerde_query_en_de_rijen(monkeypatch):
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "welke signalen zijn er?"}).json()
+    assert d["beschikbaar"] is True
+    assert d["sparql"] == _VRAAG_SPARQL, (
+        "de uitgevoerde query moet letterlijk zijn wat de lezer te zien krijgt")
+    assert d["rijen"], "de graaf draagt signalen, dus deze query hoort rijen te geven"
+    assert d["disclaimer"] and d["vangnet"] and d["bron"]
+
+
+def test_de_graafmeta_is_afgeleid_en_niet_getypt(monkeypatch):
+    """De pagina mag vertellen hoe groot de graaf is; dat getal komt uit de graaf zelf, zodat zij
+    niet kan beweren dat er meer in zit dan er in zit."""
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "x"}).json()
+    assert d["graaf"]["triples"] > 0
+    assert d["graaf"]["vestigingen"] > 0
+
+
+def test_de_brugvraag_over_de_twee_lezers_werkt_echt(monkeypatch):
+    """**De vraag waar dit hele stuk om begonnen is.** Papier en werkelijkheid in één query, op
+    dezelfde vestiging. Lukt dit niet, dan is de brug er alleen in naam."""
+    brug = ("PREFIX t: <https://leefomgevinglab.felixisfelix.com/toezicht#> "
+            "SELECT ?regel WHERE { ?v a t:Vestiging ; t:heeftSignaal ?p . "
+            "?p t:laag \"papier\" ; t:rol \"bevinding\" ; t:regel ?regel } LIMIT 50")
+    client = _monkeypatch_graaf(monkeypatch, brug)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "welke papierbevindingen?"}).json()
+    assert d["beschikbaar"] is True, d
+    assert d["rijen"], "geen papierbevinding in de register-brede graaf"
+
+
+def test_een_schrijfquery_wordt_geweigerd_voordat_er_iets_wordt_uitgevoerd(monkeypatch):
+    """De validator is het hele punt van deze route. Een taalmodel dat een UPDATE voorstelt mag
+    niet tot uitvoering komen, en de gebruiker hoort te zien wat er geweigerd is -- niet een
+    stille 500 en niet een leeg antwoord dat op "geen resultaten" lijkt."""
+    kwaad = "INSERT DATA { <a> <b> <c> }"
+    client = _monkeypatch_graaf(monkeypatch, kwaad)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "verwijder alles"}).json()
+    assert d["beschikbaar"] is False
+    assert d["rijen"] == []
+    assert d["sparql"] == kwaad, "de geweigerde query hoort zichtbaar te zijn"
+    assert "niet veilig" in d["antwoord"].lower()
+
+
+def test_een_select_zonder_limit_wordt_geweigerd(monkeypatch):
+    client = _monkeypatch_graaf(monkeypatch, "SELECT * WHERE { ?s ?p ?o }")
+    d = client.post("/api/toezicht/vraag", json={"vraag": "alles"}).json()
+    assert d["beschikbaar"] is False and d["rijen"] == []
+
+
+def test_een_lege_vraag_geeft_422_en_raakt_het_model_niet(monkeypatch):
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    assert client.post("/api/toezicht/vraag", json={"vraag": "   "}).status_code == 422
+
+
+def test_de_graaf_wordt_hergebruikt_en_niet_per_vraag_opnieuw_gebouwd(monkeypatch):
+    """Het bouwen kost live ~8 s, bijna helemaal aan het opzoeken van het waterlichaam per
+    vergunning. Zonder cache betaalt elke vraag die rekening opnieuw."""
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    gebouwd = []
+    echte_bouw = api.toezicht_graaf.bouw
+    monkeypatch.setattr(api.toezicht_graaf, "bouw",
+                        lambda *a, **k: (gebouwd.append(1), echte_bouw(*a, **k))[1])
+    for _ in range(3):
+        assert client.post("/api/toezicht/vraag", json={"vraag": "x"}).status_code == 200
+    assert len(gebouwd) == 1, f"graaf {len(gebouwd)} keer gebouwd in plaats van één keer"
+
+
+def test_de_pagina_labelt_een_geweigerde_query_niet_als_uitgevoerd(monkeypatch):
+    """Een query die de validator weigert, heeft niets op de graaf gedaan. Hem "Uitgevoerde
+    query" noemen zou de lezer precies het omgekeerde vertellen van wat er gebeurde -- en op een
+    pagina die haar transparantie als belofte voert is dat geen cosmetisch verschil."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "Geweigerde query" in r.text
+    assert "d.beschikbaar === false" in r.text, "het label hangt aan het echte veld"
+
+
+def test_de_vraagbox_toont_de_uitgevoerde_query_en_het_voorbehoud(monkeypatch):
+    """Dezelfde transparantie als /afval en /datavraag: de query zichtbaar, en het antwoord
+    uitdrukkelijk indicatief."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "/api/toezicht/vraag" in r.text
+    for veld in ("d.sparql", "d.disclaimer", "d.vangnet", "d.rijen"):
+        assert veld in r.text, veld
+
+
+def test_de_pagina_zegt_dat_de_vraagbox_de_enige_plek_met_een_taalmodel_is(monkeypatch):
+    """De dossierroutes geven `llm=None` door en de rest van deze pagina is deterministisch. Die
+    grens is de kern van dit lab, dus moet de pagina zeggen waar zij ligt zodra er één plek is
+    waar wél een model draait -- anders wordt "geen taalmodel" stil onwaar."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "enige plek op deze pagina waar een taalmodel draait" in r.text
+
+
+def test_de_vraag_loopt_door_de_vraagsteller_agent_en_niet_om_hem_heen(monkeypatch):
+    """**Waarom dit telt.** `vraagsteller` heeft geen taak in `tasks.yaml`, dus kon deze route
+    `vraag.stel` ook rechtstreeks aanroepen. Dan zou `agents.yaml` voor dit pad niets bepalen:
+    de route gaf een taalmodel door ongeacht wat er in de configuratie staat, en de runlog zou de
+    stap niet zien. Op een pagina die haar configuratie als transparantie presenteert, is dat het
+    verschil tussen bindend en decoratief."""
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "welke signalen?"}).json()
+    stappen = d["runlog"]["stappen"]
+    assert [s["agent"] for s in stappen] == ["vraagsteller"]
+    assert stappen[0]["tool"] == "vraag_stellen"
+    assert stappen[0]["llm"] is True, (
+        "de vraagsteller heeft een llm-sleutel en de query is door het model gemaakt, dus de "
+        "runlog hoort gebruik te melden")
+    assert [a["id"] for a in d["agents_gedraaid"]] == ["vraagsteller"]
+    assert d["agents_gedraaid"][0]["mag_llm"] is True
+
+
+def test_de_vraagsteller_krijgt_geen_model_als_zijn_configuratie_er_geen_noemt(monkeypatch,
+                                                                                tmp_path):
+    """De §4.4-grens geldt ook hier. Haal de `llm`-sleutel uit de configuratie en er mag geen
+    model meer aan te pas komen -- de vraag levert dan geen query op in plaats van stil toch het
+    model te gebruiken. Zonder deze bewaking is de belofte van dit lab via één route te
+    ontlopen."""
+    import yaml
+    agents = yaml.safe_load(open(api.TOEZICHT_AGENTS_PAD, encoding="utf-8"))
+    agents["vraagsteller"].pop("llm", None)
+    pad = tmp_path / "agents.yaml"
+    pad.write_text(yaml.safe_dump(agents), encoding="utf-8")
+    monkeypatch.setattr(api, "TOEZICHT_AGENTS_PAD", str(pad))
+
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    d = client.post("/api/toezicht/vraag", json={"vraag": "welke signalen?"}).json()
+    assert d["runlog"]["stappen"][0]["llm"] is False, "geen sleutel, dus geen model"
+    assert d["beschikbaar"] is False, (
+        "zonder model kan er geen query gemaakt worden; dat hoort eerlijk 'niet beschikbaar' te "
+        "zijn in plaats van een stille lege uitkomst")

@@ -63,15 +63,30 @@ _MAX_LIMIT = 200
 GROUNDING = f"""\
 Lokale RDF-graaf (rdflib), namespace:
   t: <{graaf_mod.T}>
-Klassen: t:Vestiging, t:Voorschrift, t:Bewering, t:Meting, t:Norm.
-Een Vestiging draagt t:heeftVoorschrift (naar een Voorschrift) en t:heeftVeld (naar een Bewering
-over naam/plaats/locatie/locatiecode/vestigingsnummer_kvk/kenmerk/besluitdatum/waterlichaam/url).
+Klassen: t:Vestiging, t:Voorschrift, t:Bewering, t:Meting, t:Norm, t:Signaal.
+Een Vestiging draagt t:naam, t:locatiecode en t:kenmerk als gewone literal -- SELECTEER DIE, nooit
+het vestigingsknooppunt zelf: dat is een blank node en levert een onleesbaar id op.
+Een Vestiging draagt verder t:heeftVoorschrift (naar een Voorschrift) en t:heeftVeld (naar een
+Bewering over naam/plaats/locatie/locatiecode/vestigingsnummer_kvk/kenmerk/besluitdatum/
+waterlichaam/url) -- die Bewering gebruik je alleen als de vraag over zekerheid of herkomst gaat.
 Een Voorschrift draagt t:parameter, t:waarde, t:eenheid, t:bemonstering (directe velden) en
 t:heeftHoedanigheid / t:heeftAquoKoppeling (elk naar een Bewering).
 Een Bewering draagt t:veld, t:waarde, t:zekerheid (een van "uit de bron"/"afgeleid"/"aangenomen"/
 "ontbreekt") en optioneel t:herkomst.
 Een Meting draagt t:meetpunt, t:waterlichaam, t:stof, t:mediaan, t:maximum, t:eenheid.
 Een Norm draagt t:meetpunt, t:stof, t:waarde, t:eenheid, t:grondslag.
+Een Vestiging draagt t:heeftSignaal (naar een Signaal). Een Signaal draagt t:regel (de regel-id),
+t:kop, t:zwaarte ("hoog"/"midden"/"laag"), t:omvang, en twee assen die je niet moet verwarren:
+  t:laag is "papier" (de vergunning klopt niet tegen zichzelf; dit staat op /wasstraat, bij de
+    vergunningverlener) of "werkelijkheid" (er is meetdata of stroomrichting voor nodig; dit
+    staat op /toezicht, bij de toezichthouder);
+  t:rol is "bevinding" (hier valt iets te repareren) of "voorbehoud" (deze regel vuurt op vrijwel
+    het hele register en zegt dus niets over één vergunning).
+Een vraag die beide lezers raakt, combineert ze: twee t:heeftSignaal op dezelfde Vestiging, de
+een met t:laag "papier" en t:rol "bevinding", de ander met t:laag "werkelijkheid".
+Gebruik SELECT DISTINCT zodra een vestiging via twee paden tegelijk wordt gematcht (bv. twee keer
+t:heeftSignaal): zonder DISTINCT levert dat het kruisproduct van die paden op, en dan zegt het
+aantal rijen niets over het aantal vergunningen.
 Geef UITSLUITEND de SPARQL SELECT- of ASK-query terug: geen uitleg, geen ```-fences, altijd met
 een LIMIT bij een SELECT."""
 
@@ -178,3 +193,36 @@ def stel(vraag: str, graaf, llm) -> dict:
                 "rijen": [], "beschikbaar": False}
     antwoord = f"{len(rijen)} resultaten." if rijen else "Geen resultaten voor deze vraag."
     return {**base, "antwoord": antwoord, "sparql": sparql, "rijen": rijen, "beschikbaar": True}
+
+
+def taalmodel(base_url: str, model: str, timeout_s: float = 60.0):
+    """Een `llm`-functie (`str -> str`) die het lokale llama.cpp-model op `base_url` aanroept.
+
+    **Waarom deze factory hier staat en niet in de route.** `stel()` en `genereer_sparql()` nemen
+    `llm` als geïnjecteerde functie, zodat een test nooit een model aanroept; dat contract blijft
+    precies zo. Deze factory is alleen de ene plek waar dat contract wordt ingevuld voor echt
+    gebruik, zodat de route één regel blijft en de HTTP-vorm niet in `api.py` terechtkomt.
+
+    **Eerlijk over de duplicatie:** dit is de achtste plek in dit lab die hetzelfde
+    `/chat/completions`-verzoek doet (zie o.a. `usecases/afval/chat._chat`,
+    `usecases/datavraag/nl2sparql`, `usecases/afval/duiding`). Die zeven samenvoegen is een eigen
+    opruiming en hoort niet in een feature-tak; wat hier telt is dat `/toezicht` er geen
+    negende variant bovenop zet en dat het aanroeppad testbaar blijft.
+
+    Een fout van het model wordt niet opgevangen: `stel()` doet dat al expliciet en geeft dan
+    "AI tijdelijk niet beschikbaar" terug in plaats van een 500. Hier stil een lege string
+    teruggeven zou van een onbereikbaar model een lege query maken, en dat leest als "deze vraag
+    kon niet veilig worden vertaald" -- een verkeerde diagnose voor de gebruiker."""
+    import httpx
+
+    def aanroepen(prompt: str) -> str:
+        resp = httpx.post(
+            f"{base_url.rstrip('/')}/chat/completions",
+            json={"model": model, "messages": [{"role": "user", "content": prompt}],
+                  "temperature": 0.0},
+            timeout=timeout_s,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+
+    return aanroepen

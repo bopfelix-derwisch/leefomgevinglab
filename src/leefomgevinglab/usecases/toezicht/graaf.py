@@ -54,6 +54,7 @@ from rdflib import BNode, Graph, Literal, Namespace, RDF
 
 from leefomgevinglab.usecases.kmg.lozingsmodel import HOEDANIGHEID_AANNAME, ZEKERHEDEN
 from leefomgevinglab.usecases.toezicht import aquo as aquo_mod
+from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
 
 #: Het namespace van de toezichtgraaf -- letterlijk zoals het plan het vastlegt.
 T = Namespace("https://leefomgevinglab.felixisfelix.com/toezicht#")
@@ -81,6 +82,19 @@ def _bewering(graph: Graph, veld: str, waarde, zekerheid: str, herkomst: str | N
     return node
 
 
+#: De velden die een mens nodig heeft om te weten *welke* vergunning hij voor zich heeft. Deze
+#: staan óók als gewone literal op de vestiging, naast hun Bewering.
+#:
+#: **Waarom die dubbeling er is -- gevonden door de draaiende dienst te bevragen.** Het taalmodel
+#: schreef een correcte brugvraag en selecteerde `?vestiging`; het antwoord was 100 rijen met
+#: blank-node-id's (`Na5f43702f94c...`), onbruikbaar voor een lezer. De naam stond namelijk alleen
+#: achter `t:heeftVeld` -> Bewering -> `t:waarde`, met een filter op `t:veld "naam"`: drie stappen
+#: diep. Dat is de juiste vorm voor een vraag over zekerheid, maar een val voor elke vraag die
+#: gewoon wil weten welke vergunning het is -- en dat is de meeste. De Bewering blijft bestaan en
+#: blijft de zekerheid dragen; dit is de leesbare ingang ernaast.
+IDENTIFICERENDE_VELDEN = ("naam", "locatiecode", "kenmerk")
+
+
 def _vestiging_triples(graph: Graph, vestiging: dict):
     v = BNode()
     graph.add((v, RDF.type, T.Vestiging))
@@ -89,6 +103,10 @@ def _vestiging_triples(graph: Graph, vestiging: dict):
         aanwezig = waarde not in (None, "", [])
         bewering = _bewering(graph, veld, waarde, UIT_DE_BRON if aanwezig else ONTBREEKT)
         graph.add((v, T.heeftVeld, bewering))
+    for veld in IDENTIFICERENDE_VELDEN:
+        waarde = vestiging.get(veld)
+        if waarde not in (None, "", []):
+            graph.add((v, getattr(T, veld), Literal(waarde)))
     return v
 
 
@@ -178,14 +196,57 @@ def _normen_triples(graph: Graph, normen: dict | None):
             graph.add((node, T.herkomst, Literal(bron_naam)))
 
 
+def _signaal_triples(graph: Graph, vestiging_node, signaal: dict):
+    """Eén `t:Signaal`-knooppunt aan een vestiging: de brug tussen de twee lezers.
+
+    **Waarom de signalen in de graaf horen.** Zonder hen kan deze graaf wel zeggen welke
+    grenswaarde aangenomen is, maar niet welke vergunning een open wasstraatbevinding heeft -- en
+    de vraag die waarde heeft loopt juist over de twee lezers heen: "welke vergunningen hebben
+    een papierbevinding én een meting boven de norm". Die vraag was onbeantwoordbaar zolang de
+    bevindingen buiten de graaf bleven.
+
+    **`laag` en `rol` worden hier afgeleid, niet overgenomen.** Een signaal-dict draagt ze niet
+    (zie `signalen._signaal`), en ze opnieuw intypen zou een tweede lijst maken naast
+    `_WERKELIJKHEID_REGELS` en `DREMPELS` -- precies wat dit project al eens duur heeft betaald.
+    `laag` zegt op welke pagina de regel landt, `rol` of een papierregel een bevinding is of een
+    voorbehoud; die twee zijn verschillende vragen en moeten dus apart te bevragen zijn."""
+    sn = BNode()
+    graph.add((sn, RDF.type, T.Signaal))
+    graph.add((vestiging_node, T.heeftSignaal, sn))
+    regel_id = signaal["regel"]
+    graph.add((sn, T.regel, Literal(regel_id)))
+    graph.add((sn, T.laag, Literal(signalen_mod._laag(regel_id))))
+    graph.add((sn, T.rol, Literal(
+        "voorbehoud" if signalen_mod.is_voorbehoud(regel_id) else "bevinding")))
+    # Wat er bewust níet bij staat: de geformuleerde `bewering`. Die volzin maakt
+    # `dossier._bewering` uit het signaal plus de vestiging, en hem hier opnemen zou de hele
+    # dossierlaag deze module in trekken voor een stuk formulering -- precies wat de
+    # moduledocstring hierboven al weigert te doen voor `dossier.dossier()`. De graaf bewaart de
+    # feiten; de zin hoort bij de presentatie.
+    for veld, sleutel in (("kop", "signaal"), ("zwaarte", "zwaarte"), ("omvang", "omvang")):
+        waarde = signaal.get(sleutel)
+        if waarde is not None:
+            graph.add((sn, getattr(T, veld), Literal(waarde)))
+    return sn
+
+
 def bouw(register: list[dict] | None, metingen: dict | None, normen: dict | None,
-         aquo: dict | None) -> Graph:
+         aquo: dict | None, context=None) -> Graph:
     """Het register, de metingen, de normen en de Aquo-referentie als één bevraagbare graaf.
 
     `register` mag ongeverrijkt binnenkomen (zonder `aquo`-sleutel op de voorschriften) -- deze
     functie verrijkt elke vestiging zelf via `toezicht.aquo.verrijk`, met dezelfde referentie die
     zij meekrijgt. Is `aquo` niet beschikbaar, dan blijft een vestiging ongewijzigd (zie
-    `verrijk()`) en komt er voor die vestiging geen Aquo-koppeling-bewering."""
+    `verrijk()`) en komt er voor die vestiging geen Aquo-koppeling-bewering.
+
+    **`context` schakelt de signalen in** (zie `_signaal_triples`) en mag een dict zijn of een
+    functie `vestiging -> dict`; dat laatste omdat `waterlichaam` per vestiging verschilt. Laat je hem weg, dan draagt de
+    graaf geen `t:Signaal` -- dat is de vorm die de oudere aanroepen kennen en die nodig blijft
+    waar alleen de velden en metingen gevraagd worden. Geef je een leeg dict mee, dan komen de
+    zeven papierregels erin maar de drie werkelijkheidsregels niet: die hebben meetdata of
+    stroomrichting nodig en kunnen zonder context niet vuren. Dat is eerlijk afwezig in plaats van
+    stil leeg, maar wie de brugvraag wil stellen moet de volle context meegeven -- dezelfde vijf
+    sleutels die `api_toezicht_dossier` samenstelt."""
     graph = Graph()
     graph.bind("t", T)
     for vestiging in register or []:
@@ -193,6 +254,16 @@ def bouw(register: list[dict] | None, metingen: dict | None, normen: dict | None
         vn = _vestiging_triples(graph, verrijkt)
         for voorschrift in verrijkt.get("voorschriften") or []:
             _voorschrift_triples(graph, vn, voorschrift)
+        if context is not None:
+            # `context` mag een dict zijn (dezelfde voor elke vestiging) of een functie
+            # `vestiging -> dict`. Dat tweede is geen gemak maar noodzaak: `waterlichaam` is een
+            # eigenschap van de vestiging zelf, opgezocht uit haar eigen coördinaat. Eén
+            # waterlichaam aan het hele register toekennen zou
+            # `regel_norm_overschreden_bovenstrooms` laten vuren met een richting die voor
+            # vrijwel elke vergunning onjuist is -- de ergste fout die deze graaf kan maken.
+            eigen = context(verrijkt) if callable(context) else context
+            for signaal in signalen_mod.signalen(verrijkt, eigen):
+                _signaal_triples(graph, vn, signaal)
 
     _metingen_triples(graph, metingen)
     _normen_triples(graph, normen)

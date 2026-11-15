@@ -117,6 +117,40 @@ ONDERDELEN = [
                 "want met 404 erbij slaagt zo'n test ook als de route helemaal weg is.",
     },
     {
+        "kop": "De vraagweg: de brug tussen de twee lezers",
+        "wat": "Een vrije vraag over de graaf waarin register, metingen, normen én de "
+               "bevindingen samen staan. Uw vraag wordt door een taalmodel omgezet in een "
+               "leesquery, die eerst wordt gevalideerd en daarna uitgevoerd; de uitgevoerde "
+               "query staat bij het antwoord.",
+        "waarom": "De twee pagina's tonen elk hun eigen helft van dezelfde regelset, en de "
+                  "interessante vraag loopt er juist over heen: welke vergunningen hebben zowel "
+                  "iets dat aan het papier moet rechtkomen als een meting boven de norm. Dat kon "
+                  "niet zolang de bevindingen buiten de graaf bleven. Elk signaal draagt daar nu "
+                  "op welke pagina het landt en of het een bevinding of een voorbehoud is, zodat "
+                  "een vraag die twee kanten kan onderscheiden. Dit is ook de enige plek bij deze "
+                  "pagina's waar werkelijk een taalmodel draait -- en hij loopt door de "
+                  "agentconfiguratie heen, niet eromheen: haal de taalmodelsleutel bij de "
+                  "vraagsteller weg en de vraagweg weigert, in plaats van stil toch een model te "
+                  "gebruiken.",
+        "waar": "usecases/toezicht/vraag.py (validatie en grounding), "
+                "usecases/toezicht/graaf.py (de signalen als t:Signaal), "
+                "runner.Crew.los_uitvoeren (de losse actie door dezelfde poorten).",
+    },
+    {
+        "kop": "De validatie komt vóór de uitvoering",
+        "wat": "Alleen lezende query's (SELECT en ASK), altijd met een limiet, geen verwijzing "
+               "naar een externe bron. Een te ruime limiet wordt geweigerd en niet stil "
+               "teruggebracht.",
+        "waarom": "Een taalmodel dat query's schrijft moet je niet op zijn woord geloven. De "
+                  "validatie leest de query met de SPARQL-grammatica zelf in plaats van met een "
+                  "patroon op tekst -- een lijst verboden woorden kijkt langs vreemde "
+                  "hoofdletters en blokkeert tegelijk legitieme query's. En weigeren is beter dan "
+                  "herschrijven: zo is de query die u ziet letterlijk de query die is "
+                  "uitgevoerd.",
+        "waar": "usecases/toezicht/vraag.py, valideer_sparql -- via de parseboom, niet via een "
+                "trefwoordenlijst.",
+    },
+    {
         "kop": "De runlog is een meting, geen verslag",
         "wat": "Per stap: welke agent, welke taak, welke tool, hoeveel rijen erin en eruit, hoe "
                "lang, en of er werkelijk een taalmodel is aangeroepen.",
@@ -323,6 +357,7 @@ def _paginas(regels: list[dict], agents: list[dict], taken: list[dict]) -> list[
             "aantal_signalen": len([r for r in regels if r["laag"] == "werkelijkheid"]),
             "toont_configuratie": False,
             "toont_gedraaide_agents": True,
+            "toont_vraagbox": True,
         },
     ]
 
