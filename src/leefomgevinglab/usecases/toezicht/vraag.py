@@ -60,12 +60,124 @@ from leefomgevinglab.usecases.toezicht import graaf as graaf_mod
 _TOEGESTANE_TYPEN = ("SelectQuery", "AskQuery")
 _MAX_LIMIT = 200
 
+#: Hoe lang een query mag draaien voordat de vraagweg opgeeft.
+#:
+#: **`LIMIT` begrenst de uitvoer, niet het werk.** Dat verschil heeft deze use-case een melding
+#: gekost ("de vraag werkt niet meer"): een gegenereerde query die `t:Meting` tegen `t:Norm`
+#: joinde liep in rdflib **119 seconden** voor 21 rijen -- 350 metingen tegen 6143 normen als
+#: nested loop -- terwijl er netjes een `LIMIT 100` op stond. De lezer zag een pagina die
+#: minutenlang niets deed, en cloudflared geeft het eerder op dan rdflib.
+#:
+#: De grounding stuurt nu van die join weg (zie `t:Overschrijding`), maar een vrije vraag kan
+#: altijd iets zwaars opleveren, en dit is een publieke route zonder authenticatie. Twintig
+#: seconden is ruim voor elk patroon dat de voorbeelden onderwijzen (gemeten: alle vier onder
+#: 1,4 s) en kort genoeg om niet als vastgelopen te lezen.
+QUERY_DEADLINE_S = 20.0
+
+
+class QueryTeZwaar(Exception):
+    """De query kwam langs de validator maar was niet binnen de deadline uit te voeren."""
+
+
+def _met_deadline(fn, seconden: float):
+    """`fn()` uitvoeren met een bovengrens op de wachttijd.
+
+    **Eerlijk over wat dit wél en niet doet.** Het begrenst hoe lang de *lezer* wacht, niet
+    hoeveel werk er gedaan wordt: rdflib kent geen afbreekpunt, dus de thread rekent in de
+    achtergrond door tot hij klaar is. Daarom is hij een `daemon` (hij houdt het afsluiten van
+    de dienst niet tegen) en daarom staat de deadline ruim genoeg dat een normale vraag hem
+    nooit raakt -- anders zou elke te vroege afbreking alleen maar CPU verspillen zonder dat
+    iemand het antwoord nog gebruikt.
+
+    Een procesgrens zou het werk écht kunnen afkappen, maar vraagt de graaf per vraag opnieuw of
+    een fork-strategie; dat is een zwaardere ingreep dan het probleem vandaag rechtvaardigt, en
+    staat genoteerd in plaats van half gebouwd."""
+    import threading
+
+    uit: dict = {}
+
+    def werk():
+        try:
+            uit["waarde"] = fn()
+        except BaseException as exc:    # noqa: BLE001 -- gaat één op één terug naar de aanroeper
+            uit["fout"] = exc
+
+    draad = threading.Thread(target=werk, daemon=True)
+    draad.start()
+    draad.join(seconden)
+    if draad.is_alive():
+        raise QueryTeZwaar(
+            f"de query was niet binnen {seconden:.0f} seconden uit te voeren")
+    if "fout" in uit:
+        raise uit["fout"]
+    return uit["waarde"]
+
+#: Uitgewerkte vraag-naar-query-paren in de grounding.
+#:
+#: **Waarom dit er staat, en waarom er een test op zit.** Zonder voorbeelden verzon het model
+#: predicaten die niet bestaan (`?vestiging t:heeftMeting ?meting`) en schreef het voor een
+#: "welke missen X"-vraag `FILTER(!BOUND(?x))` op een al gebonden variabele -- een query die per
+#: definitie niets oplevert. Beide keren kreeg de lezer "Geen resultaten voor deze vraag", wat
+#: leest als "er is niets aan de hand" in plaats van "de vraag is verkeerd gesteld". Dat is het
+#: stilste soort fout dat deze laag kan maken.
+#:
+#: Deze voorbeelden zijn daarom **uitvoerbare documentatie**: `tests/test_toezicht_vraag.py`
+#: valideert elke query, en een live test voert ze uit op de echte graaf en eist rijen. Een
+#: voorbeeld dat niets oplevert, of niet langs de validator komt, valt dus om in de suite in
+#: plaats van stil een verkeerd patroon te onderwijzen.
+VOORBEELDEN = [
+    ("Welke vergunningen hebben een papierbevinding en ook een werkelijkheidssignaal?",
+     'SELECT DISTINCT ?naam ?kenmerk WHERE {\n'
+     '  ?v a t:Vestiging ; t:naam ?naam ; t:heeftSignaal ?p, ?w .\n'
+     '  OPTIONAL { ?v t:kenmerk ?kenmerk }\n'
+     '  ?p t:laag "papier" ; t:rol "bevinding" .\n'
+     '  ?w t:laag "werkelijkheid" .\n'
+     '} LIMIT 100'),
+    ("Welke vergunningen missen een kenmerk?",
+     'SELECT DISTINCT ?naam WHERE {\n'
+     '  ?v a t:Vestiging ; t:naam ?naam ; t:heeftVeld ?b .\n'
+     '  ?b t:veld "kenmerk" ; t:zekerheid "ontbreekt" .\n'
+     '} LIMIT 100'),
+    # **Gebruik `t:Overschrijding`, join niet zelf Meting tegen Norm.** Die join is in rdflib
+    # onbruikbaar traag (350 metingen x 6143 normen: live 119 s voor 21 rijen) en gaat bovendien
+    # makkelijk mis, want een KRW-norm geldt per meetpunt én stof -- zink is per punt
+    # gecorrigeerd voor biobeschikbaarheid. De vergelijking is al elders gemaakt en staat als
+    # eigen klasse in de graaf.
+    ("Welke vergunningen liggen aan een waterlichaam waar een stof boven de norm is gemeten?",
+     'SELECT DISTINCT ?naam ?meetpunt ?stof ?gemeten ?norm WHERE {\n'
+     '  ?o a t:Overschrijding ; t:waterlichaam ?wl ; t:meetpunt ?meetpunt ;\n'
+     '     t:stof ?stof ; t:gemeten ?gemeten ; t:norm ?norm .\n'
+     '  ?v a t:Vestiging ; t:waterlichaam ?wl ; t:naam ?naam .\n'
+     '} LIMIT 100'),
+    # **Noem het predicaat.** `?vs ?p ?b` met een vrij predicaat loopt over élke uitgaande triple
+    # van elk voorschrift: live 26 s. De hoedanigheid is de bewering die "aangenomen" draagt (de
+    # Atlas geeft hem nooit, zie `kmg.lozingsmodel.HOEDANIGHEID_AANNAME`), dus benoem die.
+    ("Welke grenswaarden zijn aangenomen in plaats van uit de bron gelezen?",
+     'SELECT DISTINCT ?naam ?parameter ?veld WHERE {\n'
+     '  ?b t:zekerheid "aangenomen" ; t:veld ?veld .\n'
+     '  ?vs t:heeftHoedanigheid ?b ; t:parameter ?parameter .\n'
+     '  ?v t:heeftVoorschrift ?vs ; t:naam ?naam .\n'
+     '} LIMIT 100'),
+]
+
+
+def _voorbeelden_tekst() -> str:
+    return "\n\n".join(f"Vraag: {v}\n{q}" for v, q in VOORBEELDEN)
+
+
 GROUNDING = f"""\
 Lokale RDF-graaf (rdflib), namespace:
   t: <{graaf_mod.T}>
-Klassen: t:Vestiging, t:Voorschrift, t:Bewering, t:Meting, t:Norm, t:Signaal.
-Een Vestiging draagt t:naam, t:locatiecode en t:kenmerk als gewone literal -- SELECTEER DIE, nooit
-het vestigingsknooppunt zelf: dat is een blank node en levert een onleesbaar id op.
+Klassen: t:Vestiging, t:Voorschrift, t:Bewering, t:Meting, t:Norm, t:Signaal, t:Overschrijding.
+Een Vestiging draagt t:naam, t:locatiecode, t:kenmerk en t:waterlichaam als gewone literal --
+SELECTEER DIE, nooit het vestigingsknooppunt zelf: dat is een blank node en levert een onleesbaar
+id op.
+Er is GEEN t:heeftMeting en GEEN t:heeftNorm. Een vergunning koppel je aan een meting of een norm
+via het waterlichaam: ?v t:waterlichaam ?wl . ?m a t:Meting ; t:waterlichaam ?wl .
+Een ontbrekend gegeven is een POSITIEF feit in deze graaf, geen afwezige triple: de Bewering
+draagt dan t:zekerheid "ontbreekt". Vraag dus naar die Bewering, of gebruik FILTER NOT EXISTS --
+nooit FILTER(!BOUND(?x)) op een variabele die een triple pattern al gebonden heeft, want dat
+levert per definitie niets op.
 Een Vestiging draagt verder t:heeftVoorschrift (naar een Voorschrift) en t:heeftVeld (naar een
 Bewering over naam/plaats/locatie/locatiecode/vestigingsnummer_kvk/kenmerk/besluitdatum/
 waterlichaam/url) -- die Bewering gebruik je alleen als de vraag over zekerheid of herkomst gaat.
@@ -75,6 +187,9 @@ Een Bewering draagt t:veld, t:waarde, t:zekerheid (een van "uit de bron"/"afgele
 "ontbreekt") en optioneel t:herkomst.
 Een Meting draagt t:meetpunt, t:waterlichaam, t:stof, t:mediaan, t:maximum, t:eenheid.
 Een Norm draagt t:meetpunt, t:stof, t:waarde, t:eenheid, t:grondslag.
+Een Overschrijding is een al vastgestelde meting boven de norm en draagt t:meetpunt,
+t:waterlichaam, t:stof, t:gemeten, t:norm, t:eenheid. Gebruik DEZE klasse voor "boven de norm";
+join nooit zelf t:Meting tegen t:Norm -- dat is onbruikbaar traag en gaat mis op de sleutel.
 Een Vestiging draagt t:heeftSignaal (naar een Signaal). Een Signaal draagt t:regel (de regel-id),
 t:kop, t:zwaarte ("hoog"/"midden"/"laag"), t:omvang, en twee assen die je niet moet verwarren:
   t:laag is "papier" (de vergunning klopt niet tegen zichzelf; dit staat op /wasstraat, bij de
@@ -88,7 +203,11 @@ Gebruik SELECT DISTINCT zodra een vestiging via twee paden tegelijk wordt gematc
 t:heeftSignaal): zonder DISTINCT levert dat het kruisproduct van die paden op, en dan zegt het
 aantal rijen niets over het aantal vergunningen.
 Geef UITSLUITEND de SPARQL SELECT- of ASK-query terug: geen uitleg, geen ```-fences, altijd met
-een LIMIT bij een SELECT."""
+een LIMIT bij een SELECT.
+
+Voorbeelden:
+
+{_voorbeelden_tekst()}"""
 
 DISCLAIMER = ("Indicatief: deze query is door een taalmodel gegenereerd op een lokale, afgeleide "
              "graaf. Geen vaststelling, geen officieel cijfer.")
@@ -187,7 +306,16 @@ def stel(vraag: str, graaf, llm) -> dict:
         return {**base, "antwoord": "Deze vraag kon niet veilig naar een query worden vertaald.",
                 "sparql": ruwe, "rijen": [], "beschikbaar": False}
     try:
-        rijen = run_sparql(graaf, sparql)
+        rijen = _met_deadline(lambda: run_sparql(graaf, sparql), QUERY_DEADLINE_S)
+    except QueryTeZwaar:
+        # Expliciet een eigen boodschap: "kon niet worden uitgevoerd" zou de lezer laten denken
+        # dat de query fout was, terwijl zij juist geldig was en alleen te zwaar. En de query
+        # blijft zichtbaar, zodat te zien is wát er te zwaar was.
+        return {**base, "antwoord": (
+            f"Deze vraag leverde een query op die niet binnen "
+            f"{QUERY_DEADLINE_S:.0f} seconden te beantwoorden was. Probeer haar smaller te "
+            f"stellen -- bijvoorbeeld door één stof of één vergunning te noemen."),
+            "sparql": sparql, "rijen": [], "beschikbaar": False, "te_zwaar": True}
     except Exception:  # noqa: BLE001 -- een query kan ook tegen een geldige graaf nog breken
         return {**base, "antwoord": "De query kon niet worden uitgevoerd.", "sparql": sparql,
                 "rijen": [], "beschikbaar": False}

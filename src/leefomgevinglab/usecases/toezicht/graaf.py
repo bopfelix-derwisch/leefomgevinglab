@@ -95,14 +95,38 @@ def _bewering(graph: Graph, veld: str, waarde, zekerheid: str, herkomst: str | N
 IDENTIFICERENDE_VELDEN = ("naam", "locatiecode", "kenmerk")
 
 
-def _vestiging_triples(graph: Graph, vestiging: dict):
+def _vestiging_triples(graph: Graph, vestiging: dict, waterlichaam: str | None = None):
+    """De vestiging als knooppunt.
+
+    `waterlichaam` is het **afgeleide** waterlichaam van deze vergunning, uit haar eigen
+    coördinaat opgezocht (zie `graafbouw`). Het staat apart omdat de Atlas dat veld nooit levert:
+    het zit niet in `vestiging` maar in de context. Twee dingen hangen eraan:
+
+    1. **De schakel naar een meting.** Een `t:Meting` draagt `t:waterlichaam`; de vestiging deed
+       dat niet, en daarmee was er geen enkel pad van een vergunning naar een gemeten waarde. Het
+       taalmodel verzon op de brugvraag `?vestiging t:heeftMeting ?meting` -- een predicaat dat
+       niet bestaat -- en had ook geen alternatief. De vraag "een papierbevinding én een meting
+       boven de norm" was dus onuitdrukbaar, hoe goed het model ook zou raden.
+    2. **De zekerheid klopt nu.** De Bewering over `waterlichaam` zei voor élke vergunning
+       `"ontbreekt"`, terwijl de route het wél wist -- dezelfde tegenspraak die op `/wasstraat`
+       al moest wijken. Met een afgeleide waarde staat er `"afgeleid"`; zonder blijft het
+       `"ontbreekt"`, want afwezig moet afwezig blijven.
+    """
     v = BNode()
     graph.add((v, RDF.type, T.Vestiging))
     for veld in VESTIGING_VELDEN:
         waarde = vestiging.get(veld)
+        if veld == "waterlichaam" and waarde in (None, "", []) and waterlichaam:
+            bewering = _bewering(graph, veld, waterlichaam, AFGELEID,
+                                  "opgezocht uit de coördinaat van deze vergunning")
+            graph.add((v, T.heeftVeld, bewering))
+            graph.add((v, T.waterlichaam, Literal(waterlichaam)))
+            continue
         aanwezig = waarde not in (None, "", [])
         bewering = _bewering(graph, veld, waarde, UIT_DE_BRON if aanwezig else ONTBREEKT)
         graph.add((v, T.heeftVeld, bewering))
+        if veld == "waterlichaam" and aanwezig:
+            graph.add((v, T.waterlichaam, Literal(waarde)))
     for veld in IDENTIFICERENDE_VELDEN:
         waarde = vestiging.get(veld)
         if waarde not in (None, "", []):
@@ -230,6 +254,34 @@ def _signaal_triples(graph: Graph, vestiging_node, signaal: dict):
     return sn
 
 
+def overschrijdingen_triples(graph: Graph, overschrijdingen: list[dict] | None) -> None:
+    """De al vastgestelde overschrijdingen als `t:Overschrijding`-knooppunten.
+
+    **Waarom dit een eigen klasse is en geen query over Meting en Norm.** Die query is in rdflib
+    onbruikbaar traag: 350 `t:Meting`-knopen tegen 6143 `t:Norm`-knopen is een nested loop van
+    ruim twee miljoen combinaties, en live gemeten duurde zij **119 seconden** voor 21 rijen. Een
+    gegenereerde query die dat probeert, laat de vraagweg minuten hangen -- en dat was precies de
+    melding "de vraag werkt niet meer".
+
+    De vergelijking hoeft ook niet in de query: `kmg.doelen` plus `toezicht.context.toetsing`
+    hebben haar al gemaakt, mét de juiste sleutel (meetpunt **en** stof -- een KRW-norm geldt per
+    meetpunt, zink is per punt gecorrigeerd voor biobeschikbaarheid). Haar hier vastleggen maakt
+    de vraag "welke vergunning ligt aan een waterlichaam met een overschrijding" een opzoeking in
+    plaats van een rekenpartij, en voorkomt dat het taalmodel die join zelf -- en dan op de
+    verkeerde sleutel -- moet verzinnen."""
+    for o in overschrijdingen or []:
+        node = BNode()
+        graph.add((node, RDF.type, T.Overschrijding))
+        for veld, sleutel in (("meetpunt", "meetpunt"), ("waterlichaam", "waterlichaam"),
+                               ("stof", "stof"), ("eenheid", "eenheid")):
+            if o.get(sleutel) is not None:
+                graph.add((node, getattr(T, veld), Literal(o[sleutel])))
+        if o.get("gemeten") is not None:
+            graph.add((node, T.gemeten, Literal(o["gemeten"])))
+        if o.get("norm") is not None:
+            graph.add((node, T.norm, Literal(o["norm"])))
+
+
 def bouw(register: list[dict] | None, metingen: dict | None, normen: dict | None,
          aquo: dict | None, context=None) -> Graph:
     """Het register, de metingen, de normen en de Aquo-referentie als één bevraagbare graaf.
@@ -251,17 +303,23 @@ def bouw(register: list[dict] | None, metingen: dict | None, normen: dict | None
     graph.bind("t", T)
     for vestiging in register or []:
         verrijkt = aquo_mod.verrijk(vestiging, aquo or {})
-        vn = _vestiging_triples(graph, verrijkt)
+        # De context eerst: zij draagt het afgeleide waterlichaam, en dat hoort op het
+        # vestigingsknooppunt zelf (zie `_vestiging_triples`) zodat een vraag van een vergunning
+        # naar een meting kan lopen.
+        eigen = None
+        if context is not None:
+            eigen = context(verrijkt) if callable(context) else context
+        vn = _vestiging_triples(graph, verrijkt,
+                                 waterlichaam=(eigen or {}).get("waterlichaam"))
         for voorschrift in verrijkt.get("voorschriften") or []:
             _voorschrift_triples(graph, vn, voorschrift)
-        if context is not None:
+        if eigen is not None:
             # `context` mag een dict zijn (dezelfde voor elke vestiging) of een functie
             # `vestiging -> dict`. Dat tweede is geen gemak maar noodzaak: `waterlichaam` is een
             # eigenschap van de vestiging zelf, opgezocht uit haar eigen coördinaat. Eén
             # waterlichaam aan het hele register toekennen zou
             # `regel_norm_overschreden_bovenstrooms` laten vuren met een richting die voor
             # vrijwel elke vergunning onjuist is -- de ergste fout die deze graaf kan maken.
-            eigen = context(verrijkt) if callable(context) else context
             for signaal in signalen_mod.signalen(verrijkt, eigen):
                 _signaal_triples(graph, vn, signaal)
 

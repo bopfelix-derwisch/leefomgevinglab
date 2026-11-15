@@ -497,10 +497,15 @@ class Crew(object):
         agent = self.agents[agent_naam]
         llm_voor_agent = self._llm_voor_deze_agent(agent, llm)
         proxy = _AangeroepenLlm(llm_voor_agent) if llm_voor_agent is not None else None
+        # De duur wordt hier gemeten, net als in `draai()`. Zonder dit meldde de runlog `0 s` voor
+        # een stap die live 10 tot 50 seconden duurde -- en een runlog die een duur *rapporteert*
+        # zonder hem te meten is erger dan een runlog zonder duur: zij liegt met een getal.
+        begin = time.perf_counter()
         uitkomst = callable_(staat, llm=proxy, runlog=runlog)
+        duur = time.perf_counter() - begin
         if runlog is not None:
             runlog.stap(agent_naam, None, tool_naam, uitkomst.rijen_in, uitkomst.rijen_uit,
-                         bool(proxy and proxy.aangeroepen), args=uitkomst.args)
+                         bool(proxy and proxy.aangeroepen), duur=duur, args=uitkomst.args)
         return uitkomst.updates
 
     def draai(self, invoer: dict, llm=None, runlog=None) -> dict:

@@ -471,6 +471,42 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   ```
   Zonder `--doelen` en `--gemeten-codes` bouwt het script een graaf zonder de drie
   werkelijkheidssignalen; het script meldt dat luid in plaats van het stil op te leveren.
+- **⚠️ Vier valkuilen van de vraagweg, alle vier gevonden doordat de vraag "niet meer werkte"** —
+  en geen van de vier door code te lezen. Ze hebben één gemene deler: de lezer kreeg *"Geen
+  resultaten voor deze vraag"*, en dat leest als "er is niets aan de hand" in plaats van "de
+  vraag is verkeerd gesteld". Dat is het stilste soort fout dat deze laag kan maken.
+  1. **`LIMIT` begrenst de uitvoer, niet het werk.** Een geldige query met `LIMIT 100` die
+     `t:Meting` tegen `t:Norm` joinde liep in rdflib **119 seconden** voor 21 rijen (350 metingen
+     × 6143 normen als nested loop). De pagina deed minutenlang niets en cloudflared geeft het
+     eerder op dan rdflib. Daarom: `vraag.QUERY_DEADLINE_S` (20 s) met een **eigen** boodschap —
+     "kon niet worden uitgevoerd" zou suggereren dat de query fout was, terwijl zij goed was en
+     alleen te zwaar. NB: die deadline begrenst de *wachttijd*, niet het werk; rdflib kent geen
+     afbreekpunt, dus de thread rekent in de achtergrond door (daemon). Een procesgrens zou het
+     werk écht afkappen en staat genoteerd in plaats van half gebouwd.
+  2. **Die join hoort niet in de query.** De vergelijking is al gemaakt door `kmg.doelen` +
+     `toezicht.context.toetsing`, mét de juiste sleutel (**meetpunt én stof** — een KRW-norm geldt
+     per meetpunt, zink is per punt gecorrigeerd voor biobeschikbaarheid). Zij staat nu als
+     `t:Overschrijding` in de graaf: 119 s → **0,25 s**. Een query die zelf joint gaat ook
+     makkelijk mis op de sleutel.
+  3. **Niets verbond een vergunning met een meting.** Het model schreef
+     `?vestiging t:heeftMeting ?meting` — een predicaat dat niet bestaat — en had geen
+     alternatief: de vraag "papierbevinding **én** een meting boven de norm" was niet uit te
+     drukken. De schakel is het waterlichaam; dat staat nu óók als gewone literal op de
+     `t:Vestiging` (het wordt per vergunning uit haar coördinaat afgeleid, de Atlas levert het
+     nooit). Meegekomen correctie: de Bewering zei voor álle 69 `zekerheid "ontbreekt"` terwijl
+     de route het wél wist — nu `"afgeleid"`, met de oude tegenspraak weg.
+  4. **Afwezigheid is in deze graaf een positief feit.** Op "welke vergunningen missen een
+     kenmerk" schreef het model `FILTER(!BOUND(?kenmerk))` op een variabele die een triple
+     pattern al bond: per definitie leeg. Het juiste pad is de Bewering met
+     `t:zekerheid "ontbreekt"` (of `FILTER NOT EXISTS`), en dat staat nu in de grounding.
+  **De grounding draagt daarom vier uitgewerkte vraag-naar-query-paren** (`vraag.VOORBEELDEN`),
+  en die zijn **uitvoerbare documentatie**: een test valideert elke query en een live test voert
+  ze uit op de echte graaf en **eist rijen**. Een voorbeeld dat niets oplevert valt dus om in de
+  suite in plaats van stil een verkeerd patroon te onderwijzen. Gemeten na de fixes: 61 / 3 / 31 /
+  100 rijen, elk onder 1,4 s aan querytijd; de 11–30 s die een vraag kost is vrijwel geheel het
+  lokale taalmodel. **En `Crew.los_uitvoeren` meet nu de duur** — hij gaf geen `duur` aan
+  `runlog.stap`, dus de runlog meldde `0 s` voor een stap van 25 s. Een runlog die een duur
+  rapporteert zonder hem te meten liegt met een getal, op een pagina die meten als belofte voert.
 - **`.env` wordt in `tests/conftest.py` geladen, niet per ongeluk.** De live-tests lezen hun
   sleutel rechtstreeks uit `os.environ`, en die stond daar tot 2026-11-15 alleen omdat
   `geluidsmeter/api.py` bij import `load_dotenv()` aanroept en bijna elk testbestand `api`

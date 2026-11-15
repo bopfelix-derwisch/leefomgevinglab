@@ -56,7 +56,12 @@ def bouw(register, metingen, normen, aquo_ref, overschrijdingen, gemeten_codes,
         paar = (vestiging.get("kenmerk"), vestiging.get("locatiecode"))
         return {**gedeeld, "waterlichaam": per_vergunning.get(paar)}
 
-    return graaf_mod.bouw(register, metingen, normen, aquo_ref, context=context_voor)
+    graaf = graaf_mod.bouw(register, metingen, normen, aquo_ref, context=context_voor)
+    # Eén keer over het hele register, niet per vestiging: een overschrijding is een feit over een
+    # meetpunt, niet over een vergunning. Zie `graaf.overschrijdingen_triples` voor waarom dit
+    # niet als query over Meting en Norm wordt gelaten (119 s in rdflib).
+    graaf_mod.overschrijdingen_triples(graaf, overschrijdingen)
+    return graaf
 
 
 def telling(graaf) -> dict:
@@ -76,6 +81,7 @@ def telling(graaf) -> dict:
         "vestigingen": aantal(graaf_mod.T.Vestiging),
         "voorschriften": aantal(graaf_mod.T.Voorschrift),
         "signalen": aantal(graaf_mod.T.Signaal),
+        "overschrijdingen": aantal(graaf_mod.T.Overschrijding),
     }
 
 

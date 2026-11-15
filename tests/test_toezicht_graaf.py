@@ -361,3 +361,68 @@ def test_de_identificerende_velden_staan_direct_op_de_vestiging():
     per_naam = {str(r["naam"]): (str(r["k"]) if r["k"] is not None else None) for r in rijen}
     assert per_naam["Lozer BV"] == "WL-2020-001"
     assert per_naam["Lozer zonder kenmerk"] is None
+
+
+# -- De schakel tussen een vergunning en een meting --------------------------------------------
+
+def test_een_vestiging_draagt_het_afgeleide_waterlichaam_als_literal():
+    """**Gevonden doordat de vraag niet werkte.** Het model schreef op de brugvraag
+    `?vestiging t:heeftMeting ?meting` -- een predicaat dat niet bestaat. En het had geen
+    alternatief: niets verbond een vergunning met een meting. De vraag die Bob juist wil stellen
+    ("een papierbevinding én een meting boven de norm") was dus niet uit te drukken, hoe goed het
+    model ook zou raden.
+
+    Het waterlichaam is de schakel: een `t:Meting` draagt er al een. De vestiging kreeg hem niet,
+    want de Atlas levert dat veld nooit -- hij wordt per vergunning uit haar eigen coördinaat
+    afgeleid, en die afleiding zat alleen in de context. Nu komt hij ook op de vestiging te
+    staan, zodat de join mogelijk is."""
+    g = graaf.bouw(REGISTER_FIXTURE, None, None, AQUO_FIXTURE, context=_CONTEXT)
+    rijen = _rijen(g, "?v a t:Vestiging ; t:naam ?naam ; t:waterlichaam ?wl")
+    per_naam = {str(r["naam"]): str(r["wl"]) for r in rijen}
+    assert per_naam, "geen enkele vestiging draagt een waterlichaam"
+    assert per_naam.get("Lozer BV") == "NL91BM"
+
+
+def test_het_afgeleide_waterlichaam_staat_als_afgeleid_en_niet_als_ontbrekend():
+    """De Bewering zei voor alle 69 vergunningen `zekerheid "ontbreekt"` terwijl de route het
+    waterlichaam wél wist -- dezelfde tegenspraak die op `/wasstraat` al moest wijken. Een graaf
+    die "ontbreekt" zegt over een gegeven dat zij draagt, is niet te vertrouwen voor de vraag
+    waarvoor zij bestaat: welke velden zijn eigenlijk zeker?"""
+    g = graaf.bouw(REGISTER_FIXTURE, None, None, AQUO_FIXTURE, context=_CONTEXT)
+    rijen = _rijen(g, '?v t:naam ?naam ; t:heeftVeld ?b . '
+                       '?b t:veld "waterlichaam" ; t:zekerheid ?zek')
+    per_naam = {str(r["naam"]): str(r["zek"]) for r in rijen}
+    # "Lozer BV" draagt het veld zélf in de bron -- dan blijft het "uit de bron" en wint de
+    # afleiding niet. Alleen waar de bron zwijgt (en dat is in het echte register bij alle 69)
+    # komt de afgeleide waarde in de plaats, met "afgeleid" erbij.
+    assert per_naam["Lozer BV"] == "uit de bron", per_naam
+    assert per_naam["Lozer zonder kenmerk"] == "afgeleid", per_naam
+
+
+def test_zonder_waterlichaam_blijft_de_bewering_ontbrekend():
+    """Afwezig blijft afwezig: een vergunning waarvan het waterlichaam niet te vinden is, mag er
+    geen krijgen -- anders staat er een gegeven dat niemand heeft vastgesteld."""
+    g = graaf.bouw(REGISTER_FIXTURE, None, None, AQUO_FIXTURE,
+                    context=lambda v: {**_CONTEXT, "waterlichaam": None})
+    # De vestiging die het veld in de bron heeft, houdt het; die het niet heeft krijgt niets.
+    namen = {str(r["naam"]) for r in _rijen(
+        g, "?v a t:Vestiging ; t:naam ?naam ; t:waterlichaam ?wl")}
+    assert namen == {"Lozer BV"}, namen
+    per_naam = {str(r["naam"]): str(r["zek"]) for r in _rijen(
+        g, '?v t:naam ?naam ; t:heeftVeld ?b . ?b t:veld "waterlichaam" ; t:zekerheid ?zek')}
+    assert per_naam["Lozer zonder kenmerk"] == "ontbreekt", per_naam
+
+
+def test_de_vraag_die_een_vergunning_aan_een_meting_koppelt_is_nu_te_stellen():
+    """De vraag waar het Bob om begonnen is, als query. Hij liep vast omdat de schakel ontbrak."""
+    from leefomgevinglab.ld.store import run_sparql
+    g = graaf.bouw(REGISTER_FIXTURE, METINGEN_FIXTURE, None, AQUO_FIXTURE, context=_CONTEXT)
+    rijen = run_sparql(g, f"""
+        PREFIX t: <{graaf.T}>
+        SELECT DISTINCT ?naam ?stof ?mediaan WHERE {{
+          ?v a t:Vestiging ; t:naam ?naam ; t:waterlichaam ?wl ; t:heeftSignaal ?p .
+          ?p t:laag "papier" ; t:rol "bevinding" .
+          ?m a t:Meting ; t:waterlichaam ?wl ; t:stof ?stof ; t:mediaan ?mediaan .
+        }} LIMIT 50""")
+    assert rijen, "de koppeling vergunning -> waterlichaam -> meting levert niets"
+    assert str(rijen[0]["naam"]) == "Lozer BV"

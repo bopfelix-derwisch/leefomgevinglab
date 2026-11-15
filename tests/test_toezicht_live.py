@@ -615,3 +615,40 @@ def test_de_opgebouwde_graaf_op_schijf_is_dezelfde_als_de_route_live_bouwt():
         "een ander antwoord afhankelijk van of het bestand er staat. Bouw opnieuw met "
         "scripts/22, en controleer of beide paden hetzelfde voorbewerkte register gebruiken "
         "(register.voorbereid).")
+
+
+@pytest.mark.parametrize("beschrijving,query",
+                          [(v[:45], q) for v, q in __import__(
+                              "leefomgevinglab.usecases.toezicht.vraag",
+                              fromlist=["VOORBEELDEN"]).VOORBEELDEN])
+def test_elk_voorbeeld_in_de_grounding_levert_rijen_op_de_echte_graaf(beschrijving, query):
+    """**De voorbeelden in de grounding zijn uitvoerbare documentatie, en dit is de test die dat
+    waarmaakt.** Een voorbeeld dat op het echte register niets oplevert, onderwijst het model een
+    patroon dat de lezer "Geen resultaten voor deze vraag" geeft -- en dat leest als "er is niets
+    aan de hand" in plaats van "de vraag is verkeerd gesteld". Precies die verwisseling was de
+    melding: de vraag leek stuk terwijl de query logisch leeg was.
+
+    Daarom hier geen fixture: alleen het echte register kan zeggen of een voorbeeld rijen
+    oplevert.
+    """
+    import os
+
+    from leefomgevinglab.geluidsmeter import api as api_mod
+    from leefomgevinglab.geluidsmeter.config import load_config
+    from leefomgevinglab.ld import store as ld_store
+    from leefomgevinglab.ld.store import run_sparql
+    from leefomgevinglab.usecases.toezicht import graaf as graaf_mod
+
+    api_mod._config.update(load_config())
+    pad = api_mod._toezicht_graaf_cfg()["pad"]
+    if not pad or not os.path.exists(pad):
+        pytest.skip(f"geen opgebouwde graaf op {pad} -- bouw hem met scripts/22")
+    g = ld_store.load_graph(os.path.dirname(pad), naam=os.path.basename(pad))
+
+    volledig = f"PREFIX t: <{graaf_mod.T}>\n{query}"
+    rijen = run_sparql(g, volledig)
+    print(f"\n{beschrijving}: {len(rijen)} rijen")
+    assert rijen, (
+        f"het voorbeeld {beschrijving!r} levert niets op het echte register -- dan leert het "
+        "model een patroon dat de lezer 'geen resultaten' geeft. Pas het voorbeeld aan, of de "
+        "graaf mist iets wat het voorbeeld veronderstelt.")
