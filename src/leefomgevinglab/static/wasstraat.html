@@ -88,6 +88,12 @@
     .signaal .bewering { font-size:14.5px; color:#eafff6; max-width:70ch; }
     .signaal .hoezeker { margin-top:6px; font-size:11.5px; color:var(--dim); }
     .signaal .hoezeker b { color:var(--muted); font-weight:600; }
+    /* De uitleg per bevinding -- letterlijk dezelfde klassen en opmaak als op /toezicht, geen
+       tweede manier ernaast. */
+    .signaal .herkomst { margin-top:4px; font-size:11px; color:var(--dim); }
+    .signaal .vindplaats { margin-top:2px; font-size:10.5px; color:var(--dim); font-style:italic; }
+    .signaal .herkomst.ontbreekt { font-style:italic; color:var(--weg); }
+    .signaal .herkomst.dupliceert { font-style:italic; }
 
     .bewijs { margin-top:9px; }
     .bewijs summary { cursor:pointer; font-size:12px; color:var(--accent); list-style:none;
@@ -285,6 +291,17 @@
         `<div class="inhoud">` +
         `<div class="bewering">${esc(s.bewering || s.signaal)}</div>` +
         `<div class="hoezeker">hoe zeker is dit? <b>${hoeZeker(s)}</b></div>` +
+        // Must-fix 4 van de eindreview: de vierde pijplijnstap (`leg_signalen_uit`) kostte 7,378
+        // van de 7,378 seconden en haar antwoord werd hier weggegooid -- precies het bewijsstuk
+        // dat de reparatie eronder onderbouwt. Letterlijk dezelfde vorm als op /toezicht: de
+        // uitleg mét haar vindplaatsen waar die er zijn, en de reden waar die er niet zijn.
+        (s.waarom ? `<div class="herkomst">${esc(s.waarom)}</div>` +
+          (s.waarom_vindplaatsen && s.waarom_vindplaatsen.length
+            ? `<div class="vindplaats">bron: ${esc(s.waarom_vindplaatsen.join("; "))}</div>` : "")
+          : s.waarom_reden
+          ? `<div class="herkomst ${esc(s.waarom_gedupliceerd ? "dupliceert" : "ontbreekt")}">` +
+            `${esc(s.waarom_reden)}</div>`
+          : "") +
         (n ? `<details class="bewijs"><summary>${n} ${n === 1 ? "bewijsregel" : "bewijsregels"}</summary>` +
           `<div class="bewijsrijen">${(s.bewijs || []).map(bewijsrij).join("")}</div></details>` : "") +
         (s.reparatie ? `<div class="reparatie"><div class="lbl">Wat moet hier recht?</div>` +

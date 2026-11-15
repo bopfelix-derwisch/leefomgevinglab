@@ -175,6 +175,40 @@ def test_de_runlog_draagt_een_samenvatting(monkeypatch):
     assert "Geen van de stappen heeft een taalmodel aangeroepen" in samenvatting["zin"]
 
 
+# -- De uitleg per bevinding (must-fix 4) --------------------------------------------------------
+
+def test_het_dossier_endpoint_levert_de_uitleg_per_bevinding(monkeypatch):
+    """De vierde pijplijnstap (`leg_signalen_uit`) is de duurste van de vier -- live bij NATRON
+    7,378 van de 7,378 seconden -- en leverde `waarom`/`waarom_vindplaatsen`/`waarom_reden` per
+    signaal op. Elk signaal draagt óf een uitleg mét vindplaats, óf een reden waarom die er niet
+    is; nooit niets (eindreview, must-fix 4)."""
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/wasstraat/dossier?vergunning=TEST01").json()
+    assert d["signalen"], "geen bevindingen -- deze test kan niets toetsen"
+    for s in d["signalen"]:
+        if s.get("waarom"):
+            assert s.get("waarom_vindplaatsen"), f"{s['regel']}: uitleg zonder vindplaats"
+        else:
+            assert s.get("waarom_reden"), f"{s['regel']}: geen uitleg en geen reden"
+
+
+def test_de_pagina_rendert_de_uitleg_op_dezelfde_manier_als_toezicht(monkeypatch):
+    """De uitlegstap werd betaald en weggegooid: `wasstraat.html` rendeerde van `waarom` niets
+    (`grep -c waarom` = 0, tegen 6 op `toezicht.html`), terwijl de per-stap-uitleg op diezelfde
+    pagina belooft dat er bij elk signaal een vindplaats wordt gezocht.
+
+    Eén manier, niet twee: deze test eist dat beide pagina's dezelfde drie velden en dezelfde
+    CSS-klassen gebruiken, zodat een latere wijziging aan de ene vorm niet stil een tweede vorm
+    naast de eerste zet."""
+    client = _client(monkeypatch)
+    wasstraat = client.get("/wasstraat").text
+    toezicht = client.get("/toezicht").text
+    for stuk in ("s.waarom", "s.waarom_vindplaatsen", "s.waarom_reden", "s.waarom_gedupliceerd",
+                 'class="herkomst"', 'class="vindplaats"'):
+        assert stuk in toezicht, f"{stuk} staat niet (meer) op /toezicht"
+        assert stuk in wasstraat, f"{stuk} staat niet op /wasstraat"
+
+
 # -- Taalregel op het echte dossier, niet alleen op de pagina ------------------------------------
 
 def test_een_bevinding_is_nooit_een_vaststelling(monkeypatch):
