@@ -86,8 +86,13 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
 - ✅ **Gebruiksruimte (`/gebruiksruimte`, `/api/gebruiksruimte?locatie=&debiet=&live=`):** 'wat kan hier nog?' voor een lozing op de IJssel. Combineert (a) **regels op de locatie live uit het DSO** (Ozon `regelingen_op_punt`, ~20 per punt) geclassificeerd naar **direct werkend / indirect werkend / geldt hier maar raakt dit voornemen niet** — dat laatste is de waterschapsverordening op rijkswater; (b) een **synthetisch register** met 5 bestaande lozingsvergunningen op hetzelfde waterlichaam; (c) de rekensom ruimte-tot-de-norm per parameter. Drie locaties (Brummen/Deventer/Doesburg, 2 provincies) aan hetzelfde KRW-waterlichaam: de regels verschillen per locatie, de gebruiksruimte is gedeeld. Code: `usecases/gebruiksruimte/` (gebied, regels, ruimte, service). NB: de vergunde vracht zit al ín de achtergrondconcentratie en wordt dus **niet** van de ruimte afgetrokken — hij staat apart om te tonen hoeveel van de belasting in menselijke hand is. PFOA heeft per opzet géén ruimte (achtergrond > norm); stikstof kantelt om bij ~20.000 m³/u. Getallen illustratief, mechanisme echt.
 - ✅ **EV-gebruiksruimte (`/evruimte`, `/api/evruimte?locatie=&live=`):** ruimtelijke tegenhanger van `/gebruiksruimte`, als **maplibre-kaart**. De drie aandachtsgebieden van een voorgenomen Seveso-inrichting (gifwolk 1500 m, brand 90 m, explosie 60 m) over de **bestaande REV-aandachtsgebieden** (live als GeoJSON), met de verblijfsobjecten eronder **live geteld in de BAG per gebruiksdoel** en ingedeeld naar zeer kwetsbaar / kwetsbaar / beperkt kwetsbaar. Vijf locaties: Europoort (ruim), Botlek en Gouda (vol), Zutphen, plus een illustratieve plek pal naast een school waar de harde grens wél optreedt. Code: `usecases/evruimte/`. **Cruciaal: PDOK negeert `cql_filter` volledig** (BAG én bestuurlijke gebieden) — een DWITHIN in CQL geeft stilzwijgend de héle dataset terug. Gebruik de standaard **FES-filter via POST** (`filter=<fes:Filter>` met `DWithin` + `PropertyIsLike` op `gebruiksdoel`); de REV-GeoServer accepteert `cql_filter` juist wél. BAG-tellingen draaien parallel (ThreadPoolExecutor, 8 workers): 13 s → 4-6 s.
 - ✅ **Begrippen (`/begrippen`, `/api/begrippen`, `/api/begrip?term=`):** de 10 termen die dit lab hardgecodeerd gebruikte, live opgezocht in de **Stelselcatalogus Omgevingswet** — een federatieve SKOS-begrippengraaf (conceptschema's o.a. Regelgeving, Wetgeving, Activiteit, IMEV, IMAM). Alle 10 gevonden, met definitie en juridische vindplaats (Seveso-inrichting → bijlage I Bal; zeer kwetsbaar gebouw → bijlage VI onder E; ZZS → art. 5.22a). Connector `connectors/stelselcatalogus.py`, register + oplossing in `usecases/begrippen.py`. **Drie valkuilen van deze API**: (1) `Accept: application/json` geeft **406** — het moet `application/hal+json` zijn; (2) queryparameters die niet bij het endpoint horen geven een **400**, dus bij `/begrippen` alleen `zoekTerm` meesturen (géén `pageSize`); (3) er komt **geen RDF** uit (turtle/ld+json/rdf+xml → 406) en de SKOS-relaties zijn dun gevuld — aan de juridische kant ontbreken ze. Zelfde `DSO_API_KEY_PROD` als Ozon; opzoekingen draaien parallel en worden een dag gecachet. Op `/evruimte` staat de juridische definitie nu naast onze BAG-afleiding, met het verschil expliciet benoemd.
-- ✅ **Waterdossier (`/water`, `/api/water/hub`):** de vier waterpagina's (`/lozing`,
-  `/gebruiksruimte`, `/waterruimte`, `/balo`) als één dossier met een gedeelde subnav-balk.
+- ✅ **Waterdossier (`/water`, `/api/water/hub`):** de waterpagina's als één dossier met een
+  gedeelde subnav-balk — **14 leden** vandaag (geen vier, zoals hier eerder stond; vraag
+  `/api/water/hub` als je het actuele lidmaatschap wilt weten in plaats van het hier na te lezen).
+  De samenvatting per lid in `LEDEN` is een **bewering over de pagina** en kan dus verouderen:
+  de `toezicht`-samenvatting beloofde na de wasstraat-splitsing nog tien regels plus pijplijn en
+  runlog, terwijl die pagina drie regels toont en geen van beide heeft. Een test in
+  `tests/test_water_hub.py` controleert nu per lid dat zulke beweringen met de route kloppen.
   `usecases/water_hub.py` is de enige plek waar staat wat het dossier is; de balk wordt eruit
   gegenereerd en via een `__WATERNAV__`-placeholder geïnjecteerd (zelfde truc als `__DOSSIER__`
   in `_keten_tab`). NB: `keten-tab.html` bedient óók `/dvth` — daar wordt de placeholder leeg
@@ -251,30 +256,84 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   verboden — dat zou een echte meting tegen een verzonnen norm zetten. De pagina draagt een
   **proclaimer** die uit de data zelf wordt opgebouwd, zodat tekst en getallen niet uit de pas
   kunnen lopen met wat de lezer ziet.
-- ✅ **Toezichtsignalen (`/toezicht`, `/api/toezicht/{vestigingen,dossier,pijplijn}`):** hetzelfde
+- ✅ **Wasstraat & toezicht — één regelset, twee lezers (`/wasstraat` + `/toezicht`):** hetzelfde
   Maas-register, maar met de vraag van de **toezichthouder** in plaats van die van de
   vergunningverlener: niet "wat kan hier nog" maar **"waar moet ik gaan kijken"**. Een gat in de
   data is hier zélf een signaal, geen beperking. Tien **deterministische** signaalregels
   (`usecases/toezicht/signalen.py`), elk een gewone functie met een eigen test — **géén taalmodel
   in de signaalbepaling**, want een signaal dat een model "zag" is niet navraagbaar. Het model legt
-  alleen uit, en **zwijgt zonder benoemde vindplaats**. Verder: `dossier.py` (de kaart met
-  ontbrekende velden zichtbaar, de gerangschikte signalen, de voorbehouden), `rapport.py` (een
-  `.xlsx`, een blad per signaal), `graaf.py`/`vraag.py` (lokale triple-store plus een
-  **AST-gebaseerde** SPARQL-validator — regex op SPARQL is te omzeilen; een ontbrekende `LIMIT`
-  wordt geweigerd en een te grote ook, zodat de uitgevoerde query nooit afwijkt van wat de lezer
-  ziet), `aquo.py` (geldige **én ingetrokken** codes uit de ruwe CSV — zonder die tweede
-  opzoektabel is signaal 2 dode code, want `lozingsmodel.laad_parameters()` levert alleen geldige
-  codes), `uitleg.py`, `terugkoppeling.py`, `runner.py`/`runlog.py`/`pijplijn.py`.
+  alleen uit, en **zwijgt zonder benoemde vindplaats**.
+  **De tien regels staan op twee assen, en die twee zijn níet hetzelfde — houd ze apart:**
+  * **`Regel.laag`** (één `frozenset` in `signalen.py`, nergens een tweede lijst) scheidt
+    **papier** (7) van **werkelijkheid** (3): heeft deze regel meetdata of stroomrichting nodig?
+    Dat bepaalt op wélke pagina zij landt — `/wasstraat` voor de vergunningverlener,
+    `/toezicht` voor de toezichthouder. Beide filtermodules (`wasstraat.dossier._is_papier`,
+    `toezicht.weergave._is_werkelijkheid`) lezen die ene eigenschap.
+  * **`signalen.is_voorbehoud`** (afgeleid uit drempel ≥ 99 in `DREMPELS`) scheidt binnen het
+    papier de **bevinding** (5) van het **voorbehoud** (2). `niet_regime_zuiver` en
+    `geen_geldigheidsduur` zijn geen bevinding: de eerste vuurt op **68 van de 69**
+    vergunningen (hij vuurt juist alléén als het regime er staat, dus "vermeld het regime" was
+    een onuitvoerbare opdracht), de tweede op **69 van de 69** omdat de Atlas geen
+    geldigheidsperiode per voorschrift kent — een tekort in de bron, niet in de vergunning.
+    Stonden ze als bevinding in de lijst, dan was het minimum aantal papiersignalen 1 en was
+    `wasstraat.op_orde` **dode code**. Nu zijn ze een voorbehoud en haalt **4 van de 69**
+    vergunningen nul bevindingen. **Let op bij dat getal:** zonder de Aquo-domeintabel zijn het
+    16, want dan vuurt `vervallen_code` nergens (55 treffers) omdat elke code geldig lijkt.
+    `tests/test_toezicht_live.py::test_op_orde_is_bereikbaar_op_het_echte_register` pint dit op
+    het echte register — een fixture kán dit niet vangen, want de fixture is de verzonnen toestand.
+  **`/wasstraat` (de vergunningverlener)** draagt per bevinding de reparatie die eruit volgt, de
+  uitleg mét vindplaats (de vierde pijplijnstap kost **7,4 van de 7,4 seconden** en leverde eerder
+  `waarom`/`waarom_vindplaatsen` op die de pagina niet toonde — dat was het bewijsstuk dat de
+  reparatie onderbouwt, bijvoorbeeld *"'Zwevende stof' is in de Aquo-domeintabel ingetrokken (code
+  ZS, status Vervallen)"*), en de pijplijn plus runlog. **Read-only, bewust**: geen POST/PUT/
+  PATCH/DELETE op enige route, en de enige bezoeker-gestuurde invoer is de id-string, die
+  uitsluitend in een opzoeking op het register wordt gebruikt. De tests eisen **405** en niet
+  `in (404, 405)` — met 404 erbij slaagt zo'n test ook als de route helemaal weg is en bewaakt
+  zij niets.
+  **`/toezicht` (de toezichthouder)** draagt de drie werkelijkheidssignalen met bewijs en de vraag
+  die je ter plaatse kunt stellen, de metingen bij het waterlichaam van deze vergunning (mét
+  hoedanigheid en oordeel apart), en de uitkomst van de papiercontrole als context. Het
+  waterlichaam staat **alleen hier** op de kaart, niet op `/wasstraat`: de Atlas draagt dat veld
+  nooit, dus de papierkaart zette er een rood ontbrekend-signaal op terwijl de zusterpagina het
+  uit een coördinaatopzoeking wél weet — twee publieke pagina's die elkaar tegenspraken over
+  hetzelfde feit.
+  **De identiteit reist mee in de URL** (`?vergunning=` op `/wasstraat`, `?vestiging=` op
+  `/toezicht`, met `history.replaceState` bij wisselen in de kiezer). Zonder dat las een
+  inspecteur bij Solvay "13 bevindingen staan open voor **deze** vergunning", klikte door, en
+  kreeg de bevindingen van een andere vestiging te zien.
+  **Twee voorbehouden die `/toezicht` expliciet uitspreekt** omdat `norm_overschreden_bovenstrooms`
+  anders een richting beweert die zij niet heeft vastgesteld: (a) betreft een bewijsregel een
+  meetpunt in hetzelfde waterlichaam als de vestiging, dan is de stroomrichting daar niet
+  vastgesteld — `toerekening.is_bovenstrooms(X, X)` is per definitie waar (live op `HAVENS`:
+  twee van de vier bewijsregels liggen stroomopwaarts van de vestiging); en (b) staat het
+  waterlichaam niet in `toerekening.STROOMVOLGORDE` (`NL90_1` draagt **18** vergunningen), dan
+  meldt het dossier dat via `toerekening.reden_niet_bovenstrooms()` in plaats van stil "geen
+  signaal bovenstrooms" te laten lezen.
+  **De invariant waarop de twee pagina's samen rusten** staat als live test vast: `/wasstraat`
+  draait de pijplijn met één contextsleutel en `/toezicht` met vijf, dus "13 bevindingen staan
+  open" is alleen waar zolang geen papierregel een contextsleutel leest. Over alle 69
+  vergunningen: 0 afwijkingen. Eén regel die dat ooit doet, en de twee pagina's noemen
+  verschillende getallen voor hetzelfde feit zonder dat er iets omvalt.
+  Verder: `dossier.py` (de kaart met ontbrekende velden zichtbaar, de gerangschikte signalen, de
+  voorbehouden), `rapport.py` (een `.xlsx`, een blad per signaal), `graaf.py`/`vraag.py` (lokale
+  triple-store plus een **AST-gebaseerde** SPARQL-validator — regex op SPARQL is te omzeilen; een
+  ontbrekende `LIMIT` wordt geweigerd en een te grote ook, zodat de uitgevoerde query nooit
+  afwijkt van wat de lezer ziet), `aquo.py` (geldige **én ingetrokken** codes uit de ruwe CSV —
+  zonder die tweede opzoektabel is signaal 2 dode code, want `lozingsmodel.laad_parameters()`
+  levert alleen geldige codes), `uitleg.py`, `terugkoppeling.py`, `woordvorm.py` (de Nederlandse
+  **ij-digraaf**: `.capitalize()` maakt van "ijzer" → "Ijzer"), `runner.py`/`runlog.py`/
+  `pijplijn.py`, en `wasstraat/dossier.py` + `toezicht/weergave.py` voor de twee filters.
   **De agents staan in CrewAI-vorm in `config/agents.yaml`**, en dat is het punt en geen
   inrichtingsdetail: in dit lab is de gegevensherkomst zichtbaar en de **bewerking** niet. Drie van
   de zes agents dragen géén `llm`-sleutel — de grens "agents bepalen geen signalen" staat er als
   een *afwezig veld* in plaats van als een belofte in proza, en de runner geeft die agents nooit
-  een model door, ook niet als `draai()` er een meekrijgt. De runlog voert per stap mee wie, wat,
-  hoeveel rijen in en uit, hoe lang, en of er werkelijk een model is **aangeroepen** (een tellende
-  omhulling; "mocht er een krijgen" was de oude, te ruime lezing). Pijplijn en runlog staan op de
-  pagina, niet achter een knop. CrewAI zelf draait hier aantoonbaar (1.15.41, aarch64, tegen Qwen
-  op `:8080`) maar past **niet in deze venv**: het eist `pydantic<2.13` en dit project draait op
-  2.13.4. Telemetrie staat er standaard aan, uit met één van `OTEL_SDK_DISABLED`,
+  een model door, ook niet als `draai()` er een meekrijgt. **`mag_llm` ≠ gebruik:** die sleutel in
+  `/api/wasstraat/pijplijn` meet *gerechtigdheid* (heet daarom niet meer `heeft_llm`); wat er in
+  een run werkelijk is aangeroepen staat per stap in de runlog, via een tellende omhulling. De
+  configuratiepagina is **read-only** — de reden staat als één zin bij de tabel, geen
+  disclaimerblok. CrewAI zelf draait hier aantoonbaar (1.15.41, aarch64, tegen Qwen op `:8080`)
+  maar past **niet in deze venv**: het eist `pydantic<2.13` en dit project draait op 2.13.4.
+  Telemetrie staat er standaard aan, uit met één van `OTEL_SDK_DISABLED`,
   `CREWAI_DISABLE_TELEMETRY`, `CREWAI_DISABLE_TRACKING`.
   **Vier valkuilen die deze use-case duur heeft betaald**, alle vier gevonden door de **draaiende
   dienst** te bevragen en geen van de vier door code te lezen: (1) **`locatiecode` is géén
@@ -291,10 +350,16 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   een gewoon Nederlands woord** — `Te` (tellurium) in "vracht niet **te** bepalen" gaf twee
   signalen een tellurium-norm mét bronvermelding. Codes matchen nu hoofdlettergevoelig op
   woordgrens.
+  **En de les die boven die vier uitstijgt:** in élke reviewronde van deze use-case kwam iedere
+  must-fix uit het **bevragen van de draaiende dienst**, en geen enkele uit het lezen van de diff.
+  De ernstige defecten zaten bovendien niet in code die verkeerd rekende, maar in **tests, logs en
+  docstrings die beweerden iets te bewaken** — zes keer. Bevraag dus de dienst, en wantrouw een
+  groene test die je niet hebt zien falen.
   NB: een afwezige uitleg is zichtbaar als afwezig, mét de reden, en met onderscheid tussen "geen
   bron had iets" en "al eerder gegeven". Deel C (de `.xlsx`) en de bevraagbare laag zijn gebouwd en
-  getest maar hebben nog géén route — eerlijk afwezig, niet beweerd. Plan en beslissingen:
-  `docs/superpowers/plans/2026-11-13-toezichtsignalen-agentic-maas.md`.
+  getest maar hebben nog géén route — eerlijk afwezig, niet beweerd. Plannen en beslissingen:
+  `docs/superpowers/plans/2026-11-13-toezichtsignalen-agentic-maas.md` en
+  `2026-11-14-wasstraat-en-toezicht-splitsen.md`.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---
