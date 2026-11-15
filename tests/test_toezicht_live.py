@@ -23,6 +23,7 @@ patroon als deze fix, één taak eerder al toegepast).
 import csv
 import json
 import tempfile
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -30,7 +31,7 @@ import pytest
 
 from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
 from leefomgevinglab.usecases.kmg import lozingsmodel
-from leefomgevinglab.usecases.toezicht import aquo, signalen
+from leefomgevinglab.usecases.toezicht import aquo, dossier, signalen
 from leefomgevinglab.usecases.toezicht import register as register_mod
 
 pytestmark = pytest.mark.live
@@ -422,3 +423,48 @@ def test_regel_4_telt_live_114_gevallen_na_de_eenheden_en_ph_fix(register):
     )
     assert mix_unit == 0, "een gemengde-eenheid-groep vuurt nog steeds -- de groeperingsfix werkt niet"
     assert zuurgraad == 0, "Zuurgraad vuurt nog steeds -- de uitsluiting werkt niet"
+
+
+# == Fix-ronde 3 (publieke review op /toezicht en /wasstraat): het echte vangnet =================
+#
+# De vorige versie van deze test stond in `tests/test_toezicht_dossier.py`, zonder de `live`-
+# marker correct zichtbaar te maken en met een eigen `SmwkAtlasConnector`-aanroep naast de
+# `register`-fixture die hier al bestaat -- een tweede Atlas-ophaling voor precies dezelfde 69
+# vergunningen die de tests hierboven al gebruiken. Verplaatst naar dit bestand: hier hoort een
+# lezer een `@pytest.mark.live`-test op het register te zoeken, en `register` (module-scoped)
+# wordt dan gedeeld met alle andere tests hierboven in plaats van opnieuw opgehaald.
+
+def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering_op_het_echte_register(register):
+    """Het vangnet dat telt. Een fixture-test (`tests/test_toezicht_dossier.py`) bewaakt
+    hetzelfde patroon op verzonnen data -- inclusief, sinds deze ronde, een parameter in twee
+    eenheidsgroepen -- maar de live-bug bij Tata Steel (`Warmte` in megajoule per dag naast
+    megajoule per jaar, beide toevallig afgerond op dezelfde factor) zat in een combinatie die
+    geen eerdere fixture toevallig bouwde. Deze test stelt voor elke van de 69 echte vergunningen
+    het volledige dossier samen (`dossier.dossier`, dezelfde functie als `/toezicht`/`/wasstraat`)
+    en faalt luid zodra één dossier twee signalen met letterlijk dezelfde bewering draagt -- met
+    de vergunning en de dubbele tekst(en) in de foutmelding, niet alleen "er is iets dubbel".
+
+    Geen `context` nodig: `meerdere_grenswaarden` (het gevonden geval) is een papierregel en
+    heeft geen meetdata of stroomrichting nodig om te vuren."""
+    ref = aquo.laad(_AQUO_CSV)
+    if not ref.get("beschikbaar"):
+        pytest.skip(f"geen Aquo-domeintabel op {_AQUO_CSV}; haal hem op (zie aquo.py)")
+
+    register_dedup = register_mod.voorbereid(register)
+    begin = time.monotonic()
+    fouten = []
+    for v in register_dedup:
+        verrijkt = aquo.verrijk(v, ref)
+        d = dossier.dossier(verrijkt, {})
+        beweringen = [s["bewering"] for s in d["signalen"]]
+        if len(beweringen) != len(set(beweringen)):
+            dubbel = sorted({b for b in beweringen if beweringen.count(b) > 1})
+            fouten.append(f"{v.get('naam')} ({v.get('kenmerk') or v.get('locatiecode')}): "
+                          f"{dubbel}")
+    duur = time.monotonic() - begin
+    print(f"\n{len(register_dedup)} dossiers samengesteld in {duur:.2f}s "
+          f"({len(fouten)} met een dubbele bewering)")
+
+    assert not fouten, (
+        "dossiers met een dubbele bewering op het echte register:\n" + "\n".join(fouten)
+    )

@@ -5,25 +5,22 @@ krijgen. De grote fixture (`VESTIGING_MET_ALLES`/`CONTEXT_MET_ALLES`) komt uit
 `test_toezicht_signalen.py` en laat -- zoals die module zelf al test -- alle tien signaalregels
 vuren, inclusief signaal 1 twee keer (één keer per Aquo-code, zie taak 2).
 
-**Eén uitzondering (fix-ronde 2, publieke review).** `test_geen_twee_signalen_in_een_dossier_
-delen_dezelfde_bewering_op_het_echte_register` staat gemarkeerd `@pytest.mark.live` en raakt het
-echte Atlas-register. Reden: de fixture-versie van deze invariant (direct erboven) bewaakt het
-patroon op verzonnen data, en de echte bug (Tata Steel: twee `meerdere_grenswaarden`-signalen met
-letterlijk dezelfde bewering, één parameter in twee eenheidsgroepen) zat in een combinatie die
-geen fixture toevallig bouwde. Dezelfde reden als `test_toezicht_live.py`: een vangnet dat alleen
-op verzonnen data draait, vindt deze klasse fout niet.
+**Het live vangnet voor "geen twee signalen delen dezelfde bewering" staat niet hier.** Fix-ronde
+3 (publieke review) verplaatste die test naar `tests/test_toezicht_live.py`, waar het echte
+register al als gedeelde fixture (`register`) bestaat -- dat bestand is ook waar een lezer een
+`@pytest.mark.live`-test op dit register zoekt, en hergebruik van die fixture scheelt een tweede
+Atlas-aanroep naast de tien tests die daar al op `register` bouwen. De fixture-test hieronder
+(`test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering`) blijft hier voor de snelle lus
+en draagt sinds die ronde ook een parameter in twee eenheidsgroepen (de Warmte-constructie die de
+live bug veroorzaakte), zodat de snelle lus die combinatie ook zonder netwerk dekt.
 """
 import re
-import tempfile
 
-import pytest
 from openpyxl import load_workbook
 
 from leefomgevinglab.usecases.kmg.lozingsmodel import ZEKERHEDEN
 from leefomgevinglab.usecases.maaskaart import GRONDSLAG
-from leefomgevinglab.usecases.toezicht import aquo as aquo_mod
 from leefomgevinglab.usecases.toezicht import dossier, rapport, signalen
-from leefomgevinglab.usecases.toezicht import register as register_mod
 from tests.test_toezicht_signalen import CONTEXT_MET_ALLES, VESTIGING_MET_ALLES
 
 _VERBODEN = ("overtreding", "veroorzaakt door", "in strijd met")
@@ -224,23 +221,36 @@ def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering():
     """De regel waar dit nu drie keer tegen gezondigd is (de eindreview op `vergunning_niet_te_
     vinden`, fix-ronde 2 van taak 7 op `waarom`, en nu deze twee regels): binnen één dossier mag
     geen enkele bewering letterlijk gelijk zijn aan een andere. Deze vestiging laat met opzet
-    zowel `geen_onafhankelijke_meting` als `meerdere_grenswaarden` elk twee keer vuren, zodat een
-    toekomstige regressie in deze of een andere regel hier meteen zichtbaar is -- de test legt het
-    patroon zelf vast, niet alleen dit ene geval."""
+    zowel `geen_onafhankelijke_meting` als `meerdere_grenswaarden` elk twee keer vuren --
+    inclusief, sinds fix-ronde 3 (publieke review), `Warmte` in twee eenheidsgroepen (megajoule
+    per dag naast megajoule per jaar): precies de constructie die live bij Tata Steel een
+    dubbele bewering gaf en die de eerdere versie van deze fixture niet dekte. Zo is een
+    toekomstige regressie in deze of een andere regel/combinatie hier meteen zichtbaar -- de test
+    legt het patroon zelf vast, niet alleen dit ene geval."""
     v = {"voorschriften": [
         {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"},
         {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter", "aquo": "Zn"},
         {"parameter": "Koper", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Cu"},
         {"parameter": "Koper", "waarde": 5.0, "eenheid": "milligram per liter", "aquo": "Cu"},
+        {"parameter": "Warmte", "waarde": 100.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 250.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 1000.0, "eenheid": "megajoule per jaar"},
+        {"parameter": "Warmte", "waarde": 2500.0, "eenheid": "megajoule per jaar"},
     ]}
     context = {"gemeten_codes": set()}  # bewust leeg maar aangeleverd: niets wordt gemeten
     d = dossier.dossier(v, context)
     beweringen = [s["bewering"] for s in d["signalen"]]
     assert len(beweringen) == len(set(beweringen)), (
         f"twee signalen delen dezelfde bewering: {beweringen}")
-    # De controle is niet toevallig leeg: beide regels moeten hier echt meermaals vuren.
+    # De controle is niet toevallig leeg: elke regel/combinatie moet hier echt vuren -- inclusief
+    # Warmte in twee eenheidsgroepen, los van de twee gewone parameters (Zink, Koper).
     assert sum(1 for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting") == 2
-    assert sum(1 for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden") == 2
+    assert sum(1 for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden") == 4, (
+        "vier groepen: Zink, Koper, Warmte/megajoule per dag, Warmte/megajoule per jaar")
+    warmte_beweringen = {s["bewering"] for s in d["signalen"]
+                          if s["regel"] == "meerdere_grenswaarden" and "Warmte" in s["bewering"]}
+    assert len(warmte_beweringen) == 2, (
+        f"de twee Warmte-eenheidsgroepen delen hun bewering: {warmte_beweringen}")
 
 
 def test_meerdere_grenswaarden_houdt_de_ij_digraaf_intact_bij_zinsbegin():
@@ -278,38 +288,6 @@ def test_dezelfde_parameter_in_twee_eenheidsgroepen_krijgt_twee_te_onderscheiden
     assert len(beweringen) == 2, f"de twee eenheidsgroepen delen hun bewering: {beweringen}"
     assert any("megajoule per dag" in b for b in beweringen)
     assert any("megajoule per jaar" in b for b in beweringen)
-
-
-@pytest.mark.live
-def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering_op_het_echte_register():
-    """Het vangnet dat telt: de twee fixture-tests hierboven bewaken het patroon op verzonnen
-    data, maar de live-bug bij Tata Steel zat in een combinatie die geen fixture toevallig
-    bouwde. Doorloopt alle 69 echte vergunningen (`SmwkAtlasConnector`, net als
-    `test_toezicht_live.py`) en faalt luid zodra één dossier twee signalen met dezelfde bewering
-    draagt -- geen context nodig, want het gevonden geval (`meerdere_grenswaarden`) is een
-    papierregel."""
-    from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
-
-    aquo_csv = "/mnt/nvme/geluidsmeter/data/external/wkp/aquo_Parameter.csv"
-    ref = aquo_mod.laad(aquo_csv)
-    if not ref.get("beschikbaar"):
-        pytest.skip(f"geen Aquo-domeintabel op {aquo_csv}; haal hem op (zie aquo.py)")
-
-    with tempfile.TemporaryDirectory() as td:
-        c = SmwkAtlasConnector(cache_dir=td)
-        ruw = c.vergunningen_bij_punt(170000.0, 390000.0, straal_m=250000)
-    register = register_mod.voorbereid(ruw)
-
-    fouten = []
-    for v in register:
-        verrijkt = aquo_mod.verrijk(v, ref)
-        d = dossier.dossier(verrijkt, {})
-        beweringen = [s["bewering"] for s in d["signalen"]]
-        if len(beweringen) != len(set(beweringen)):
-            dubbel = sorted({b for b in beweringen if beweringen.count(b) > 1})
-            fouten.append((v.get("naam"), v.get("kenmerk"), dubbel))
-
-    assert not fouten, f"dossiers met een dubbele bewering op het echte register: {fouten}"
 
 
 def test_grondslag_en_zekerheid_komen_uit_de_bestaande_vocabulaires():
