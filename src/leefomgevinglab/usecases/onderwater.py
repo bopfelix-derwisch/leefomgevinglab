@@ -279,6 +279,24 @@ CONFIGSLEUTELS = [
         "pad": True,
     },
     {
+        "sleutel": "leefomgevinglab.toezicht.graaf_pad",
+        "waarvoor": "Het opgebouwde graafbestand dat de vraagweg bij voorkeur inleest.",
+        "wat_als_hij_mist": "De vraagweg bouwt de graaf live op uit de Atlas plus een "
+                            "coördinaatopzoeking per vergunning. Dat werkt, maar is langzamer "
+                            "en heeft de Atlas nodig; en een antwoord is dan niet te herleiden "
+                            "tot een versie van het register.",
+        "pad": True,
+    },
+    {
+        "sleutel": "leefomgevinglab.toezicht.graaf_max_ouderdom_dagen",
+        "waarvoor": "Vanaf welke ouderdom de pagina luid meldt dat de graaf oud is.",
+        "wat_als_hij_mist": "Er wordt een week aangehouden. Een oude graaf wordt altijd nog "
+                            "gebruikt — beter een herleidbaar antwoord van vorige week dan geen "
+                            "antwoord — maar nooit stil: stil verouderen is het faalpatroon dat "
+                            "dit lab het meeste heeft gekost.",
+        "pad": False,
+    },
+    {
         "sleutel": "leefomgevinglab.smwk_atlas.cache_ttl_s",
         "waarvoor": "Hoe lang het antwoord van de Atlas hergebruikt mag worden.",
         "wat_als_hij_mist": "De connector valt terug op haar eigen standaard van een dag.",

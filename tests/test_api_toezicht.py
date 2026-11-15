@@ -10,6 +10,8 @@ Geen netwerk hier: alle bronnen (`_toezicht_register`/`_toezicht_aquo_ref`/
 `_stelselcatalogus`/`toezicht_context.waterlichaam_van_vestiging`) worden per test gemonkeypatcht,
 net zoals in `test_api_wasstraat.py`.
 """
+import time
+
 from fastapi.testclient import TestClient
 
 import leefomgevinglab.geluidsmeter.api as api
@@ -602,3 +604,94 @@ def test_de_vraagbox_toont_voortgang_tijdens_het_wachten(monkeypatch):
     assert "setInterval" in r.text, "een stilstaande status leest als vastgelopen"
     assert "eerste vraag duurt het langst" in r.text
     assert 'textContent = "Bezig…"' in r.text, "de knop hoort ook te laten zien dat hij loopt"
+
+
+# -- De opgebouwde graaf: bestand, live, en verouderd ------------------------------------------
+#
+# Bob's vraag: is het niet beter de hele database op te bouwen en er een graaf over te zetten?
+# Ja -- niet voor de snelheid (inlezen ~4 s tegen ~9 s live bouwen, op een vraag die ~10 s aan het
+# taalmodel besteedt) maar voor **herleidbaarheid** (een bestand draagt een datum, dus een antwoord
+# is te herleiden tot een versie van het register) en **robuustheid** (de vraagweg blijft werken
+# als de Atlas onbereikbaar is). Deze tests leggen de drie trappen vast.
+
+def _schrijf_graaf(tmp_path, monkeypatch, triples: int = 3):
+    """Een klein graafbestand op schijf, plus de configuratie die ernaar wijst."""
+    from leefomgevinglab.ld import store
+    from leefomgevinglab.usecases.toezicht import graaf as graaf_mod
+    g = graaf_mod.bouw([{**FIXTURE_VESTIGING, "naam": f"Uit het bestand {i}"}
+                         for i in range(triples)], None, None, FIXTURE_AQUO_REF, context={})
+    store.save_graph(g, str(tmp_path), naam="toezicht.ttl")
+    cfg = dict(api._config.get("leefomgevinglab", {}))
+    cfg["toezicht"] = {"graaf_pad": str(tmp_path / "toezicht.ttl"),
+                        "graaf_max_ouderdom_dagen": 7}
+    monkeypatch.setitem(api._config, "leefomgevinglab", cfg)
+    return g
+
+
+def test_de_route_leest_de_opgebouwde_graaf_in_plaats_van_live_te_bouwen(monkeypatch, tmp_path):
+    """Met een bestand op schijf hoeft de Atlas niet bevraagd te worden. Dat is de robuustheid
+    waar het om gaat: valt de bron weg, dan blijft de vraagweg werken en zegt hij van wanneer
+    zijn beeld is."""
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    _schrijf_graaf(tmp_path, monkeypatch)
+    api._TOEZICHTGRAAF.update({"graaf": None, "gebouwd_op": 0.0, "bron": None, "telling": {}})
+    # Live bouwen zou hierop stuklopen -- dus als de route tóch antwoordt, kwam hij van schijf.
+    monkeypatch.setattr(api, "_toezicht_register",
+                        lambda: (_ for _ in ()).throw(AssertionError("live gebouwd")))
+
+    d = client.post("/api/toezicht/vraag", json={"vraag": "x"}).json()
+    assert d["graaf"]["bron"] == "bestand"
+    assert d["graaf"]["triples"] > 0
+    assert d["graaf"]["vestigingen"] == 3
+
+
+def test_zonder_bestand_bouwt_de_route_live_en_zegt_dat_ook(monkeypatch, tmp_path):
+    """Een ontbrekend bestand is de terugval, geen fout -- maar de pagina moet wel kunnen zeggen
+    waar haar antwoord vandaan komt."""
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    cfg = dict(api._config.get("leefomgevinglab", {}))
+    cfg["toezicht"] = {"graaf_pad": str(tmp_path / "bestaat-niet.ttl")}
+    monkeypatch.setitem(api._config, "leefomgevinglab", cfg)
+    api._TOEZICHTGRAAF.update({"graaf": None, "gebouwd_op": 0.0, "bron": None, "telling": {}})
+
+    d = client.post("/api/toezicht/vraag", json={"vraag": "x"}).json()
+    assert d["graaf"]["bron"] == "live"
+    assert d["graaf"]["triples"] > 0
+
+
+def test_een_oude_graaf_wordt_gebruikt_maar_luid_als_oud_gemeld(monkeypatch, tmp_path):
+    """**De kern van het risico van persisteren.** Een oud bestand serveren alsof het actueel is,
+    is erger dan langzaam zijn: de lezer krijgt een antwoord over het register van vorige maand
+    en niets zegt dat. Het wordt dus wél gebruikt (beter een herleidbaar oud antwoord dan geen
+    antwoord) maar met `verouderd` aan, en de pagina zet er een zichtbare waarschuwing bij met
+    het commando om hem opnieuw te bouwen."""
+    import os
+    client = _monkeypatch_graaf(monkeypatch, _VRAAG_SPARQL)
+    _schrijf_graaf(tmp_path, monkeypatch)
+    pad = tmp_path / "toezicht.ttl"
+    oud = time.time() - 30 * 86400
+    os.utime(pad, (oud, oud))
+    api._TOEZICHTGRAAF.update({"graaf": None, "gebouwd_op": 0.0, "bron": None, "telling": {}})
+
+    d = client.post("/api/toezicht/vraag", json={"vraag": "x"}).json()
+    g = d["graaf"]
+    assert g["bron"] == "bestand", "een oude graaf wordt gebruikt, niet geweigerd"
+    assert g["verouderd"] is True
+    assert g["ouderdom_dagen"] >= 29
+    assert g["opnieuw_bouwen"].endswith("22_bouw_toezichtgraaf.py"), (
+        "de melding moet zeggen wat eraan te doen is, niet alleen dát het oud is")
+
+
+def test_de_pagina_waarschuwt_zichtbaar_bij_een_oude_graaf(monkeypatch):
+    r = _client(monkeypatch).get("/toezicht")
+    assert "graafoud" in r.text
+    assert "ouder dan" in r.text
+    assert "22_bouw_toezichtgraaf.py" in r.text or "g.opnieuw_bouwen" in r.text
+
+
+def test_de_pagina_noemt_altijd_waar_de_graaf_vandaan_komt_en_van_wanneer(monkeypatch):
+    """Herkomst is de hele reden om te persisteren; hem niet tonen zou de winst weggooien."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "graafvoet" in r.text
+    for veld in ("g.gebouwd_op", "g.bron", "g.signalen", "g.ouderdom_dagen"):
+        assert veld in r.text, veld

@@ -571,3 +571,47 @@ def test_op_orde_is_bereikbaar_op_het_echte_register(register):
     assert len(op_orde) < len(verrijkt), (
         "élke vergunning is op orde -- dan vuurt geen enkele papierregel meer en toetst "
         "/wasstraat niets")
+
+
+# -- Bestand en live moeten dezelfde graaf zijn -------------------------------------------------
+
+def test_de_opgebouwde_graaf_op_schijf_is_dezelfde_als_de_route_live_bouwt():
+    """**Waarom dit een live test is, en het belangrijkste vangnet van de persistentie.**
+
+    De vraagweg leest bij voorkeur het opgebouwde bestand (`scripts/22_bouw_toezichtgraaf.py`) en
+    bouwt alleen live als dat ontbreekt. Lopen die twee uiteen, dan hangt het antwoord op een
+    vraag af van of het bestand er die dag stond -- en dat is onzichtbaar, want beide paden
+    antwoorden gewoon.
+
+    Dit is één keer echt misgegaan, en precies daarom staat deze test er: het script bouwde op het
+    **rauwe** Atlas-antwoord terwijl de route eerst ontdubbelt (`register.voorbereid` haalt 132
+    letterlijk herhaalde voorschriften eruit, 17% van 782). Gemeten verschil: 75.190 tegen 72.682
+    triples, en 782 tegen 650 voorschriften -- zonder dat er iets omviel.
+
+    Vergeleken wordt de telling per klasse, niet de triples zelf: blank-node-id's verschillen per
+    bouw, dus een letterlijke vergelijking zou altijd falen en niets zeggen.
+    """
+    import os
+
+    from leefomgevinglab.geluidsmeter import api as api_mod
+    from leefomgevinglab.geluidsmeter.config import load_config
+    from leefomgevinglab.ld import store as ld_store
+    from leefomgevinglab.usecases.toezicht import graafbouw
+
+    api_mod._config.update(load_config())
+    pad = api_mod._toezicht_graaf_cfg()["pad"]
+    if not pad or not os.path.exists(pad):
+        pytest.skip(f"geen opgebouwde graaf op {pad} -- bouw hem met scripts/22")
+
+    van_schijf = ld_store.load_graph(os.path.dirname(pad), naam=os.path.basename(pad))
+    assert van_schijf is not None and len(van_schijf), "het bestand levert een lege graaf"
+
+    live, telling_live = api_mod._bouw_toezicht_graaf_live()
+    telling_schijf = graafbouw.telling(van_schijf)
+
+    print(f"\nschijf: {telling_schijf}\nlive  : {telling_live}")
+    assert telling_schijf == telling_live, (
+        "het opgebouwde bestand en de live gebouwde graaf lopen uiteen -- de vraagweg geeft dan "
+        "een ander antwoord afhankelijk van of het bestand er staat. Bouw opnieuw met "
+        "scripts/22, en controleer of beide paden hetzelfde voorbewerkte register gebruiken "
+        "(register.voorbereid).")

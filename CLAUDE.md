@@ -433,6 +433,44 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   alles te verwijderen schreef het model `DELETE WHERE { ?signaal a t:Signaal }. LIMIT 1000000`,
   en die is geweigerd, zichtbaar als geweigerde query, met nul rijen. De pagina labelt zo'n query
   dan ook als *"Geweigerde query — niet uitgevoerd"* en niet als uitgevoerd.
+- ✅ **De graaf wordt opgebouwd en bewaard, niet elke keer opnieuw** (`scripts/22_bouw_toezicht
+  graaf.py` → `leefomgevinglab.toezicht.graaf_pad`, Turtle op NVMe, **nooit in de repo**). De
+  vraagweg leest dat bestand bij voorkeur en bouwt alleen live als het ontbreekt.
+  **De reden is niet snelheid.** Nagemeten: inlezen ~4 s tegen ~9 s live bouwen, op een vraag die
+  ~10 s aan het taalmodel besteedt — en de graaf stond al een dag in het geheugen. De winst is
+  (a) **herleidbaarheid**: een bestand draagt een datum, dus een antwoord is te herleiden tot een
+  versie van het register, en (b) **robuustheid**: live bouwen heeft de Atlas plús een
+  coördinaatopzoeking per vergunning nodig, dus zonder bestand ligt de vraagweg eruit zodra de
+  Atlas eruit ligt. Gemeten uitkomst: 69 vestigingen, 650 voorschriften, 598 signalen, **72.682
+  triples, 2,4 MB**, bouwen in ~14 s.
+  **Eén bouwer, twee aanroepers** (`usecases/toezicht/graafbouw.py`). De route bouwde de graaf
+  eerst zelf en het script ook — en het script deed het **zonder context**, dus zonder
+  `t:Signaal`, dus zonder de brug tussen de twee lezers. Een bestand met die halve graaf is erger
+  dan geen bestand, want de route leest het bestand bij voorkeur.
+  **⚠️ En de fout die daarna nog opdook, is precies de reden dat hier een live test op staat:**
+  het script bouwde op het **rauwe** Atlas-antwoord terwijl de route eerst ontdubbelt
+  (`register.voorbereid`, 132 letterlijk herhaalde voorschriften = 17% van 782). Verschil:
+  **75.190 tegen 72.682 triples**, 782 tegen 650 voorschriften — en niets viel om. Sinds de fix
+  zijn ze gelijk, en `tests/test_toezicht_live.py::test_de_opgebouwde_graaf_op_schijf_is_dezelfde
+  _als_de_route_live_bouwt` vergelijkt de telling per klasse (niet de triples zelf: blank-node-
+  id's verschillen per bouw).
+  **Verouderen mag niet stil.** Een oud bestand wordt wél gebruikt — beter een herleidbaar
+  antwoord van vorige week dan geen antwoord — maar `meta["verouderd"]` gaat aan boven
+  `graaf_max_ouderdom_dagen` (standaard 7) en de pagina zet er een rode waarschuwing bij mét het
+  commando om opnieuw te bouwen. `telling()` rekent **uitsluitend uit de graaf**, nooit uit het
+  register ernaast: het pad dat van schijf leest heeft dat register niet, en zou dan een getal
+  moeten verzinnen dat niet uit de graaf komt die de vragen beantwoordt.
+  Verversen:
+  ```bash
+  W=/mnt/nvme/geluidsmeter/data/external/wkp
+  PYTHONPATH=src .venv/bin/python scripts/22_bouw_toezichtgraaf.py \
+      --aquo $W/aquo_Parameter.csv --metingen $W/metingen_2025.json \
+      --normen $W/krw_normen.json --doelen $W/krw_doelen_2025.json \
+      --gemeten-codes $W/gemeten_codes.json \
+      --uit /mnt/nvme/geluidsmeter/data/external/toezicht/toezicht.ttl
+  ```
+  Zonder `--doelen` en `--gemeten-codes` bouwt het script een graaf zonder de drie
+  werkelijkheidssignalen; het script meldt dat luid in plaats van het stil op te leveren.
 - **`.env` wordt in `tests/conftest.py` geladen, niet per ongeluk.** De live-tests lezen hun
   sleutel rechtstreeks uit `os.environ`, en die stond daar tot 2026-11-15 alleen omdat
   `geluidsmeter/api.py` bij import `load_dotenv()` aanroept en bijna elk testbestand `api`

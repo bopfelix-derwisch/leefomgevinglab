@@ -208,6 +208,11 @@
     .vraagtabel { margin-top:10px; overflow-x:auto; }
     .vraagvoet { font-size:11px; color:var(--dim); margin-top:9px; }
     .vraagvoet b { color:var(--muted); }
+    .graafoud { margin-top:10px; background:#2a1512; border:1px solid var(--weg);
+      border-radius:7px; padding:9px 12px; font-size:12px; color:var(--text); }
+    .graafoud b { color:var(--weg); }
+    .graafoud code { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11px;
+      color:var(--muted); }
   </style>
 </head>
 <body>
@@ -619,6 +624,31 @@
       window._vraagEerderGesteld = true;
     }
 
+    // Waar de graaf vandaan komt en van wanneer hij is. Een gepersisteerde graaf kan stil
+    // verouderen, en dat is het faalpatroon dat dit dossier het meeste heeft gekost -- dus staat
+    // de bouwdatum er altijd bij, en bij een te oude graaf een zichtbare waarschuwing met wat
+    // eraan te doen is.
+    function graafvoet(g) {
+      if (!g || !g.triples) return "";
+      const wanneer = g.gebouwd_op
+        ? new Date(g.gebouwd_op * 1000).toLocaleString("nl-NL",
+            { dateStyle: "medium", timeStyle: "short" })
+        : "onbekend";
+      const herkomst = g.bron === "bestand"
+        ? "opgebouwd bestand" : "live uit de bronnen opgebouwd";
+      const regel =
+        `Graaf: ${esc(g.triples)} triples over ${esc(g.vestigingen)} vergunningen, ` +
+        `${esc(g.voorschriften)} voorschriften en ${esc(g.signalen)} signalen — ` +
+        `${esc(herkomst)}, van ${esc(wanneer)}` +
+        (g.ouderdom_dagen != null ? ` (${esc(g.ouderdom_dagen)} dagen oud)` : "") + ".";
+      if (!g.verouderd) return `<div class="vraagvoet">${regel}</div>`;
+      return `<div class="graafoud"><b>Deze graaf is ouder dan ` +
+        `${esc(g.max_ouderdom_dagen)} dagen.</b> Het antwoord gaat dus over het register zoals ` +
+        `het toen was, niet zoals het nu is. Opnieuw opbouwen: ` +
+        `<code>${esc(g.opnieuw_bouwen || "")}</code>.</div>` +
+        `<div class="vraagvoet">${regel}</div>`;
+    }
+
     async function stelVraag() {
       const vraag = ($("vraaginput").value || "").trim();
       if (!vraag) return;
@@ -647,11 +677,9 @@
               `${esc(d.sparql)}</div>`
             : "") +
           tekenRijen(d.rijen) +
+          graafvoet(g) +
           `<div class="vraagvoet"><b>${esc(d.disclaimer || "")}</b> ` +
-            `${esc(d.vangnet || "")} ${esc(d.bron || "")}` +
-            (g.triples ? ` Graaf: ${esc(g.triples)} triples over ` +
-               `${esc(g.vestigingen)} vergunningen.` : "") +
-          `</div>`;
+            `${esc(d.vangnet || "")} ${esc(d.bron || "")}</div>`;
       } catch (e) {
         stopTik();
         $("vraagstatus").textContent = `De vraag kon niet worden gesteld: ${e.message}`;
