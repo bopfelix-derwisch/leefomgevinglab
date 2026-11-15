@@ -45,8 +45,13 @@ naar zwaarte en naar regel) -- nooit een getypt cijfer, conform de huisregel.
 
 **`voorbehouden`** is een lijst Nederlandse zinnen die zegt wat dit dossier **niet** kon toetsen:
 welke contextsleutel ontbrak (`gemeten_codes`, `waterlichaam`, `register_codes`,
-`stoffen_met_norm`) en welke agent is uitgezet (`uit`). De taalregel geldt ook hier: geen van deze
-zinnen noemt een "overtreding".
+`stoffen_met_norm`) en welke agent is uitgezet (`uit`). Sinds de eindreview staan er twee zinnen
+bij die niet over een ontbrekende sleutel gaan maar over de grofmazigheid van de
+richtingsbepaling, en die daarom de **signalen** nodig hebben in plaats van alleen de context:
+`_voorbehoud_zelfde_waterlichaam` (must-fix 7 -- binnen één waterlichaam is de richting niet
+vastgesteld) en `_voorbehoud_zonder_stroompositie` (must-fix 8 -- een waterlichaam zonder plaats
+in de stroomvolgorde maakt de bovenstrooms-regel structureel inert). De taalregel geldt ook hier:
+geen van deze zinnen noemt een "overtreding".
 
 **`uit` en `runlog` (sinds taak 6b bekabeld).** `dossier()` accepteert `uit: set[str] | None` en
 `runlog` (een `toezicht.runlog.Runlog`, optioneel). De runner (taak 6/6b, `runner.
@@ -64,6 +69,7 @@ KRW-toetsresultaten en `dossier()` doet geen netwerk. Ontbreekt die sleutel, dan
 """
 from collections import Counter
 
+from leefomgevinglab.usecases.kmg import toerekening
 from leefomgevinglab.usecases.kmg.lozingsmodel import ZEKERHEDEN
 from leefomgevinglab.usecases.maaskaart import GRONDSLAG
 from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
@@ -417,7 +423,77 @@ SLOTZIN = ("Een signaal in dit dossier stelt nooit vast dat iets niet mag; het v
            "voor nader onderzoek, meer niet.")
 
 
-def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
+# De kop van de regel waarover de twee voorbehouden hieronder gaan, uit `signalen.REGELS` in
+# plaats van opnieuw getypt -- en met de aanhalingstekens eromheen, zodat `wasstraat.dossier.
+# _voorbehouden_papier` deze zinnen als werkelijkheidsvoorbehoud herkent en van de papierpagina
+# filtert (zelfde vorm als de contextvoorbehouden in `_voorbehouden`).
+_BOVENSTROOMS_REGEL = "norm_overschreden_bovenstrooms"
+
+
+def _bovenstrooms_kop() -> str:
+    return next(r.kop for r in signalen_mod.REGELS if r.id == _BOVENSTROOMS_REGEL)
+
+
+def _voorbehoud_zelfde_waterlichaam(context: dict, signalen_lijst: list[dict]) -> str | None:
+    """Een voorbehoud zodra een bewijsregel een meetpunt in hetzelfde waterlichaam als de
+    vestiging betreft.
+
+    **Fix-ronde eindreview, must-fix 7.** `kmg.toerekening.is_bovenstrooms(X, X)` is per definitie
+    waar: een lozing op hetzelfde waterlichaam telt mee, ook als zij daarbinnen stroomafwaarts van
+    het meetpunt ligt. Live op HAVENS (J.P. Havens, Maashees, NL91ZM) beweerde de pagina daardoor
+    "1 stof is benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms", terwijl
+    twee van de vier bewijsregels meetpunten in datzelfde NL91ZM waren die in werkelijkheid
+    stroomopwaarts van Maashees liggen -- en de pagina droeg er geen woord over. `/kmg` spreekt
+    deze grofmazigheid wél uit (`kmg.proclaimer`); vanaf nu ook dit dossier, en met het
+    waterlichaam en de betrokken meetpunten erbij in plaats van als algemene waarschuwing."""
+    waterlichaam = context.get("waterlichaam")
+    if not waterlichaam:
+        return None
+    meetpunten = sorted({
+        o.get("meetpunt") for s in signalen_lijst if s.get("regel") == _BOVENSTROOMS_REGEL
+        for o in (s.get("bewijs") or [])
+        if o.get("waterlichaam") == waterlichaam and o.get("meetpunt")})
+    if not meetpunten:
+        return None
+    aanhef = ("Eén bewijsregel betreft een meetpunt" if len(meetpunten) == 1
+              else f"{len(meetpunten)} bewijsregels betreffen meetpunten")
+    return (f"{aanhef} in hetzelfde waterlichaam als deze vestiging ({waterlichaam}): "
+            f"{', '.join(meetpunten)}. Binnen één waterlichaam is de stroomrichting hier niet "
+            f"vastgesteld -- de richtingstoets van dit lab rekent een lozing op hetzelfde "
+            f"waterlichaam altijd mee, ook als zij daarbinnen stroomafwaarts van het meetpunt "
+            f"ligt. Voor die meetpunten zegt het signaal '{_bovenstrooms_kop()}' dus niets over "
+            f"de richting.")
+
+
+def _voorbehoud_zonder_stroompositie(context: dict) -> str | None:
+    """Een voorbehoud zodra het waterlichaam van deze vestiging geen plaats heeft in de
+    stroomvolgorde -- dan is de bovenstrooms-regel er structureel inert.
+
+    **Fix-ronde eindreview, must-fix 8.** `NL90_1` (Midden-Limburgse en Noord-Brabantse kanalen)
+    draagt live 18 van de 62 vergunningen en staat in `toerekening.ZONDER_POSITIE`. `_voorbehouden`
+    meldde alleen iets als `context["waterlichaam"]` *leeg* was; hier is het gevuld, dus het
+    dossier zei niets en de inspecteur las "geen signaal boven de norm bovenstrooms" waar het
+    juiste antwoord is "voor dit waterlichaam niet te bepalen".
+
+    De positie-vraag wordt aan `toerekening.reden_niet_bovenstrooms()` zelf gesteld, met het
+    waterlichaam als zijn eigen meetpunt: geeft die functie `None`, dan telt een lozing op dit
+    waterlichaam mee bij een meetpunt op datzelfde waterlichaam, en dus heeft het een positie in
+    de volgorde. Geen eigen variant van die redenering en geen tweede lijst codes naast
+    `ZONDER_POSITIE`."""
+    waterlichaam = context.get("waterlichaam")
+    if not waterlichaam:
+        return None
+    reden = toerekening.reden_niet_bovenstrooms(waterlichaam, waterlichaam)
+    if reden is None:
+        return None
+    return (f"Het waterlichaam van deze vestiging ({waterlichaam}) heeft geen plaats in de "
+            f"stroomvolgorde die dit lab voor de Maas aanhoudt -- {reden}. Het signaal "
+            f"'{_bovenstrooms_kop()}' is voor dit waterlichaam daarom niet te bepalen; dat is "
+            f"iets anders dan dat er geen signaal is.")
+
+
+def _voorbehouden(context: dict, uit: set[str] | None,
+                   signalen_lijst: list[dict] | None = None) -> list[str]:
     """Wat dit dossier niet kon toetsen, in woorden -- nooit een vaststelling (zelfde taalregel
     als de signalen zelf). De uitgezette-agent-zin staat altijd vooraan: dat is waar een latere
     taak (de runner) op test."""
@@ -445,6 +521,10 @@ def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
             "Geen Aquo-codes met een KRW-norm aangeleverd (context['stoffen_met_norm'] ontbreekt "
             "of is leeg): het signaal 'geen onafhankelijke meting' kan voor deze vestiging niet "
             "boven 'midden' uitkomen.")
+    for zin in (_voorbehoud_zonder_stroompositie(context),
+                _voorbehoud_zelfde_waterlichaam(context, signalen_lijst or [])):
+        if zin:
+            voorbehouden.append(zin)
     voorbehouden.append(SLOTZIN)
     return voorbehouden
 
@@ -468,7 +548,7 @@ def dossier(vestiging: dict, context: dict, uit: set[str] | None = None, runlog=
         "kaart": _kaart(vestiging),
         "signalen": signalen_lijst,
         "telling": _telling(vestiging, signalen_lijst),
-        "voorbehouden": _voorbehouden(context, uit),
+        "voorbehouden": _voorbehouden(context, uit, signalen_lijst),
         "runlog": {
             "uitgezet": sorted(uit) if uit else [],
             "stappen": runlog.als_gegeven() if runlog is not None else [],

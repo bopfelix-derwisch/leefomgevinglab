@@ -280,6 +280,37 @@ def test_de_wasstraat_uitkomst_kan_op_orde_zijn_op_een_echte_vergunning(monkeypa
     assert papier["telling"]["aantal_voorbehouden"] == 2
 
 
+# -- De twee voorbehouden over de richting (must-fix 7 en 8) -------------------------------------
+
+def test_het_dossier_benoemt_dat_de_richting_binnen_een_waterlichaam_niet_vaststaat(monkeypatch):
+    """Must-fix 7: het meetpunt van `FIXTURE_METINGEN_OVERSCHREDEN` ligt in NL91ZM, net als de
+    vestiging zelf -- dan is de bewering "met deze vestiging bovenstrooms" niet vastgesteld, want
+    `toerekening.is_bovenstrooms(X, X)` is per definitie waar."""
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL91ZM", None),
+                          gemeten_codes={"Ntot"})
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    treffers = [v for v in d["voorbehouden"] if "NL91ZM" in v and "niet vastgesteld" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert "NL80_BELFBVN" in treffers[0]
+
+
+def test_het_dossier_benoemt_een_waterlichaam_zonder_plaats_in_de_stroomvolgorde(monkeypatch):
+    """Must-fix 8: `NL90_1` draagt live 18 van de 62 vergunningen en staat in
+    `toerekening.ZONDER_POSITIE`. De regel kan daar niet vuren, en dat is iets anders dan geen
+    signaal -- het dossier zei er niets over zolang het waterlichaam gevuld was."""
+    _monkeypatch_bronnen(monkeypatch, normenset=NORMEN, doelenset=DOELEN,
+                          metingen=FIXTURE_METINGEN_OVERSCHREDEN, waterlichaam=("NL90_1", None),
+                          gemeten_codes={"Ntot"})
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    assert not any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    treffers = [v for v in d["voorbehouden"] if "NL90_1" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert "niet te bepalen" in treffers[0]
+    assert "zonder stroomschema niet te plaatsen" in treffers[0], "de reden komt uit toerekening"
+
+
 # -- De metingen bij het waterlichaam -------------------------------------------------------------
 
 def test_metingen_zonder_waterlichaam_is_leeg_met_reden(monkeypatch):

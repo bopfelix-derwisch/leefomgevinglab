@@ -404,6 +404,82 @@ def test_voorbehoud_ontbreekt_niet_meer_zodra_de_contextsleutel_gevuld_is():
     assert "stoffen_met_norm" not in tekst
 
 
+# -- Must-fix 7: binnen één waterlichaam is de richting niet vastgesteld -----------------------
+
+_VESTIGING_EEN_STOF = {
+    "naam": "Richtingtest BV", "url": "https://example.org/v", "kenmerk": "K/1",
+    "besluitdatum": "2020-01-01",
+    "voorschriften": [{"parameter": "Zink", "waarde": 1.0, "eenheid": "kilogram per jaar",
+                        "aquo": "Zn"}],
+}
+
+
+def _context_bovenstrooms(waterlichaam, meetpunt_waterlichaam, meetpunt="NL80_BELFBVN"):
+    """Context waarin alléén `norm_overschreden_bovenstrooms` iets te doen heeft -- geen
+    `is_bovenstrooms`-injectie, dus de echte `kmg.toerekening.is_bovenstrooms` beslist."""
+    return {
+        "waterlichaam": waterlichaam,
+        "gemeten_codes": {"Zn"},
+        "register_codes": {"Zn"},
+        "stoffen_met_norm": {"Zn"},
+        "overschrijdingen": [{"meetpunt": meetpunt, "waterlichaam": meetpunt_waterlichaam,
+                              "stof": "Zn", "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"}],
+    }
+
+
+def test_een_bewijsregel_in_hetzelfde_waterlichaam_levert_een_voorbehoud_over_de_richting():
+    """Live op HAVENS (J.P. Havens, Maashees, NL91ZM) beweerde `/toezicht`: "1 stof is
+    benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms", terwijl twee van de
+    vier bewijsregels meetpunten in datzelfde NL91ZM waren die in werkelijkheid stroomopwaarts
+    van Maashees liggen. De oorzaak is bekend (`toerekening.is_bovenstrooms(X, X) is True`), maar
+    de pagina droeg er geen woord over -- `/kmg` spreekt die grofmazigheid wél uit (eindreview,
+    must-fix 7)."""
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91ZM"))
+    assert any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    treffers = [v for v in d["voorbehouden"] if "NL91ZM" in v and "niet vastgesteld" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert "NL80_BELFBVN" in treffers[0], "het meetpunt hoort erbij te staan"
+    assert "'meting boven de norm, lozer bovenstrooms'" in treffers[0]
+
+
+def test_een_bewijsregel_benedenstrooms_levert_dat_voorbehoud_niet():
+    """De negatieve controle: NL91ZM (Zandmaas) bovenstrooms van NL91BM (Bedijkte Maas) is precies
+    waar het signaal wél over gaat, en daar is de richting niet grofmazig."""
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91BM"))
+    assert any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    assert not any("niet vastgesteld" in v for v in d["voorbehouden"]), d["voorbehouden"]
+
+
+# -- Must-fix 8: een waterlichaam zonder plaats in de stroomvolgorde ----------------------------
+
+def test_een_waterlichaam_zonder_stroompositie_levert_een_voorbehoud_met_de_bestaande_reden():
+    """`NL90_1` (Midden-Limburgse en Noord-Brabantse kanalen) draagt live 18 van de 62
+    vergunningen en staat niet in `toerekening.STROOMVOLGORDE`: de regel is daar structureel
+    inert. `dossier._voorbehouden` meldde niets zolang `context["waterlichaam"]` gevuld was, dus
+    de inspecteur las "geen signaal boven de norm bovenstrooms" waar het juiste antwoord is "voor
+    dit waterlichaam niet te bepalen" (eindreview, must-fix 8). De reden komt uit de bestaande
+    `toerekening.reden_niet_bovenstrooms()`, niet uit een eigen variant."""
+    from leefomgevinglab.usecases.kmg import toerekening
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL90_1", "NL91ZM"))
+    assert not any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"]), \
+        "de regel kan voor dit waterlichaam per definitie niet vuren"
+    reden = toerekening.reden_niet_bovenstrooms("NL90_1", "NL90_1")
+    treffers = [v for v in d["voorbehouden"] if "NL90_1" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert reden in treffers[0], "de reden hoort letterlijk uit toerekening te komen"
+    assert "'meting boven de norm, lozer bovenstrooms'" in treffers[0]
+
+
+def test_een_waterlichaam_met_stroompositie_levert_dat_voorbehoud_niet():
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91BM"))
+    assert not any("stroomvolgorde" in v for v in d["voorbehouden"]), d["voorbehouden"]
+
+
+def test_de_generieke_slotzin_blijft_ook_met_de_nieuwe_voorbehouden_achteraan():
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91ZM"))
+    assert d["voorbehouden"][-1] == dossier.SLOTZIN
+
+
 def test_runlog_draagt_uitgezet_en_stappen_ook_zonder_een_draaiende_crew():
     """Sinds taak 6b bekabeld (R14): `dossier()` geeft nooit meer `None` terug voor deel D, ook
     niet zonder een echte `Runlog` -- `uitgezet` komt rechtstreeks uit `uit`, en `stappen` blijft
