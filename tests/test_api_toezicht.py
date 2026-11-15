@@ -379,3 +379,58 @@ def test_de_kiezer_schrijft_de_keuze_terug_in_de_url(monkeypatch):
     assert "history.replaceState(" in html
     assert "history.pushState(" not in html
     assert "u.searchParams.set(PARAM, id)" in html
+
+
+# -- De agents die deze run echt hebben gedraaid -------------------------------------------------
+
+def test_het_dossier_noemt_de_agents_die_in_deze_run_hebben_gedraaid(monkeypatch):
+    """`/toezicht` legt de agents uit die hebben gedraaid, niet de agents die er zijn. Zes staan
+    in `agents.yaml`, vier draaien in de standaardpijplijn -- en `vraagsteller` en
+    `terugkoppelaar` hebben geen taak, dus die mogen hier niet opduiken. Zou de route de
+    configuratie als bron nemen in plaats van de runlog, dan beweerde de pagina dat er zes hebben
+    gedraaid: precies de mocht/heeft-verwarring die dit dossier duur heeft betaald."""
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    agents = d["agents_gedraaid"]
+    assert [a["id"] for a in agents] == [s["agent"] for s in d["runlog"]["stappen"]], (
+        "de lijst moet de runlog volgen, in dezelfde volgorde")
+    assert {"vraagsteller", "terugkoppelaar"}.isdisjoint({a["id"] for a in agents}), (
+        "deze twee hebben geen taak in de standaardpijplijn en kunnen dus niet gedraaid hebben")
+    for a in agents:
+        assert a["role"] and a["goal"], f"{a['id']} mist zijn uitleg uit de configuratie"
+        assert a["stappen"], f"{a['id']} draaide, dus hij heeft een stapnummer"
+
+
+def test_geen_enkele_gedraaide_agent_heeft_het_taalmodel_echt_aangeroepen(monkeypatch):
+    """De route geeft `llm=None` door, dus `llm_aangeroepen` is overal False -- terwijl `mag_llm`
+    bij de uitlegger True is. Dat die twee verschillen is de bedoeling en niet een fout: het is
+    het verschil tussen mogen en doen, op één pagina naast elkaar leesbaar."""
+    _monkeypatch_bronnen(monkeypatch)
+    d = _client(monkeypatch).get("/api/toezicht/dossier?vestiging=TEST01").json()
+    agents = {a["id"]: a for a in d["agents_gedraaid"]}
+    assert all(not a["llm_aangeroepen"] for a in agents.values())
+    assert agents["uitlegger"]["mag_llm"] is True, (
+        "mocht wel, deed niet -- verdwijnt dit onderscheid, dan is de bewaking weg")
+    assert agents["signaalsteller"]["mag_llm"] is False
+
+
+# -- De gedraaide agents op de pagina ------------------------------------------------------------
+
+def test_de_pagina_toont_de_agents_die_gedraaid_hebben_en_typt_ze_niet(monkeypatch):
+    """Vraag van Bob: op `/toezicht` ook uitleg van de agents, "als die gebruikt zijn". Dat is
+    precies de goede formulering, want gebruik en gerechtigdheid zijn hier twee dingen:
+    `/wasstraat` toont de configuratie (wat mág), deze pagina alleen wat in déze run werkelijk is
+    gebeurd. De lijst komt uit de runlog, dus staat geen enkele agentnaam in de HTML."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert "<details" in r.text and "<summary" in r.text
+    assert "a.goal" in r.text, "de opengeklapte rij toont het doel uit de configuratie"
+    assert "llm_aangeroepen" in r.text, "gebruik hoort zichtbaar, niet alleen gerechtigdheid"
+    for agent in ("vergunninglezer", "signaalsteller", "dossiersteller", "uitlegger"):
+        assert agent not in r.text, f"{agent} hoort uit /api/toezicht/dossier te komen"
+
+
+def test_de_pagina_wijst_naar_de_anatomie(monkeypatch):
+    """De volledige configuratie staat niet op deze pagina (die is voor de toezichthouder), maar
+    moet wel te vinden zijn."""
+    r = _client(monkeypatch).get("/toezicht")
+    assert 'data-anatomie="/onderwater"' in r.text

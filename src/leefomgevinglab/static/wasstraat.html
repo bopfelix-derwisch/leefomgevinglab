@@ -147,6 +147,32 @@
     footer p + p { margin-top:7px; }
     footer a { color:var(--accent); text-decoration:none; }
 
+    /* Openklapbare agentrij. Een <details> doet dit zonder eigen klikcode, en is daarmee van
+       zichzelf toetsenbordbereikbaar -- de eenvoudige oplossing is hier ook de toegankelijke. */
+    details.agent { background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+      margin-bottom:7px; }
+    details.agent > summary { padding:9px 12px; cursor:pointer; list-style:none;
+      display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+    details.agent > summary::-webkit-details-marker { display:none; }
+    details.agent > summary::before { content:"\25B8"; color:var(--dim); font-size:10px;
+      flex:none; transition:transform .12s; }
+    details.agent[open] > summary::before { transform:rotate(90deg); }
+    details.agent > summary:hover { background:#12283f; border-radius:8px; }
+    details.agent > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    details.agent .arol { font-size:13px; color:#eafff6; font-weight:600; }
+    details.agent .aid { font-size:10.5px; color:var(--dim);
+      font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+    details.agent .arechts { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    details.agent .abinnen { padding:0 12px 11px; border-top:1px solid var(--border);
+      margin-top:2px; }
+    .aveld { margin-top:9px; }
+    .aveld .alabel { font-size:9.5px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--dim); }
+    .aveld .awaarde { font-size:12.5px; color:var(--text); max-width:74ch; }
+    .aveld .awaarde.mono { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11.5px;
+      color:var(--muted); }
+    .aveld .awaarde.leeg { color:var(--dim); font-style:italic; }
+
     @media (max-width:560px) {
       .wrap { padding:0 14px 50px; }
       select { min-width:0; width:100%; }
@@ -230,14 +256,14 @@
     <div class="deeld">
       <div class="blok">
         <h4>De agents (<span id="pijplijnbron"></span>)</h4>
-        <p class="noot">Gelezen uit de YAML die ook draait — geen los plaatje. "Mag taalmodel" is
-          een eigenschap van de configuratie (krijgt deze agent er één toegewezen als er één
-          wordt meegegeven), niet of hij er in déze run ook echt een heeft gebruikt — zie de
-          keten hierboven voor wat er in dit dossier gebeurde.</p>
-        <table class="rijen" id="agentstabel">
-          <thead><tr><th>agent</th><th>rol</th><th>gereedschap</th><th>mag taalmodel</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <p class="noot">Gelezen uit de YAML die ook draait — geen los plaatje. <b>Klik een agent
+          open</b> voor zijn doel, achtergrond, gereedschap en het taalmodel dat hij mag
+          krijgen. "Mag taalmodel" is een eigenschap van de configuratie (krijgt deze agent er
+          één toegewezen als er één wordt meegegeven), niet of hij er in déze run ook echt een
+          heeft gebruikt — zie de keten hierboven voor wat er in dit dossier gebeurde. De
+          drempels per regel, de bronnen en de configuratiesleutels staan op
+          <a data-anatomie="/onderwater" href="/onderwater">/onderwater</a>.</p>
+        <div id="agentslijst"></div>
       </div>
       <div class="blok">
         <h4>De takenorde</h4>
@@ -375,15 +401,44 @@
       $("voorbehouden").innerHTML = (lijst || []).map(v => `<li>${esc(v)}</li>`).join("");
     }
 
+    // Eén veld in een opengeklapte agentrij. Een leeg veld blijft staan met de reden erbij:
+    // afwezig en leeg zijn in deze configuratie twee verschillende dingen -- de taalmodelgrens
+    // staat er juist als een *afwezig* veld in.
+    function agentveld(label, waarde, mono) {
+      const leeg = waarde == null || waarde === "" ||
+        (Array.isArray(waarde) && !waarde.length);
+      const tekst = leeg ? "— niet in de configuratie" :
+        (Array.isArray(waarde) ? waarde.join(", ") : waarde);
+      return `<div class="aveld"><div class="alabel">${esc(label)}</div>` +
+        `<div class="awaarde${mono ? " mono" : ""}${leeg ? " leeg" : ""}">${esc(tekst)}</div></div>`;
+    }
+
     function tekenAgents(d) {
       // De API levert het pad al afgekort (zie `api_wasstraat_pijplijn`) -- hier geen tweede
       // afkorting bovenop, anders staat dezelfde keuze op twee plekken.
       $("pijplijnbron").textContent = d.bron || "";
-      $("agentstabel").querySelector("tbody").innerHTML = (d.agents || []).map(a =>
-        `<tr><td class="naam">${esc(a.id)}</td><td>${esc(a.role || "")}</td>` +
-        `<td class="toolnaam">${esc((a.tools || []).join(", ") || "—")}</td>` +
-        `<td class="${a.mag_llm ? "ja" : "nee"}">${a.mag_llm ? "ja" : "nee"}</td></tr>`
-      ).join("");
+      // Welke taken een agent heeft, afgeleid uit de takenlijst van dezelfde API: zonder dit
+      // leest iemand zes agents en vier taken zonder te zien welke agent niets doet.
+      const takenVan = a => (d.tasks || []).filter(t => t.agent === a.id).map(t => t.id);
+      $("agentslijst").innerHTML = (d.agents || []).map(a => {
+        const taken = takenVan(a);
+        return `<details class="agent"><summary>` +
+          `<span class="arol">${esc(a.role || a.id)}</span>` +
+          `<span class="aid">${esc(a.id)}</span>` +
+          `<span class="arechts">` +
+            `<span class="nee">${taken.length
+               ? esc(taken.length) + (taken.length === 1 ? " taak" : " taken")
+               : "geen taak in de pijplijn"}</span>` +
+            `<span class="${a.mag_llm ? "ja" : "nee"}">` +
+              `${a.mag_llm ? "mag taalmodel" : "geen taalmodel"}</span>` +
+          `</span></summary><div class="abinnen">` +
+            agentveld("Doel", a.goal) +
+            agentveld("Achtergrond", a.backstory) +
+            agentveld("Gereedschap", a.tools, true) +
+            agentveld("Taken in de pijplijn", taken, true) +
+            agentveld("Taalmodel", a.llm, true) +
+          `</div></details>`;
+      }).join("");
     }
 
     function tekenTaken(d) {
@@ -419,8 +474,10 @@
         tekenAgents(d);
         tekenTaken(d);
       } catch (e) {
-        $("agentstabel").querySelector("tbody").innerHTML =
-          `<tr><td colspan="4">Pijplijn ophalen mislukt: ${esc(e.message)}</td></tr>`;
+        // Geen tabelrij meer: dit is sinds de openklapbare agents een `div`, en een losse `<tr>`
+        // daarin wordt door de browser weggegooid -- de foutmelding was dan onzichtbaar.
+        $("agentslijst").innerHTML =
+          `<p class="noot">Pijplijn ophalen mislukt: ${esc(e.message)}</p>`;
       }
     }
 

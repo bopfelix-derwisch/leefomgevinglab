@@ -360,6 +360,48 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   getest maar hebben nog géén route — eerlijk afwezig, niet beweerd. Plannen en beslissingen:
   `docs/superpowers/plans/2026-11-13-toezichtsignalen-agentic-maas.md` en
   `2026-11-14-wasstraat-en-toezicht-splitsen.md`.
+- ✅ **Onder water (`/onderwater`, `/api/onderwater`):** de technische anatomie van `/wasstraat`
+  en `/toezicht`, als 15e lid van het waterdossier. In dit lab is de gegevens*herkomst* zichtbaar
+  en de *bewerking* niet; deze pagina brengt die bij elkaar: de twee pagina's met hun aantallen,
+  de tien regels met drempel en wat `omvang` daar betekent, de agents en taken, de
+  taalmodelgrens, de vijf bronnen met hun licentiepositie, en de configuratiesleutels.
+  **Deze pagina doet beweringen over andere code, en dat is haar risico:** typt zij haar getallen,
+  dan gaat zij liegen zodra de code schuift, en de lezer heeft niets anders om dat tegen te
+  houden. Alles telbare is daarom afgeleid — regels uit `signalen.REGELS`, drempels uit
+  `DREMPELS`, de twee assen uit `Regel.laag` en `is_voorbehoud`, agents en taken uit de YAML die
+  de runner zelf leest. `tests/test_onderwater.py` scant de uitlegteksten op losse getallen en
+  `tests/test_api_onderwater.py` eist dat géén regel-id en géén agentnaam in de HTML staat.
+  **Twee harde grenzen:** geen configuratiesectie dumpen (`core/config.yaml` draagt ook
+  `submit_token` en api-headernamen, dus `CONFIGSLEUTELS` is een **witte lijst**), en geen
+  absoluut serverpad — paden worden tot hun laatste twee segmenten afgekort, dezelfde regel die
+  de eindreview op `/api/wasstraat/pijplijn` oplegde. Een ontbrekende sleutel wordt als
+  *ontbrekend* getoond en niet weggelaten: dat laatste zou precies de misconfiguratie verbergen
+  die deze pagina hoort te laten zien, en dat is één keer echt gebeurd met `normen_pad`.
+  **Bij de twee signaalpagina's horen twee aanvullingen:** op `/wasstraat` klappen de agentrijen
+  open (`goal`, `backstory`, tools, taken en de `llm`-regel uit de YAML — die laatste werd tot
+  één boolean platgeslagen terwijl zij model, endpoint en "geïnjecteerd door de runner" noemt);
+  op `/toezicht` staan de agents die in **déze** run hebben gedraaid, via
+  `pijplijn.gedraaide_agents`, dat de **runlog** als bron neemt en niet de configuratie — zes
+  agents staan in de YAML, vier draaien, en `vraagsteller`/`terugkoppelaar` hebben geen taak.
+  `mag_llm` (mocht) en `llm_aangeroepen` (deed) staan daar náást elkaar; bij Solvay mocht de
+  uitlegger wel en deed hij niet. Alle drie gebruiken een `<details>` in plaats van eigen
+  klikcode, zodat de rij van zichzelf toetsenbordbereikbaar is.
+  **De proza is apart bewaakt** (`tests/test_paginaproza.py`): de twee signaalpagina's schrijven
+  hun aantallen uitgeschreven ("Zeven deterministische regels … Vijf daarvan leveren een
+  bevinding op"), en dat is precies waar een pagina stil kan gaan liegen — in de eindreview
+  tweemaal gebeurd. Elke claim wordt tegen de catalogus gelegd (7 op `/wasstraat`, 3 op
+  `/toezicht`). **Let op bij die test:** de HTML moet eerst op **witruimte genormaliseerd**
+  worden, want de zinnen zijn op leeslengte afgebroken en zonder dat raakt geen enkel patroon
+  iets — de bewaking is dan groen en leeg. Er staat ook een ondergrens op het aantal gevonden
+  claims, en de niet-leegheid is met een mutatie op de echte pagina bewezen.
+- **`.env` wordt in `tests/conftest.py` geladen, niet per ongeluk.** De live-tests lezen hun
+  sleutel rechtstreeks uit `os.environ`, en die stond daar tot 2026-11-15 alleen omdat
+  `geluidsmeter/api.py` bij import `load_dotenv()` aanroept en bijna elk testbestand `api`
+  importeert — een **zijeffect van de collectievolgorde**. `pytest --run-live
+  tests/test_dso_live.py` alleen faalde daardoor met `KeyError: 'DSO_API_KEY'` terwijl die
+  sleutel in `.env` staat, terwijl een volledige run slaagde. De gate zelf blijft losgekoppeld
+  van elke omgevingsvariabele en hangt uitsluitend aan `--run-live`; een standaardrun skipt 31
+  tests. Alle vijf de `*_live.py`-bestanden slagen nu ook los gedraaid.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---

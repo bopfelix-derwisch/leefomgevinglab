@@ -43,6 +43,7 @@ from leefomgevinglab.usecases.lozing_keten import motor as lozing_keten_motor
 from leefomgevinglab.connectors.ozon import OzonConnector
 from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
 from leefomgevinglab.usecases import begrippen as begrippen_mod
+from leefomgevinglab.usecases import onderwater as onderwater_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
 from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
@@ -797,9 +798,16 @@ def api_toezicht_dossier(vestiging: str):
                            "stappen": log.als_gegeven()}
 
     metingen_rijen = toezicht_context.metingen_bij_waterlichaam(getoetst, owl_id)
-    return toezicht_weergave.werkelijkheid_dossier(
+    dossier_uit = toezicht_weergave.werkelijkheid_dossier(
         volledig, waterlichaam=owl_id, waterlichaam_reden=wl_reden,
         metingen_rijen=metingen_rijen)
+    # De agents die in DEZE run echt hebben gedraaid, met hun uitleg uit `agents.yaml`. De
+    # runlog is de bron, niet de configuratie: zes agents staan erin, vier draaien hier, en
+    # `vraagsteller`/`terugkoppelaar` hebben geen taak. `/wasstraat` toont de configuratie (wat
+    # mág), deze pagina alleen wat werkelijk is gebeurd -- zie `pijplijn.gedraaide_agents`.
+    dossier_uit["agents_gedraaid"] = toezicht_pijplijn.gedraaide_agents(
+        dossier_uit["runlog"]["stappen"], TOEZICHT_AGENTS_PAD)
+    return dossier_uit
 
 
 # -- /wasstraat: de papierbevindingen op het Maas-lozingenregister -------------------------------
@@ -890,6 +898,32 @@ def api_wasstraat_dossier(vergunning: str):
     volledig["runlog"] = {"uitgezet": bestaand_runlog.get("uitgezet", []),
                            "stappen": log.als_gegeven()}
     return wasstraat_dossier_mod.papier_dossier(volledig)
+
+
+# -- /onderwater: de technische anatomie van de twee signaalpagina's ----------------------------
+#
+# Deze pagina bestaat omdat in dit lab de gegevensherkomst zichtbaar is en de bewerking niet. Zij
+# beweert dingen over andere code, en dat maakt haar een bijzonder soort pagina: een anatomie die
+# haar getallen intypt gaat liegen zodra de code verschuift, en de lezer heeft niets anders om
+# dat tegen te houden. `usecases/onderwater.py` leidt daarom alles af -- zie die moduledocstring.
+
+@app.get("/onderwater", response_class=HTMLResponse)
+def onderwater_page():
+    """Wat er onder water gebeurt bij `/wasstraat` en `/toezicht`: de regels met hun drempels, de
+    agents en taken, de taalmodelgrens, de bronnen en de configuratiesleutels."""
+    return _waterpagina("onderwater.html", "onderwater")
+
+
+@app.get("/api/onderwater")
+def api_onderwater():
+    """De hele anatomie in één gegeven. Leest dezelfde YAML als de runner en dezelfde
+    configuratie als de twee dossierroutes -- geen tweede bron, want dan kon deze pagina iets
+    anders vertellen dan er gebeurt.
+
+    `_config` is de volledige geladen configuratie, maar `onderwater.CONFIGSLEUTELS` is een
+    **witte lijst**: `core/config.yaml` draagt ook een `submit_token` en api-headernamen, en een
+    publieke pagina die een hele sectie uitklapt neemt die mee."""
+    return onderwater_mod.anatomie(TOEZICHT_AGENTS_PAD, TOEZICHT_TASKS_PAD, _config)
 
 
 @app.get("/water", response_class=HTMLResponse)

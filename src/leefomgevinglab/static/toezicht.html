@@ -152,6 +152,34 @@
       .kaart .zekerheid { text-align:left; }
       table.metingen { font-size:11.5px; }
     }
+
+    /* Openklapbare agentrij -- zelfde patroon als /wasstraat en /onderwater. Een <details>
+       heeft geen eigen klikcode nodig en is daarmee van zichzelf toetsenbordbereikbaar. */
+    details.agent { background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+      margin-bottom:7px; }
+    details.agent > summary { padding:9px 12px; cursor:pointer; list-style:none;
+      display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+    details.agent > summary::-webkit-details-marker { display:none; }
+    details.agent > summary::before { content:"\25B8"; color:var(--dim); font-size:10px;
+      flex:none; transition:transform .12s; }
+    details.agent[open] > summary::before { transform:rotate(90deg); }
+    details.agent > summary:hover { background:#12283f; border-radius:8px; }
+    details.agent > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    details.agent .astap { font-size:10px; color:var(--dim); flex:none; }
+    details.agent .arol { font-size:13px; color:#eafff6; font-weight:600; }
+    details.agent .aid { font-size:10.5px; color:var(--dim);
+      font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+    details.agent .arechts { margin-left:auto; display:flex; gap:8px; align-items:center; }
+    details.agent .abinnen { padding:0 12px 11px; border-top:1px solid var(--border);
+      margin-top:2px; }
+    .aveld { margin-top:9px; }
+    .aveld .alabel { font-size:9.5px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--dim); }
+    .aveld .awaarde { font-size:12.5px; color:var(--text); max-width:74ch; }
+    .aveld .awaarde.mono { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11.5px;
+      color:var(--muted); }
+    .aveld .awaarde.leeg { color:var(--dim); font-style:italic; }
+    .agentmelding { font-size:11.5px; color:var(--weg); }
   </style>
 </head>
 <body>
@@ -205,6 +233,16 @@
     <div class="section-title">De drie signalen (<span id="aantalsignalen">0</span>)</div>
     <div class="signalen" id="signalen"></div>
     <ul class="voorbehouden" id="voorbehouden"></ul>
+
+    <div class="section-title">De agents die dit dossier hebben samengesteld</div>
+    <p class="section-noot">Niet de agents die er <i>zijn</i>, maar die in <b>deze run</b> hebben
+      gedraaid — uit de runlog, niet uit de configuratie. Klik een rij open voor zijn doel en
+      achtergrond. Per agent staat of hij een taalmodel <b>mocht</b> krijgen en of er in deze run
+      werkelijk een is <b>aangeroepen</b>; die twee zijn niet hetzelfde, en deze pagina geeft geen
+      model door. De volledige configuratie — alle agents, de drempels per regel, de bronnen en de
+      configuratiesleutels — staat op
+      <a data-anatomie="/onderwater" href="/onderwater">/onderwater</a>.</p>
+    <div id="agents"></div>
 
     <footer>
       <p><b>Bron.</b> <a href="https://atlas-smwk.hub.arcgis.com/" target="_blank"
@@ -378,6 +416,52 @@
       $("voorbehouden").innerHTML = (lijst || []).map(v => `<li>${esc(v)}</li>`).join("");
     }
 
+    // Eén veld in een opengeklapte agentrij. Een leeg veld blijft staan met de reden erbij:
+    // afwezig en leeg zijn in deze configuratie twee verschillende dingen -- de taalmodelgrens
+    // staat er juist als een *afwezig* veld in.
+    function agentveld(label, waarde, mono) {
+      const leeg = waarde == null || waarde === "" ||
+        (Array.isArray(waarde) && !waarde.length);
+      const tekst = leeg ? "\u2014 niet in de configuratie" :
+        (Array.isArray(waarde) ? waarde.join(", ") : waarde);
+      return `<div class="aveld"><div class="alabel">${esc(label)}</div>` +
+        `<div class="awaarde${mono ? " mono" : ""}${leeg ? " leeg" : ""}">${esc(tekst)}</div></div>`;
+    }
+
+    function tekenAgents(agents) {
+      const lijst = agents || [];
+      if (!lijst.length) {
+        $("agents").innerHTML =
+          '<p class="status">Geen runstappen vastgelegd voor dit dossier.</p>';
+        return;
+      }
+      $("agents").innerHTML = lijst.map(a =>
+        `<details class="agent"><summary>` +
+          `<span class="astap">stap ${esc((a.stappen || []).join(", ") || "?")}</span>` +
+          `<span class="arol">${esc(a.role || a.id)}</span>` +
+          `<span class="aid">${esc(a.id)}</span>` +
+          `<span class="arechts">` +
+            // Mocht en deed naast elkaar. Dat onderscheid heeft dit dossier duur betaald: de log
+            // schreef eerder "taalmodel" zodra een agent er een mocht krijgen.
+            `<span class="${a.mag_llm ? "ja" : "nee"}">` +
+              `${a.mag_llm ? "mocht taalmodel" : "mocht geen taalmodel"}</span>` +
+            `<span class="${a.llm_aangeroepen ? "ja" : "nee"}">` +
+              `${a.llm_aangeroepen ? "model aangeroepen" : "geen model aangeroepen"}</span>` +
+          `</span></summary><div class="abinnen">` +
+            // Een agent uit de runlog die niet in de configuratie staat is een echte afwijking:
+            // configuratie en run zijn dan uit de pas. Dat hoort hier te staan, niet verborgen.
+            (a.onbekend
+              ? `<p class="agentmelding">Deze agent draaide wel, maar staat niet in de ` +
+                `configuratie — configuratie en run zijn uit de pas.</p>` : "") +
+            agentveld("Deed in deze run", a.taken, true) +
+            agentveld("Doel", a.goal) +
+            agentveld("Achtergrond", a.backstory) +
+            agentveld("Gereedschap", a.tools, true) +
+            agentveld("Taalmodel dat hij mocht krijgen", a.llm, true) +
+          `</div></details>`
+      ).join("");
+    }
+
     async function laadDossier(vestigingId) {
       huidigeId = vestigingId;
       zetUrl(vestigingId);
@@ -398,6 +482,7 @@
         $("signalen").innerHTML = signalen.map(tekenSignaal).join("") ||
           '<p class="status">Geen van de drie signalen vuurt voor deze vestiging.</p>';
         tekenVoorbehouden(d.voorbehouden);
+        tekenAgents(d.agents_gedraaid);
         $("status").textContent = "";
       } catch (e) {
         $("status").textContent = `Dossier ophalen mislukt: ${esc(e.message)}`;
