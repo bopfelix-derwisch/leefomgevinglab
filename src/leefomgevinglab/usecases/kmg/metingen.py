@@ -48,3 +48,29 @@ def punt(set_: dict, code: str) -> dict:
         if p["code"] == code:
             return p
     raise KeyError(code)
+
+
+def laad_codes(pad: str) -> dict:
+    """De verzameling Aquo-codes die ergens op de bekende meetpunten voorkomt (`scripts/
+    21_fetch_wkp_gemeten_codes.py`) — voor `toezicht.signalen.regel_geen_onafhankelijke_meting`
+    (`context["gemeten_codes"]`). Dit is iets anders dan `laad()` hierboven: dat bestand draagt
+    de **waarden** van drie stoffen (Ntot/Zn/PFOA); dit bestand draagt alleen *welke* codes
+    ergens voorkomen, over het hele meetnet dat dit lab kent. Zacht falen, net als `laad()`."""
+    p = Path(pad)
+    if not p.exists():
+        return {"beschikbaar": False, "codes": [],
+                "reden": f"geen gemeten-codes gevonden op {pad}; haal ze op met "
+                         "scripts/21_fetch_wkp_gemeten_codes.py"}
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return {"beschikbaar": False, "codes": [],
+                "reden": f"de gemeten-codes op {pad} zijn onleesbaar ({exc})"}
+    d["beschikbaar"] = True
+    d.setdefault("codes", [])
+    return d
+
+
+def codes_set(d: dict) -> set[str]:
+    """`laad_codes()`'s uitkomst als platte set, voor `context["gemeten_codes"]`."""
+    return set(d.get("codes") or [])

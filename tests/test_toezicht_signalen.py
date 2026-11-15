@@ -583,6 +583,62 @@ def test_de_fixture_met_alles_laat_alle_tien_regels_vuren():
     assert regel_ids == set(signalen.DREMPELS)
 
 
+# -- Wasstraat/toezicht-splitsing: `Regel.laag` ------------------------------------------------
+
+def test_elke_regel_heeft_precies_een_laag():
+    """`laag` is afgeleid (`_WERKELIJKHEID_REGELS`), dus kan nooit iets anders zijn dan deze
+    twee waarden -- deze test legt dat vast als invariant, niet als toeval van vandaag."""
+    for regel in signalen.REGELS:
+        assert regel.laag in ("papier", "werkelijkheid"), regel.id
+
+
+def test_de_twee_lagen_dekken_samen_de_tien_regels():
+    """De splitsing uit het plan (2026-11-14-wasstraat-en-toezicht-splitsen.md, §"De splitsing,
+    gemeten en niet bedacht"): 7 regels papier, 3 regels werkelijkheid, geen overlap en samen
+    precies de tien regels uit `DREMPELS`."""
+    papier = {r.id for r in signalen.REGELS if r.laag == "papier"}
+    werkelijkheid = {r.id for r in signalen.REGELS if r.laag == "werkelijkheid"}
+    assert papier & werkelijkheid == set()
+    assert papier | werkelijkheid == set(signalen.DREMPELS)
+    assert werkelijkheid == {"geen_onafhankelijke_meting", "norm_overschreden_bovenstrooms",
+                              "stof_buiten_register"}
+    assert len(papier) == 7 and len(werkelijkheid) == 3
+
+
+# -- De tweede as: voorbehoud of bevinding (fixronde eindreview, must-fix 5+6) -----------------
+
+def test_de_twee_sentinelregels_zijn_een_voorbehoud_en_de_andere_acht_niet():
+    """`is_voorbehoud` is afgeleid uit de drempel in `DREMPELS`, niet uit een lijst regel-id's --
+    precies de les die dit project duur heeft betaald bij `Regel.laag`. De twee van vandaag zijn
+    `niet_regime_zuiver` (vuurt juist omdat het regime er staat) en `geen_geldigheidsduur` (een
+    tekort van de Atlas dat voor het hele register geldt)."""
+    voorbehouden = {r for r in signalen.DREMPELS if signalen.is_voorbehoud(r)}
+    assert voorbehouden == {"niet_regime_zuiver", "geen_geldigheidsduur"}
+    assert len(set(signalen.DREMPELS) - voorbehouden) == 8
+
+
+def test_een_voorbehoudregel_weegt_altijd_laag_en_omgekeerd():
+    """De twee assen moeten één ding zeggen: een regel met de sentinel weegt altijd `laag`, wat
+    de omvang ook is -- dus `is_voorbehoud` en `zwaarte()` leiden uit dezelfde drempel af."""
+    for regel_id in signalen.DREMPELS:
+        # `norm_aanwezig=True` zodat `geen_onafhankelijke_meting` (de enige regel in
+        # `NORM_BEPAALT_ZWAARTE`) niet op `midden` blijft hangen om een andere reden dan de
+        # sentinel -- deze test gaat over de sentinel, niet over de normpoot.
+        gewogen = signalen.zwaarte(regel_id, 10_000, norm_aanwezig=True)
+        if signalen.is_voorbehoud(regel_id):
+            assert gewogen == "laag", regel_id
+        else:
+            assert gewogen == "hoog", regel_id
+
+
+def test_is_voorbehoud_werpt_keyerror_op_een_onbekende_regel():
+    """Een nieuwe regel zonder drempel is een vergeten keuze, geen stilzwijgend voorbehoud --
+    zelfde keuze als in `zwaarte()`."""
+    import pytest as _pytest
+    with _pytest.raises(KeyError):
+        signalen.is_voorbehoud("bestaat_niet")
+
+
 def test_een_signaal_is_nooit_een_vaststelling():
     """Dezelfde taalregel als /kmg, hier op de gegenereerde signaaltekst."""
     for s in signalen.signalen(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES):

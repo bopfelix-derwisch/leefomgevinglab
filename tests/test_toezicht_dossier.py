@@ -4,6 +4,15 @@ Geen netwerk: `dossier()` en `rapport.schrijf()` werken uitsluitend op wat ze al
 krijgen. De grote fixture (`VESTIGING_MET_ALLES`/`CONTEXT_MET_ALLES`) komt uit
 `test_toezicht_signalen.py` en laat -- zoals die module zelf al test -- alle tien signaalregels
 vuren, inclusief signaal 1 twee keer (één keer per Aquo-code, zie taak 2).
+
+**Het live vangnet voor "geen twee signalen delen dezelfde bewering" staat niet hier.** Fix-ronde
+3 (publieke review) verplaatste die test naar `tests/test_toezicht_live.py`, waar het echte
+register al als gedeelde fixture (`register`) bestaat -- dat bestand is ook waar een lezer een
+`@pytest.mark.live`-test op dit register zoekt, en hergebruik van die fixture scheelt een tweede
+Atlas-aanroep naast de tien tests die daar al op `register` bouwen. De fixture-test hieronder
+(`test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering`) blijft hier voor de snelle lus
+en draagt sinds die ronde ook een parameter in twee eenheidsgroepen (de Warmte-constructie die de
+live bug veroorzaakte), zodat de snelle lus die combinatie ook zonder netwerk dekt.
 """
 import re
 
@@ -174,6 +183,113 @@ def test_elke_regel_behalve_de_verhouding_staat_in_de_beweringtabel():
     assert set(dossier._BEWERING_PER_REGEL) | dossier._RATIO_REGELS == set(signalen.DREMPELS)
 
 
+# -- Fix-ronde 3 (publieke review op `/toezicht`, 2026-11-14): een bewering moet haar stof -----
+# -- noemen, en binnen één dossier mag geen twee signalen dezelfde bewering delen --------------
+
+def test_geen_onafhankelijke_meting_noemt_de_eigen_stof_in_de_bewering():
+    """`geen_onafhankelijke_meting` vuurt per Aquo-code (taak 2) -- zonder de stof in de
+    bewering waren de twee exemplaren van `VESTIGING_MET_ALLES` (Zwevende stof en Zuurgraad)
+    woordelijk niet van elkaar te onderscheiden. Dat was precies de publieke bevinding: vijf van
+    de zes beweringen van Solvay (NATRON) waren identiek."""
+    d = dossier.dossier(VESTIGING_MET_ALLES, CONTEXT_MET_ALLES)
+    exemplaren = {s["bewering"] for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting"}
+    assert len(exemplaren) == 2, f"de twee exemplaren delen hun bewering: {exemplaren}"
+    assert any("Zwevende stof" in b for b in exemplaren)
+    assert any("Zuurgraad" in b for b in exemplaren)
+    for b in exemplaren:
+        assert "1 voorschrift " in b, f"geen vervoeging/getal in de bewering: {b!r}"
+
+
+def test_meerdere_grenswaarden_noemt_de_parameter_in_de_bewering():
+    """Zelfde reparatie voor de andere regel met dit probleem (op `/wasstraat` -- bij Tata Steel
+    live elf keer achter elkaar "Dezelfde parameter..."). Twee parameters, allebei met twee
+    grenswaarden, moeten twee te onderscheiden beweringen opleveren, elk met haar eigen naam."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter"},
+        {"parameter": "Koper", "waarde": 1.0, "eenheid": "milligram per liter"},
+        {"parameter": "Koper", "waarde": 4.0, "eenheid": "milligram per liter"},
+    ]}
+    d = dossier.dossier(v, {})
+    exemplaren = {s["bewering"] for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden"}
+    assert len(exemplaren) == 2, f"de twee exemplaren delen hun bewering: {exemplaren}"
+    assert any(b.startswith("Zink ") for b in exemplaren)
+    assert any(b.startswith("Koper ") for b in exemplaren)
+
+
+def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering():
+    """De regel waar dit nu drie keer tegen gezondigd is (de eindreview op `vergunning_niet_te_
+    vinden`, fix-ronde 2 van taak 7 op `waarom`, en nu deze twee regels): binnen één dossier mag
+    geen enkele bewering letterlijk gelijk zijn aan een andere. Deze vestiging laat met opzet
+    zowel `geen_onafhankelijke_meting` als `meerdere_grenswaarden` elk twee keer vuren --
+    inclusief, sinds fix-ronde 3 (publieke review), `Warmte` in twee eenheidsgroepen (megajoule
+    per dag naast megajoule per jaar): precies de constructie die live bij Tata Steel een
+    dubbele bewering gaf en die de eerdere versie van deze fixture niet dekte. Zo is een
+    toekomstige regressie in deze of een andere regel/combinatie hier meteen zichtbaar -- de test
+    legt het patroon zelf vast, niet alleen dit ene geval."""
+    v = {"voorschriften": [
+        {"parameter": "Zink", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Zn"},
+        {"parameter": "Zink", "waarde": 2.0, "eenheid": "milligram per liter", "aquo": "Zn"},
+        {"parameter": "Koper", "waarde": 0.5, "eenheid": "milligram per liter", "aquo": "Cu"},
+        {"parameter": "Koper", "waarde": 5.0, "eenheid": "milligram per liter", "aquo": "Cu"},
+        {"parameter": "Warmte", "waarde": 100.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 250.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 1000.0, "eenheid": "megajoule per jaar"},
+        {"parameter": "Warmte", "waarde": 2500.0, "eenheid": "megajoule per jaar"},
+    ]}
+    context = {"gemeten_codes": set()}  # bewust leeg maar aangeleverd: niets wordt gemeten
+    d = dossier.dossier(v, context)
+    beweringen = [s["bewering"] for s in d["signalen"]]
+    assert len(beweringen) == len(set(beweringen)), (
+        f"twee signalen delen dezelfde bewering: {beweringen}")
+    # De controle is niet toevallig leeg: elke regel/combinatie moet hier echt vuren -- inclusief
+    # Warmte in twee eenheidsgroepen, los van de twee gewone parameters (Zink, Koper).
+    assert sum(1 for s in d["signalen"] if s["regel"] == "geen_onafhankelijke_meting") == 2
+    assert sum(1 for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden") == 4, (
+        "vier groepen: Zink, Koper, Warmte/megajoule per dag, Warmte/megajoule per jaar")
+    warmte_beweringen = {s["bewering"] for s in d["signalen"]
+                          if s["regel"] == "meerdere_grenswaarden" and "Warmte" in s["bewering"]}
+    assert len(warmte_beweringen) == 2, (
+        f"de twee Warmte-eenheidsgroepen delen hun bewering: {warmte_beweringen}")
+
+
+def test_meerdere_grenswaarden_houdt_de_ij_digraaf_intact_bij_zinsbegin():
+    """Fix-ronde 2 (publieke review): de ratio-tak van `_bewering()` zet de parameternaam vóór
+    "draagt" (zinsbegin) met een hoofdletter -- `stof[0].upper() + stof[1:]` gaf daarop "Ijzer"
+    in plaats van "IJzer". Gerepareerd via `woordvorm.hoofdletter_bij_zinsbegin`."""
+    v = {"voorschriften": [
+        {"parameter": "ijzer", "waarde": 1.0, "eenheid": "milligram per liter"},
+        {"parameter": "ijzer", "waarde": 3.0, "eenheid": "milligram per liter"},
+    ]}
+    d = dossier.dossier(v, {})
+    s = next(x for x in d["signalen"] if x["regel"] == "meerdere_grenswaarden")
+    assert s["bewering"].startswith("IJzer ")
+    assert "Ijzer" not in s["bewering"]
+
+
+def test_dezelfde_parameter_in_twee_eenheidsgroepen_krijgt_twee_te_onderscheiden_beweringen():
+    """Fix-ronde 2 (publieke review): `regel_meerdere_grenswaarden` groepeert op
+    `(parameter, eenheid)` (fix-ronde van `signalen.py` zelf) -- dus dezelfde parameter kan
+    **twee** signalen opleveren, één per eenheidsgroep. Live bij Tata Steel (Warmte, megajoule
+    per dag naast megajoule per jaar) rondden beide toevallig af op dezelfde factor ("2,5×"), en
+    zonder de eenheid in de bewering waren de twee toen letterlijk identiek. De bewering noemt de
+    eenheid nu altijd (niet alleen zodra er toevallig een botsing is) -- eenvoudiger, en het
+    blijft kloppen als een derde eenheidsgroep er ooit bijkomt."""
+    v = {"voorschriften": [
+        {"parameter": "Warmte", "waarde": 100.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 250.0, "eenheid": "megajoule per dag"},
+        {"parameter": "Warmte", "waarde": 1000.0, "eenheid": "megajoule per jaar"},
+        {"parameter": "Warmte", "waarde": 2500.0, "eenheid": "megajoule per jaar"},
+    ]}
+    d = dossier.dossier(v, {})
+    exemplaren = [s for s in d["signalen"] if s["regel"] == "meerdere_grenswaarden"]
+    assert len(exemplaren) == 2, "beide eenheidsgroepen moeten hier een eigen signaal opleveren"
+    beweringen = {s["bewering"] for s in exemplaren}
+    assert len(beweringen) == 2, f"de twee eenheidsgroepen delen hun bewering: {beweringen}"
+    assert any("megajoule per dag" in b for b in beweringen)
+    assert any("megajoule per jaar" in b for b in beweringen)
+
+
 def test_grondslag_en_zekerheid_komen_uit_de_bestaande_vocabulaires():
     """Geen tweede vocabulaire: elke `grondslag` moet in `maaskaart.GRONDSLAG` staan en elke
     `zekerheid` in `lozingsmodel.ZEKERHEDEN`."""
@@ -286,6 +402,82 @@ def test_voorbehoud_ontbreekt_niet_meer_zodra_de_contextsleutel_gevuld_is():
     assert "gemeten_codes" not in tekst
     assert "register_codes" not in tekst
     assert "stoffen_met_norm" not in tekst
+
+
+# -- Must-fix 7: binnen één waterlichaam is de richting niet vastgesteld -----------------------
+
+_VESTIGING_EEN_STOF = {
+    "naam": "Richtingtest BV", "url": "https://example.org/v", "kenmerk": "K/1",
+    "besluitdatum": "2020-01-01",
+    "voorschriften": [{"parameter": "Zink", "waarde": 1.0, "eenheid": "kilogram per jaar",
+                        "aquo": "Zn"}],
+}
+
+
+def _context_bovenstrooms(waterlichaam, meetpunt_waterlichaam, meetpunt="NL80_BELFBVN"):
+    """Context waarin alléén `norm_overschreden_bovenstrooms` iets te doen heeft -- geen
+    `is_bovenstrooms`-injectie, dus de echte `kmg.toerekening.is_bovenstrooms` beslist."""
+    return {
+        "waterlichaam": waterlichaam,
+        "gemeten_codes": {"Zn"},
+        "register_codes": {"Zn"},
+        "stoffen_met_norm": {"Zn"},
+        "overschrijdingen": [{"meetpunt": meetpunt, "waterlichaam": meetpunt_waterlichaam,
+                              "stof": "Zn", "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"}],
+    }
+
+
+def test_een_bewijsregel_in_hetzelfde_waterlichaam_levert_een_voorbehoud_over_de_richting():
+    """Live op HAVENS (J.P. Havens, Maashees, NL91ZM) beweerde `/toezicht`: "1 stof is
+    benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms", terwijl twee van de
+    vier bewijsregels meetpunten in datzelfde NL91ZM waren die in werkelijkheid stroomopwaarts
+    van Maashees liggen. De oorzaak is bekend (`toerekening.is_bovenstrooms(X, X) is True`), maar
+    de pagina droeg er geen woord over -- `/kmg` spreekt die grofmazigheid wél uit (eindreview,
+    must-fix 7)."""
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91ZM"))
+    assert any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    treffers = [v for v in d["voorbehouden"] if "NL91ZM" in v and "niet vastgesteld" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert "NL80_BELFBVN" in treffers[0], "het meetpunt hoort erbij te staan"
+    assert "'meting boven de norm, lozer bovenstrooms'" in treffers[0]
+
+
+def test_een_bewijsregel_benedenstrooms_levert_dat_voorbehoud_niet():
+    """De negatieve controle: NL91ZM (Zandmaas) bovenstrooms van NL91BM (Bedijkte Maas) is precies
+    waar het signaal wél over gaat, en daar is de richting niet grofmazig."""
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91BM"))
+    assert any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"])
+    assert not any("niet vastgesteld" in v for v in d["voorbehouden"]), d["voorbehouden"]
+
+
+# -- Must-fix 8: een waterlichaam zonder plaats in de stroomvolgorde ----------------------------
+
+def test_een_waterlichaam_zonder_stroompositie_levert_een_voorbehoud_met_de_bestaande_reden():
+    """`NL90_1` (Midden-Limburgse en Noord-Brabantse kanalen) draagt live 18 van de 62
+    vergunningen en staat niet in `toerekening.STROOMVOLGORDE`: de regel is daar structureel
+    inert. `dossier._voorbehouden` meldde niets zolang `context["waterlichaam"]` gevuld was, dus
+    de inspecteur las "geen signaal boven de norm bovenstrooms" waar het juiste antwoord is "voor
+    dit waterlichaam niet te bepalen" (eindreview, must-fix 8). De reden komt uit de bestaande
+    `toerekening.reden_niet_bovenstrooms()`, niet uit een eigen variant."""
+    from leefomgevinglab.usecases.kmg import toerekening
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL90_1", "NL91ZM"))
+    assert not any(s["regel"] == "norm_overschreden_bovenstrooms" for s in d["signalen"]), \
+        "de regel kan voor dit waterlichaam per definitie niet vuren"
+    reden = toerekening.reden_niet_bovenstrooms("NL90_1", "NL90_1")
+    treffers = [v for v in d["voorbehouden"] if "NL90_1" in v]
+    assert len(treffers) == 1, d["voorbehouden"]
+    assert reden in treffers[0], "de reden hoort letterlijk uit toerekening te komen"
+    assert "'meting boven de norm, lozer bovenstrooms'" in treffers[0]
+
+
+def test_een_waterlichaam_met_stroompositie_levert_dat_voorbehoud_niet():
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91BM"))
+    assert not any("stroomvolgorde" in v for v in d["voorbehouden"]), d["voorbehouden"]
+
+
+def test_de_generieke_slotzin_blijft_ook_met_de_nieuwe_voorbehouden_achteraan():
+    d = dossier.dossier(_VESTIGING_EEN_STOF, _context_bovenstrooms("NL91ZM", "NL91ZM"))
+    assert d["voorbehouden"][-1] == dossier.SLOTZIN
 
 
 def test_runlog_draagt_uitgezet_en_stappen_ook_zonder_een_draaiende_crew():

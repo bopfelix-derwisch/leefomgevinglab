@@ -23,6 +23,7 @@ patroon als deze fix, één taak eerder al toegepast).
 import csv
 import json
 import tempfile
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -30,8 +31,9 @@ import pytest
 
 from leefomgevinglab.connectors.smwk_atlas import SmwkAtlasConnector
 from leefomgevinglab.usecases.kmg import lozingsmodel
-from leefomgevinglab.usecases.toezicht import aquo, signalen
+from leefomgevinglab.usecases.toezicht import aquo, dossier, signalen
 from leefomgevinglab.usecases.toezicht import register as register_mod
+from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier
 
 pytestmark = pytest.mark.live
 
@@ -422,3 +424,150 @@ def test_regel_4_telt_live_114_gevallen_na_de_eenheden_en_ph_fix(register):
     )
     assert mix_unit == 0, "een gemengde-eenheid-groep vuurt nog steeds -- de groeperingsfix werkt niet"
     assert zuurgraad == 0, "Zuurgraad vuurt nog steeds -- de uitsluiting werkt niet"
+
+
+# == Fix-ronde 3 (publieke review op /toezicht en /wasstraat): het echte vangnet =================
+#
+# De vorige versie van deze test stond in `tests/test_toezicht_dossier.py`, zonder de `live`-
+# marker correct zichtbaar te maken en met een eigen `SmwkAtlasConnector`-aanroep naast de
+# `register`-fixture die hier al bestaat -- een tweede Atlas-ophaling voor precies dezelfde 69
+# vergunningen die de tests hierboven al gebruiken. Verplaatst naar dit bestand: hier hoort een
+# lezer een `@pytest.mark.live`-test op het register te zoeken, en `register` (module-scoped)
+# wordt dan gedeeld met alle andere tests hierboven in plaats van opnieuw opgehaald.
+
+def test_geen_twee_signalen_in_een_dossier_delen_dezelfde_bewering_op_het_echte_register(register):
+    """Het vangnet dat telt. Een fixture-test (`tests/test_toezicht_dossier.py`) bewaakt
+    hetzelfde patroon op verzonnen data -- inclusief, sinds deze ronde, een parameter in twee
+    eenheidsgroepen -- maar de live-bug bij Tata Steel (`Warmte` in megajoule per dag naast
+    megajoule per jaar, beide toevallig afgerond op dezelfde factor) zat in een combinatie die
+    geen eerdere fixture toevallig bouwde. Deze test stelt voor elke van de 69 echte vergunningen
+    het volledige dossier samen (`dossier.dossier`, dezelfde functie als `/toezicht`/`/wasstraat`)
+    en faalt luid zodra één dossier twee signalen met letterlijk dezelfde bewering draagt -- met
+    de vergunning en de dubbele tekst(en) in de foutmelding, niet alleen "er is iets dubbel".
+
+    Geen `context` nodig: `meerdere_grenswaarden` (het gevonden geval) is een papierregel en
+    heeft geen meetdata of stroomrichting nodig om te vuren."""
+    ref = aquo.laad(_AQUO_CSV)
+    if not ref.get("beschikbaar"):
+        pytest.skip(f"geen Aquo-domeintabel op {_AQUO_CSV}; haal hem op (zie aquo.py)")
+
+    register_dedup = register_mod.voorbereid(register)
+    begin = time.monotonic()
+    fouten = []
+    for v in register_dedup:
+        verrijkt = aquo.verrijk(v, ref)
+        d = dossier.dossier(verrijkt, {})
+        beweringen = [s["bewering"] for s in d["signalen"]]
+        if len(beweringen) != len(set(beweringen)):
+            dubbel = sorted({b for b in beweringen if beweringen.count(b) > 1})
+            fouten.append(f"{v.get('naam')} ({v.get('kenmerk') or v.get('locatiecode')}): "
+                          f"{dubbel}")
+    duur = time.monotonic() - begin
+    print(f"\n{len(register_dedup)} dossiers samengesteld in {duur:.2f}s "
+          f"({len(fouten)} met een dubbele bewering)")
+
+    assert not fouten, (
+        "dossiers met een dubbele bewering op het echte register:\n" + "\n".join(fouten)
+    )
+
+
+# -- De invariant waarop de twee publieke pagina's rusten (kleinere bevinding 2) ----------------
+
+def test_de_papiersignalen_zijn_gelijk_onder_beide_contexten_op_het_echte_register(register):
+    """`/toezicht` mag "13 bevindingen staan open op de wasstraat voor deze vergunning" alleen
+    zeggen omdat de zeven papierregels geen contextsleutel lezen -- `api_wasstraat_dossier` draait
+    de pijplijn met ÉÉN contextsleutel, `api_toezicht_dossier` met vijf, en beide routes tellen
+    hun papiersignalen uit hun eigen run. Niets legde die aanname vast. Eén papierregel die ooit
+    een contextsleutel leest, en de twee publieke pagina's noemen verschillende getallen voor
+    hetzelfde feit zonder dat er iets omvalt (eindreview, kleinere bevinding 2).
+
+    Vergeleken wordt niet alleen het aantal maar de hele papieruitkomst per vergunning (regel,
+    bewering, omvang en de omvang van het bewijs), over alle 69 echte vergunningen. De
+    werkelijkheidssignalen verschillen natuurlijk wél tussen de twee contexten -- dat is precies
+    waarvoor die context bestaat -- en blijven hier dus buiten de vergelijking."""
+    ref = aquo.laad(_AQUO_CSV)
+    if not ref.get("beschikbaar"):
+        pytest.skip(f"geen Aquo-domeintabel op {_AQUO_CSV}; haal hem op (zie aquo.py)")
+
+    register_dedup = register_mod.voorbereid(register)
+    verrijkt = [aquo.verrijk(v, ref) for v in register_dedup]
+
+    # Context A: wat `api_wasstraat_dossier` meegeeft -- één sleutel.
+    context_a = {"stoffen_met_norm": {"Zn"}}
+    # Context B: dezelfde vijf sleutels als `api_toezicht_dossier`, allemaal gevuld. De waarden
+    # zijn plausibel in plaats van live opgezocht (dat zou 69 coördinaatopzoekingen kosten voor
+    # een invariant die juist zegt dat de papierregels er niets mee doen); wat deze test moet
+    # uitsluiten is dat een papierregel ze *leest*, niet welke waarde ze hebben.
+    context_b = {
+        "stoffen_met_norm": {"Zn"},
+        "gemeten_codes": aquo.register_codes(verrijkt),
+        "waterlichaam": "NL91ZM",
+        "overschrijdingen": [{"meetpunt": "NL80_BELFBVN", "waterlichaam": "NL91ZM", "stof": "Zn",
+                              "gemeten": 10.0, "norm": 7.8, "eenheid": "ug/l"}],
+        "register_codes": aquo.register_codes(verrijkt),
+    }
+
+    papier = {r.id for r in signalen.REGELS if r.laag == "papier"}
+
+    def papieruitkomst(vestiging, context):
+        d = dossier.dossier(vestiging, context)
+        return sorted((s["regel"], s["bewering"], s["omvang"], len(s["bewijs"]))
+                       for s in d["signalen"] if s["regel"] in papier)
+
+    afwijkingen = []
+    for v in verrijkt:
+        a, b = papieruitkomst(v, context_a), papieruitkomst(v, context_b)
+        if a != b:
+            afwijkingen.append(f"{v.get('naam')} ({v.get('kenmerk') or v.get('locatiecode')}): "
+                                f"{len(a)} vs {len(b)} papiersignalen")
+    print(f"\n{len(verrijkt)} vergunningen vergeleken onder beide contexten "
+          f"({len(afwijkingen)} afwijkingen)")
+    assert not afwijkingen, (
+        "een papierregel leest een contextsleutel -- /wasstraat en /toezicht noemen daardoor "
+        "verschillende getallen voor hetzelfde feit:\n" + "\n".join(afwijkingen))
+
+
+# -- De True-tak van `op_orde` op het echte register (eindreview, must-fix 5+6) ----------------
+
+def test_op_orde_is_bereikbaar_op_het_echte_register(register):
+    """**Waarom dit een live test is en geen fixture-test.**
+
+    Vóór must-fix 5+6 stonden `niet_regime_zuiver` en `geen_geldigheidsduur` als bevinding in de
+    bevindingenlijst van `/wasstraat`. Die twee zijn drempel-99-sentinels -- de eerste vuurt op 68
+    van de 69 vergunningen, de tweede op 69 van de 69 -- dus het minimum aantal papiersignalen
+    over het hele register was 1 en de tak "Het papier van deze vergunning is op orde volgens de
+    wasstraat" op `/toezicht` was onbereikbaar. Geen enkele test merkte dat: de True-tak werd
+    getoetst op een lege signaallijst, een toestand die het Maas-register niet kent.
+
+    Dat is het patroon dat deze use-case het meeste heeft gekost -- een test die slaagt op een
+    toestand die in werkelijkheid niet voorkomt -- en een fixture kan het per definitie niet
+    vangen, want de fixture ís de verzonnen toestand. Alleen het echte register kan zeggen of de
+    tak bereikbaar is.
+
+    Gemeten op 2026-11-15, mét de Aquo-domeintabel geladen: **4 van de 69** vergunningen houden
+    nul papierbevindingen over (HOECHSTNB, RMP, ANKERSM, MEELFW). Zonder die tabel zijn het 16 --
+    `vervallen_code` vuurt dan nergens, want elke code lijkt geldig. Die 55 treffers zijn het
+    verschil tussen de twee getallen, en dat is precies waarom deze test de tabel eist in plaats
+    van zonder verder te gaan.
+    """
+    ref = aquo.laad(_AQUO_CSV)
+    if not ref.get("beschikbaar"):
+        pytest.skip(f"geen Aquo-domeintabel op {_AQUO_CSV}; haal hem op (zie aquo.py)")
+
+    verrijkt = [aquo.verrijk(v, ref) for v in register_mod.voorbereid(register)]
+    op_orde = []
+    for v in verrijkt:
+        papier = wasstraat_dossier.papier_dossier(dossier.dossier(v, {"stoffen_met_norm": set()}))
+        if not papier["signalen"]:
+            op_orde.append(v.get("kenmerk") or v.get("locatiecode"))
+
+    print(f"\n{len(verrijkt)} vergunningen: {len(op_orde)} met nul papierbevindingen "
+          f"({', '.join(sorted(op_orde)) or 'geen'})")
+    assert op_orde, (
+        "geen enkele vergunning haalt nul papierbevindingen -- de tak 'het papier is op orde' op "
+        "/toezicht is daarmee weer dode code, zoals vóór must-fix 5+6. Controleer of er een regel "
+        "bij is gekomen die op (bijna) het hele register vuurt; zo'n regel is een voorbehoud, "
+        "geen bevinding (zie signalen.DREMPELS, drempel 99).")
+    assert len(op_orde) < len(verrijkt), (
+        "élke vergunning is op orde -- dan vuurt geen enkele papierregel meer en toetst "
+        "/wasstraat niets")

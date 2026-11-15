@@ -45,8 +45,13 @@ naar zwaarte en naar regel) -- nooit een getypt cijfer, conform de huisregel.
 
 **`voorbehouden`** is een lijst Nederlandse zinnen die zegt wat dit dossier **niet** kon toetsen:
 welke contextsleutel ontbrak (`gemeten_codes`, `waterlichaam`, `register_codes`,
-`stoffen_met_norm`) en welke agent is uitgezet (`uit`). De taalregel geldt ook hier: geen van deze
-zinnen noemt een "overtreding".
+`stoffen_met_norm`) en welke agent is uitgezet (`uit`). Sinds de eindreview staan er twee zinnen
+bij die niet over een ontbrekende sleutel gaan maar over de grofmazigheid van de
+richtingsbepaling, en die daarom de **signalen** nodig hebben in plaats van alleen de context:
+`_voorbehoud_zelfde_waterlichaam` (must-fix 7 -- binnen één waterlichaam is de richting niet
+vastgesteld) en `_voorbehoud_zonder_stroompositie` (must-fix 8 -- een waterlichaam zonder plaats
+in de stroomvolgorde maakt de bovenstrooms-regel structureel inert). De taalregel geldt ook hier:
+geen van deze zinnen noemt een "overtreding".
 
 **`uit` en `runlog` (sinds taak 6b bekabeld).** `dossier()` accepteert `uit: set[str] | None` en
 `runlog` (een `toezicht.runlog.Runlog`, optioneel). De runner (taak 6/6b, `runner.
@@ -64,9 +69,11 @@ KRW-toetsresultaten en `dossier()` doet geen netwerk. Ontbreekt die sleutel, dan
 """
 from collections import Counter
 
+from leefomgevinglab.usecases.kmg import toerekening
 from leefomgevinglab.usecases.kmg.lozingsmodel import ZEKERHEDEN
 from leefomgevinglab.usecases.maaskaart import GRONDSLAG
 from leefomgevinglab.usecases.toezicht import signalen as signalen_mod
+from leefomgevinglab.usecases.toezicht.woordvorm import hoofdletter_bij_zinsbegin
 
 # Geen van de tien regels levert vandaag een `aangenomen`-zekerheid op (zie `_HERKOMST_PER_REGEL`
 # hieronder), vandaar de `_` -- de volgorde komt wel uit `ZEKERHEDEN` zelf, niet opnieuw getypt.
@@ -241,10 +248,26 @@ _RATIO_REGELS = {"meerdere_grenswaarden"}
 # Per regel: (enkelvoudzin, meervoudzin), beide met `{n}` op de plek van het getal. Volledigheid
 # (elke regel in `signalen.DREMPELS` behalve de ratio-regels staat hier) is een test, net als bij
 # de andere twee catalogi.
+#
+# Fix-ronde 3 (publieke review op `/toezicht`, 2026-11-14): `geen_onafhankelijke_meting` vuurt
+# per Aquo-code (taak 2), met opzet, zodat de zwaarte per stof kan verschillen -- maar de
+# bewering zelf noemde die stof niet. Op een vestiging met meerdere ongemeten stoffen (zoals
+# Solvay/NATRON, live: zes exemplaren) stonden daardoor vijf van de zes beweringen woordelijk
+# gelijk ("Voor 4 voorschriften bestaat geen onafhankelijke meting..." drie keer, "Voor 2
+# voorschriften..." twee keer) -- niet te onderscheiden zonder elk bewijsblok open te klikken.
+# Dit is dezelfde klasse fout als twee eerdere ronden: de eindreview op `vergunning_niet_te_
+# vinden` (een bewering die niet zegt waarover zij gaat) en fix-ronde 2 van taak 7 (twee
+# verschillende signalen mogen nooit dezelfde `waarom`-tekst dragen) -- hier is het dezelfde
+# *regel*, per code, die zichzelf herhaalt. `{stof}` komt nu uit `_stof_van_bewijs()`: de naam
+# staat al op het voorschrift (`bewijs[0]["parameter"]`), dus er wordt niets geraden of getypt,
+# alleen gelezen. `meerdere_grenswaarden` (de andere regel met hetzelfde probleem, op
+# `/wasstraat` -- "elf keer achter elkaar" bij Tata Steel) is hieronder in de ratio-tak van
+# `_bewering()` gerepareerd, niet hier: die regel heeft geen `{n}`-telling.
 _BEWERING_PER_REGEL: dict[str, tuple[str, str]] = {
     "geen_onafhankelijke_meting": (
-        "Voor {n} voorschrift bestaat geen onafhankelijke meting in het watersysteem.",
-        "Voor {n} voorschriften bestaat geen onafhankelijke meting in het watersysteem."),
+        "Voor {n} voorschrift van {stof} bestaat geen onafhankelijke meting in het watersysteem.",
+        "Voor {n} voorschriften van {stof} bestaat geen onafhankelijke meting in het "
+        "watersysteem."),
     "vervallen_code": (
         "{n} voorschrift draagt een grenswaarde op een ingetrokken Aquo-code.",
         "{n} voorschriften dragen een grenswaarde op een ingetrokken Aquo-code."),
@@ -278,33 +301,87 @@ _BEWERING_PER_REGEL: dict[str, tuple[str, str]] = {
 }
 
 
-def _kies_vorm(n: int, enkelvoud: str, meervoud: str) -> str:
+def _kies_vorm(n: int, enkelvoud: str, meervoud: str, **velden) -> str:
     """Het juiste sjabloon voor dit getal, ingevuld -- nooit het meervoud bij een telling van 1,
-    en nooit het getal zelf getypt (het komt uit `n`, niet uit de sjabloontekst)."""
+    en nooit het getal zelf getypt (het komt uit `n`, niet uit de sjabloontekst). `**velden` zijn
+    de overige plekhouders (vandaag alleen `stof`, zie `_stof_van_bewijs`) -- `.format()` negeert
+    een sleutel die een sjabloon niet gebruikt, dus de aanroeper mag altijd `stof=...` meegeven
+    zonder per regel te moeten weten of die plek in de tekst staat."""
     sjabloon = enkelvoud if n == 1 else meervoud
-    return sjabloon.format(n=n)
+    return sjabloon.format(n=n, **velden)
 
 
-def _bewering(omvang: float, regel_id: str) -> str:
+def _eenheid_van_bewijs(bewijs: list[dict] | None) -> str | None:
+    """De eenheid van één signaalexemplaar van `meerdere_grenswaarden`, gelezen van het eerste
+    bewijsvoorschrift. Die regel groepeert op `(parameter, eenheid)` (zie `signalen.
+    regel_meerdere_grenswaarden`), dus binnen één exemplaar is de eenheid altijd gelijk -- en dat
+    is precies waarom dezelfde parameter *twee* exemplaren kan opleveren: één per eenheidsgroep.
+
+    **Fix-ronde 2 (publieke review).** Zonder de eenheid in de bewering waren twee van die
+    exemplaren bij Tata Steel (Warmte, megajoule per dag naast megajoule per jaar) woordelijk
+    identiek -- beide rondden toevallig af op dezelfde factor ("2,5×"). De eenheid staat er
+    hieronder **altijd** bij, niet alleen zodra er toevallig meer dan één groep is: dat is
+    eenvoudiger dan zelf tellen hoeveel groepen een parameter heeft, en blijft kloppen als een
+    derde eenheidsgroep er ooit bijkomt."""
+    if not bewijs:
+        return None
+    return bewijs[0].get("eenheid")
+
+
+def _stof_van_bewijs(bewijs: list[dict] | None) -> str:
+    """De naam van de stof waarover één signaalexemplaar gaat, gelezen van het eerste
+    bewijsvoorschrift (`bewijs[0]["parameter"]`) -- nooit geraden, nooit uit `omvang` afgeleid
+    (die draagt alleen een getal). Bewijs is bij de twee regels die dit gebruiken
+    (`geen_onafhankelijke_meting`, groepeert per Aquo-code; `meerdere_grenswaarden`, groepeert
+    per `(parameter, eenheid)`) nooit leeg wanneer het signaal echt vuurt. De generieke terugval
+    is uitsluitend voor de bestaande tests die `_bewering()` los van een echt signaal aanroepen,
+    zonder bewijs mee te geven (zie `test_toezicht_dossier.py`)."""
+    if not bewijs:
+        return "deze stof"
+    return bewijs[0].get("parameter") or "deze stof"
+
+
+def _bewering(omvang: float, regel_id: str, bewijs: list[dict] | None = None) -> str:
     """De bewering als volzin met onderwerp en werkwoord, met het getal erin afgeleid via
     `_BEWERING_PER_REGEL` (zie de toelichting hierboven) -- nooit tien keer met de hand getypte
     cijfers, en nooit het sleutel-waardepaar dat het ontwerpplan afwijst. Geen `signaal`-parameter
     meer (fix-ronde 1 gebruikte de kop nog als tekstonderdeel): elke zin is nu op zichzelf
-    staand, de kop zelf staat al los in het `signaal`-veld van het signaal."""
+    staand, de kop zelf staat al los in het `signaal`-veld van het signaal.
+
+    **Fix-ronde 3.** `bewijs` is nieuw: twee regels (`geen_onafhankelijke_meting`,
+    `meerdere_grenswaarden`) vuren meerdere keren per vestiging, telkens voor een andere stof --
+    zonder de stof in de bewering te noemen waren die exemplaren woordelijk niet van elkaar te
+    onderscheiden op een gerangschikte lijst (zie de toelichting bij `_BEWERING_PER_REGEL` en de
+    ratio-tak hieronder). Optioneel, met een generieke terugval (`_stof_van_bewijs`), zodat de
+    bestaande aanroepen met alleen `(omvang, regel_id)` blijven werken."""
     if regel_id in _RATIO_REGELS:
         # `signalen.regel_meerdere_grenswaarden` geeft `float("inf")` bij een grenswaarde van 0
         # (de deling is dan onbegrensd, zie die functie) -- een eigen zin in plaats van "inf×" of
         # een `ValueError` op `.1f` (die bestaat niet voor `inf`, maar de tekst zelf zou onleesbaar
-        # zijn).
+        # zijn). De stof komt vóór "draagt" (zinsbegin), met een hoofdletter ook als de bron de
+        # naam met een kleine letter schrijft -- een Nederlandse zin begint met een hoofdletter,
+        # los van hoe de bron een parameternaam spelt. `hoofdletter_bij_zinsbegin` (niet
+        # `str.capitalize()`/`stof[0].upper()`) houdt de ij-digraaf intact: "ijzer" -> "IJzer",
+        # niet "Ijzer" (fix-ronde 2, publieke review -- zie `woordvorm.py`).
+        stof = _stof_van_bewijs(bewijs)
+        stof_bij_zinsbegin = hoofdletter_bij_zinsbegin(stof)
+        # De eenheid staat er altijd bij (fix-ronde 2), want deze regel groepeert op
+        # `(parameter, eenheid)`: dezelfde parameter kan dus twee exemplaren opleveren, één per
+        # eenheidsgroep, en zonder de eenheid waren die bij Tata Steel (Warmte) woordelijk
+        # identiek -- zie `_eenheid_van_bewijs`.
+        eenheid = _eenheid_van_bewijs(bewijs)
+        eenheid_zin = f" in {eenheid}" if eenheid else ""
         if omvang == float("inf"):
-            return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, "
-                     "waarvan er één 0 is -- de laagste en de hoogste staan daardoor niet in een "
-                     "zinvolle verhouding tot elkaar.")
+            return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde"
+                     f"{eenheid_zin}, waarvan er één 0 is -- de laagste en de hoogste staan "
+                     "daardoor niet in een zinvolle verhouding tot elkaar.")
         factor = f"{omvang:.1f}".replace(".", ",", 1)
-        return ("Dezelfde parameter draagt bij deze vestiging meer dan één grenswaarde, met "
-                 f"een factor {factor}× verschil tussen de hoogste en de laagste.")
+        return (f"{stof_bij_zinsbegin} draagt bij deze vestiging meer dan één grenswaarde"
+                 f"{eenheid_zin}, met een factor {factor}× verschil tussen de hoogste en de "
+                 "laagste.")
     enkelvoud, meervoud = _BEWERING_PER_REGEL[regel_id]
-    return _kies_vorm(round(omvang), enkelvoud, meervoud)
+    velden = {"stof": _stof_van_bewijs(bewijs)} if regel_id == "geen_onafhankelijke_meting" else {}
+    return _kies_vorm(round(omvang), enkelvoud, meervoud, **velden)
 
 
 def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
@@ -313,7 +390,7 @@ def _signaal_deel_b(ruw: dict, stap: dict | None) -> dict:
     uit = {
         "regel": regel_id,
         "signaal": ruw["signaal"],
-        "bewering": _bewering(ruw["omvang"], regel_id),
+        "bewering": _bewering(ruw["omvang"], regel_id, ruw["bewijs"]),
         "zwaarte": ruw["zwaarte"],
         "omvang": ruw["omvang"],
         "bewijs": ruw["bewijs"],
@@ -339,7 +416,84 @@ def _telling(vestiging: dict, signalen_lijst: list[dict]) -> dict:
     }
 
 
-def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
+# De generieke slotzin van elk voorbehouden-blok, als constante in plaats van inline: zij staat
+# altijd áchteraan, en `wasstraat.dossier._voorbehouden_papier` moet haar kunnen herkennen om de
+# eigen voorbehouden ervóór te kunnen zetten zonder op de tekst te raden.
+SLOTZIN = ("Een signaal in dit dossier stelt nooit vast dat iets niet mag; het vraagt aandacht "
+           "voor nader onderzoek, meer niet.")
+
+
+# De kop van de regel waarover de twee voorbehouden hieronder gaan, uit `signalen.REGELS` in
+# plaats van opnieuw getypt -- en met de aanhalingstekens eromheen, zodat `wasstraat.dossier.
+# _voorbehouden_papier` deze zinnen als werkelijkheidsvoorbehoud herkent en van de papierpagina
+# filtert (zelfde vorm als de contextvoorbehouden in `_voorbehouden`).
+_BOVENSTROOMS_REGEL = "norm_overschreden_bovenstrooms"
+
+
+def _bovenstrooms_kop() -> str:
+    return next(r.kop for r in signalen_mod.REGELS if r.id == _BOVENSTROOMS_REGEL)
+
+
+def _voorbehoud_zelfde_waterlichaam(context: dict, signalen_lijst: list[dict]) -> str | None:
+    """Een voorbehoud zodra een bewijsregel een meetpunt in hetzelfde waterlichaam als de
+    vestiging betreft.
+
+    **Fix-ronde eindreview, must-fix 7.** `kmg.toerekening.is_bovenstrooms(X, X)` is per definitie
+    waar: een lozing op hetzelfde waterlichaam telt mee, ook als zij daarbinnen stroomafwaarts van
+    het meetpunt ligt. Live op HAVENS (J.P. Havens, Maashees, NL91ZM) beweerde de pagina daardoor
+    "1 stof is benedenstrooms boven de norm gemeten, met deze vestiging bovenstrooms", terwijl
+    twee van de vier bewijsregels meetpunten in datzelfde NL91ZM waren die in werkelijkheid
+    stroomopwaarts van Maashees liggen -- en de pagina droeg er geen woord over. `/kmg` spreekt
+    deze grofmazigheid wél uit (`kmg.proclaimer`); vanaf nu ook dit dossier, en met het
+    waterlichaam en de betrokken meetpunten erbij in plaats van als algemene waarschuwing."""
+    waterlichaam = context.get("waterlichaam")
+    if not waterlichaam:
+        return None
+    meetpunten = sorted({
+        o.get("meetpunt") for s in signalen_lijst if s.get("regel") == _BOVENSTROOMS_REGEL
+        for o in (s.get("bewijs") or [])
+        if o.get("waterlichaam") == waterlichaam and o.get("meetpunt")})
+    if not meetpunten:
+        return None
+    aanhef = ("Eén bewijsregel betreft een meetpunt" if len(meetpunten) == 1
+              else f"{len(meetpunten)} bewijsregels betreffen meetpunten")
+    return (f"{aanhef} in hetzelfde waterlichaam als deze vestiging ({waterlichaam}): "
+            f"{', '.join(meetpunten)}. Binnen één waterlichaam is de stroomrichting hier niet "
+            f"vastgesteld -- de richtingstoets van dit lab rekent een lozing op hetzelfde "
+            f"waterlichaam altijd mee, ook als zij daarbinnen stroomafwaarts van het meetpunt "
+            f"ligt. Voor die meetpunten zegt het signaal '{_bovenstrooms_kop()}' dus niets over "
+            f"de richting.")
+
+
+def _voorbehoud_zonder_stroompositie(context: dict) -> str | None:
+    """Een voorbehoud zodra het waterlichaam van deze vestiging geen plaats heeft in de
+    stroomvolgorde -- dan is de bovenstrooms-regel er structureel inert.
+
+    **Fix-ronde eindreview, must-fix 8.** `NL90_1` (Midden-Limburgse en Noord-Brabantse kanalen)
+    draagt live 18 van de 62 vergunningen en staat in `toerekening.ZONDER_POSITIE`. `_voorbehouden`
+    meldde alleen iets als `context["waterlichaam"]` *leeg* was; hier is het gevuld, dus het
+    dossier zei niets en de inspecteur las "geen signaal boven de norm bovenstrooms" waar het
+    juiste antwoord is "voor dit waterlichaam niet te bepalen".
+
+    De positie-vraag wordt aan `toerekening.reden_niet_bovenstrooms()` zelf gesteld, met het
+    waterlichaam als zijn eigen meetpunt: geeft die functie `None`, dan telt een lozing op dit
+    waterlichaam mee bij een meetpunt op datzelfde waterlichaam, en dus heeft het een positie in
+    de volgorde. Geen eigen variant van die redenering en geen tweede lijst codes naast
+    `ZONDER_POSITIE`."""
+    waterlichaam = context.get("waterlichaam")
+    if not waterlichaam:
+        return None
+    reden = toerekening.reden_niet_bovenstrooms(waterlichaam, waterlichaam)
+    if reden is None:
+        return None
+    return (f"Het waterlichaam van deze vestiging ({waterlichaam}) heeft geen plaats in de "
+            f"stroomvolgorde die dit lab voor de Maas aanhoudt -- {reden}. Het signaal "
+            f"'{_bovenstrooms_kop()}' is voor dit waterlichaam daarom niet te bepalen; dat is "
+            f"iets anders dan dat er geen signaal is.")
+
+
+def _voorbehouden(context: dict, uit: set[str] | None,
+                   signalen_lijst: list[dict] | None = None) -> list[str]:
     """Wat dit dossier niet kon toetsen, in woorden -- nooit een vaststelling (zelfde taalregel
     als de signalen zelf). De uitgezette-agent-zin staat altijd vooraan: dat is waar een latere
     taak (de runner) op test."""
@@ -367,9 +521,11 @@ def _voorbehouden(context: dict, uit: set[str] | None) -> list[str]:
             "Geen Aquo-codes met een KRW-norm aangeleverd (context['stoffen_met_norm'] ontbreekt "
             "of is leeg): het signaal 'geen onafhankelijke meting' kan voor deze vestiging niet "
             "boven 'midden' uitkomen.")
-    voorbehouden.append(
-        "Een signaal in dit dossier stelt nooit vast dat iets niet mag; het vraagt aandacht voor "
-        "nader onderzoek, meer niet.")
+    for zin in (_voorbehoud_zonder_stroompositie(context),
+                _voorbehoud_zelfde_waterlichaam(context, signalen_lijst or [])):
+        if zin:
+            voorbehouden.append(zin)
+    voorbehouden.append(SLOTZIN)
     return voorbehouden
 
 
@@ -392,7 +548,7 @@ def dossier(vestiging: dict, context: dict, uit: set[str] | None = None, runlog=
         "kaart": _kaart(vestiging),
         "signalen": signalen_lijst,
         "telling": _telling(vestiging, signalen_lijst),
-        "voorbehouden": _voorbehouden(context, uit),
+        "voorbehouden": _voorbehouden(context, uit, signalen_lijst),
         "runlog": {
             "uitgezet": sorted(uit) if uit else [],
             "stappen": runlog.als_gegeven() if runlog is not None else [],
