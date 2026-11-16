@@ -299,6 +299,22 @@ leefomgevinglab:
     straal_m: 5000
     cache_ttl_s: 86400
 
+  toezicht:
+    # De bevraagbare toezichtgraaf (`/api/toezicht/vraag`). Opgebouwd met
+    # `scripts/22_bouw_toezichtgraaf.py` en als Turtle op NVMe bewaard — nooit in de repo, zelfde
+    # licentievoorbehoud als elke andere brondata hier (de Atlas draagt geen expliciete licentie).
+    #
+    # Waarom een bestand en niet alleen in het geheugen: de vergunningen wijzigen zelden, en een
+    # gebouwd bestand draagt een datum. Daarmee is een antwoord herleidbaar tot een versie, en
+    # blijft de vraagweg werken als de Atlas onbereikbaar is. De tijdwinst is bijzaak (inlezen
+    # ~4 s tegen ~9 s live bouwen); herleidbaarheid en robuustheid zijn de reden.
+    #
+    # Ontbreekt het bestand, dan bouwt de route hem live op — dat is de terugval, geen fout.
+    graaf_pad: "/mnt/nvme/geluidsmeter/data/external/toezicht/toezicht.ttl"
+    # Vanaf deze ouderdom meldt de pagina luid dat de graaf oud is, in plaats van hem stil te
+    # serveren. Stil verouderen is het faalpatroon dat dit lab het meeste heeft gekost.
+    graaf_max_ouderdom_dagen: 7
+
   kmg:
     # Kan, mag en gebeurt op het water. De meetset is een momentopname uit het
     # Waterkwaliteitsportaal (Informatiehuis Water); er is geen machine-ingang — de Digitale

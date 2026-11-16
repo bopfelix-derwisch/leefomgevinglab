@@ -248,3 +248,21 @@ def test_los_uitvoeren_weigert_een_tool_die_deze_agent_niet_verklaard_heeft():
     crew = runner.laad(AGENTS, TASKS)
     with pytest.raises(runner.NietVerklaardeTool):
         crew.los_uitvoeren("signaalsteller", "vraag_stellen", {})
+
+
+def test_los_uitvoeren_meet_de_duur_in_plaats_van_nul_te_melden():
+    """De runlog meldde `0 s` voor een stap die live 10 tot 50 seconden duurde: `los_uitvoeren`
+    gaf geen `duur` mee aan `runlog.stap`. Een runlog die een duur rapporteert zonder hem te
+    meten is erger dan een runlog zonder duur -- zij liegt met een getal, op een pagina die
+    meten als belofte voert."""
+    crew = runner.laad(AGENTS, TASKS)
+    log = runlog.Runlog()
+
+    def langzame_tool(staat, *, llm=None, runlog=None):
+        import time as _t
+        _t.sleep(0.05)
+        return runner.Uitkomst({"antwoord": "ok"}, 1, 1, args={})
+
+    crew.los_uitvoeren("uitlegger", "uitleg_genereren", {}, runlog=log, tool=langzame_tool)
+    duur = log.als_gegeven()[0]["duur"]
+    assert duur is not None and duur >= 0.04, duur

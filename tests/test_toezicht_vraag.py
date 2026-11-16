@@ -233,3 +233,74 @@ def test_de_grounding_wijst_het_model_naar_de_leesbare_ingang():
     assert "distinct" in laag, (
         "zonder DISTINCT levert een dubbel pad het kruisproduct op, en dan zegt het aantal rijen "
         "niets over het aantal vergunningen -- live gezien: 100 rijen over 69 vergunningen")
+
+
+# -- De voorbeelden in de grounding zijn uitvoerbare documentatie -------------------------------
+
+@pytest.mark.parametrize("beschrijving,query",
+                          [(v[:40], q) for v, q in vraag.VOORBEELDEN])
+def test_elk_voorbeeld_in_de_grounding_komt_langs_de_validator(beschrijving, query):
+    """Een voorbeeld dat de validator zelf zou weigeren, onderwijst het model een patroon dat
+    nooit uitgevoerd wordt -- en de lezer krijgt dan "kon niet veilig worden vertaald" op een
+    vraag die wij hem hebben voorgedaan."""
+    assert vraag.valideer_sparql(query) == query.strip()
+
+
+def test_de_voorbeelden_staan_ook_echt_in_de_grounding():
+    """Een lijst die niet in het prompt belandt, helpt het model niet."""
+    for v, q in vraag.VOORBEELDEN:
+        assert v in vraag.GROUNDING, v
+        assert q.splitlines()[0] in vraag.GROUNDING, v
+
+
+def test_de_grounding_waarschuwt_tegen_de_twee_fouten_die_het_model_echt_maakte():
+    """Beide live gezien, beide met "Geen resultaten" als uitkomst -- wat leest als "er is niets
+    aan de hand" in plaats van "de vraag is verkeerd gesteld":
+
+    * `?vestiging t:heeftMeting ?meting` -- een predicaat dat niet bestaat. Een vergunning hangt
+      aan een meting via het waterlichaam, en vóór deze ronde had de vestiging dat veld niet eens.
+    * `FILTER(!BOUND(?kenmerk))` op een variabele die een triple pattern al bond: per definitie
+      leeg. Afwezigheid is in deze graaf een positief feit (`t:zekerheid "ontbreekt"`).
+    """
+    g = vraag.GROUNDING
+    assert "GEEN t:heeftMeting" in g
+    assert "t:waterlichaam ?wl" in g, "zeg hóe je dan koppelt, niet alleen wat niet bestaat"
+    assert "FILTER(!BOUND" in g and "nooit" in g.lower()
+    assert 't:zekerheid "ontbreekt"' in g
+
+
+# -- De deadline op de uitvoering ---------------------------------------------------------------
+
+def test_een_te_zware_query_geeft_een_eigen_boodschap_in_plaats_van_te_blijven_hangen():
+    """**`LIMIT` begrenst de uitvoer, niet het werk.** Dat verschil kostte deze use-case de
+    melding "de vraag werkt niet meer": een geldige query met `LIMIT 100` liep in rdflib 119
+    seconden. De boodschap is bewust een andere dan "kon niet worden uitgevoerd" -- die zou
+    suggereren dat de query fout was, terwijl zij juist goed was en alleen te zwaar. En de query
+    blijft zichtbaar, zodat te zien is wát er te zwaar was."""
+    import time as _t
+
+    g = graaf.bouw([], None, None, None)
+    traag = f"SELECT ?s WHERE {{ ?s ?p ?o }} LIMIT 10"
+    monkey = vraag.QUERY_DEADLINE_S
+    try:
+        vraag.QUERY_DEADLINE_S = 0.05
+        # Een "graaf" waarvan het uitvoeren opzettelijk lang duurt.
+        class Traag:
+            def query(self, *a, **k):
+                _t.sleep(5)
+                return []
+        uit = vraag.stel("wat dan ook", Traag(), lambda p: traag)
+    finally:
+        vraag.QUERY_DEADLINE_S = monkey
+    assert uit["beschikbaar"] is False
+    assert uit["te_zwaar"] is True
+    assert uit["sparql"] == traag, "de query hoort zichtbaar te blijven"
+    assert "niet binnen" in uit["antwoord"]
+    assert "smaller" in uit["antwoord"], "zeg wat de lezer eraan kan doen"
+
+
+def test_de_deadline_laat_een_normale_query_ongemoeid():
+    g = graaf.bouw([], None, None, None)
+    uit = vraag.stel("x", g, lambda p: "SELECT ?s WHERE { ?s ?p ?o } LIMIT 10")
+    assert uit["beschikbaar"] is True
+    assert "te_zwaar" not in uit

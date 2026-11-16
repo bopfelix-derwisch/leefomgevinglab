@@ -433,6 +433,80 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   alles te verwijderen schreef het model `DELETE WHERE { ?signaal a t:Signaal }. LIMIT 1000000`,
   en die is geweigerd, zichtbaar als geweigerde query, met nul rijen. De pagina labelt zo'n query
   dan ook als *"Geweigerde query — niet uitgevoerd"* en niet als uitgevoerd.
+- ✅ **De graaf wordt opgebouwd en bewaard, niet elke keer opnieuw** (`scripts/22_bouw_toezicht
+  graaf.py` → `leefomgevinglab.toezicht.graaf_pad`, Turtle op NVMe, **nooit in de repo**). De
+  vraagweg leest dat bestand bij voorkeur en bouwt alleen live als het ontbreekt.
+  **De reden is niet snelheid.** Nagemeten: inlezen ~4 s tegen ~9 s live bouwen, op een vraag die
+  ~10 s aan het taalmodel besteedt — en de graaf stond al een dag in het geheugen. De winst is
+  (a) **herleidbaarheid**: een bestand draagt een datum, dus een antwoord is te herleiden tot een
+  versie van het register, en (b) **robuustheid**: live bouwen heeft de Atlas plús een
+  coördinaatopzoeking per vergunning nodig, dus zonder bestand ligt de vraagweg eruit zodra de
+  Atlas eruit ligt. Gemeten uitkomst: 69 vestigingen, 650 voorschriften, 598 signalen, **72.682
+  triples, 2,4 MB**, bouwen in ~14 s.
+  **Eén bouwer, twee aanroepers** (`usecases/toezicht/graafbouw.py`). De route bouwde de graaf
+  eerst zelf en het script ook — en het script deed het **zonder context**, dus zonder
+  `t:Signaal`, dus zonder de brug tussen de twee lezers. Een bestand met die halve graaf is erger
+  dan geen bestand, want de route leest het bestand bij voorkeur.
+  **⚠️ En de fout die daarna nog opdook, is precies de reden dat hier een live test op staat:**
+  het script bouwde op het **rauwe** Atlas-antwoord terwijl de route eerst ontdubbelt
+  (`register.voorbereid`, 132 letterlijk herhaalde voorschriften = 17% van 782). Verschil:
+  **75.190 tegen 72.682 triples**, 782 tegen 650 voorschriften — en niets viel om. Sinds de fix
+  zijn ze gelijk, en `tests/test_toezicht_live.py::test_de_opgebouwde_graaf_op_schijf_is_dezelfde
+  _als_de_route_live_bouwt` vergelijkt de telling per klasse (niet de triples zelf: blank-node-
+  id's verschillen per bouw).
+  **Verouderen mag niet stil.** Een oud bestand wordt wél gebruikt — beter een herleidbaar
+  antwoord van vorige week dan geen antwoord — maar `meta["verouderd"]` gaat aan boven
+  `graaf_max_ouderdom_dagen` (standaard 7) en de pagina zet er een rode waarschuwing bij mét het
+  commando om opnieuw te bouwen. `telling()` rekent **uitsluitend uit de graaf**, nooit uit het
+  register ernaast: het pad dat van schijf leest heeft dat register niet, en zou dan een getal
+  moeten verzinnen dat niet uit de graaf komt die de vragen beantwoordt.
+  Verversen:
+  ```bash
+  W=/mnt/nvme/geluidsmeter/data/external/wkp
+  PYTHONPATH=src .venv/bin/python scripts/22_bouw_toezichtgraaf.py \
+      --aquo $W/aquo_Parameter.csv --metingen $W/metingen_2025.json \
+      --normen $W/krw_normen.json --doelen $W/krw_doelen_2025.json \
+      --gemeten-codes $W/gemeten_codes.json \
+      --uit /mnt/nvme/geluidsmeter/data/external/toezicht/toezicht.ttl
+  ```
+  Zonder `--doelen` en `--gemeten-codes` bouwt het script een graaf zonder de drie
+  werkelijkheidssignalen; het script meldt dat luid in plaats van het stil op te leveren.
+- **⚠️ Vier valkuilen van de vraagweg, alle vier gevonden doordat de vraag "niet meer werkte"** —
+  en geen van de vier door code te lezen. Ze hebben één gemene deler: de lezer kreeg *"Geen
+  resultaten voor deze vraag"*, en dat leest als "er is niets aan de hand" in plaats van "de
+  vraag is verkeerd gesteld". Dat is het stilste soort fout dat deze laag kan maken.
+  1. **`LIMIT` begrenst de uitvoer, niet het werk.** Een geldige query met `LIMIT 100` die
+     `t:Meting` tegen `t:Norm` joinde liep in rdflib **119 seconden** voor 21 rijen (350 metingen
+     × 6143 normen als nested loop). De pagina deed minutenlang niets en cloudflared geeft het
+     eerder op dan rdflib. Daarom: `vraag.QUERY_DEADLINE_S` (20 s) met een **eigen** boodschap —
+     "kon niet worden uitgevoerd" zou suggereren dat de query fout was, terwijl zij goed was en
+     alleen te zwaar. NB: die deadline begrenst de *wachttijd*, niet het werk; rdflib kent geen
+     afbreekpunt, dus de thread rekent in de achtergrond door (daemon). Een procesgrens zou het
+     werk écht afkappen en staat genoteerd in plaats van half gebouwd.
+  2. **Die join hoort niet in de query.** De vergelijking is al gemaakt door `kmg.doelen` +
+     `toezicht.context.toetsing`, mét de juiste sleutel (**meetpunt én stof** — een KRW-norm geldt
+     per meetpunt, zink is per punt gecorrigeerd voor biobeschikbaarheid). Zij staat nu als
+     `t:Overschrijding` in de graaf: 119 s → **0,25 s**. Een query die zelf joint gaat ook
+     makkelijk mis op de sleutel.
+  3. **Niets verbond een vergunning met een meting.** Het model schreef
+     `?vestiging t:heeftMeting ?meting` — een predicaat dat niet bestaat — en had geen
+     alternatief: de vraag "papierbevinding **én** een meting boven de norm" was niet uit te
+     drukken. De schakel is het waterlichaam; dat staat nu óók als gewone literal op de
+     `t:Vestiging` (het wordt per vergunning uit haar coördinaat afgeleid, de Atlas levert het
+     nooit). Meegekomen correctie: de Bewering zei voor álle 69 `zekerheid "ontbreekt"` terwijl
+     de route het wél wist — nu `"afgeleid"`, met de oude tegenspraak weg.
+  4. **Afwezigheid is in deze graaf een positief feit.** Op "welke vergunningen missen een
+     kenmerk" schreef het model `FILTER(!BOUND(?kenmerk))` op een variabele die een triple
+     pattern al bond: per definitie leeg. Het juiste pad is de Bewering met
+     `t:zekerheid "ontbreekt"` (of `FILTER NOT EXISTS`), en dat staat nu in de grounding.
+  **De grounding draagt daarom vier uitgewerkte vraag-naar-query-paren** (`vraag.VOORBEELDEN`),
+  en die zijn **uitvoerbare documentatie**: een test valideert elke query en een live test voert
+  ze uit op de echte graaf en **eist rijen**. Een voorbeeld dat niets oplevert valt dus om in de
+  suite in plaats van stil een verkeerd patroon te onderwijzen. Gemeten na de fixes: 61 / 3 / 31 /
+  100 rijen, elk onder 1,4 s aan querytijd; de 11–30 s die een vraag kost is vrijwel geheel het
+  lokale taalmodel. **En `Crew.los_uitvoeren` meet nu de duur** — hij gaf geen `duur` aan
+  `runlog.stap`, dus de runlog meldde `0 s` voor een stap van 25 s. Een runlog die een duur
+  rapporteert zonder hem te meten liegt met een getal, op een pagina die meten als belofte voert.
 - **`.env` wordt in `tests/conftest.py` geladen, niet per ongeluk.** De live-tests lezen hun
   sleutel rechtstreeks uit `os.environ`, en die stond daar tot 2026-11-15 alleen omdat
   `geluidsmeter/api.py` bij import `load_dotenv()` aanroept en bijna elk testbestand `api`

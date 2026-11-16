@@ -64,6 +64,7 @@ from leefomgevinglab.usecases.toezicht import graaf as toezicht_graaf
 from leefomgevinglab.usecases.toezicht import context as toezicht_context
 from leefomgevinglab.usecases.toezicht import weergave as toezicht_weergave
 from leefomgevinglab.usecases.toezicht import vraag as toezicht_vraag
+from leefomgevinglab.usecases.toezicht import graafbouw as toezicht_graafbouw
 from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier_mod
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
@@ -829,66 +830,97 @@ def api_toezicht_dossier(vestiging: str):
 # maar het waterlichaam per vergunning, dat uit de coördinaat van elke vergunning wordt opgezocht
 # (~8 s over 62 vergunningen, al parallel en ontdubbeld in `kmg_service`). Zonder cache zou elke
 # vraag die rekening opnieuw betalen.
-_TOEZICHTGRAAF: dict = {"graaf": None, "gebouwd_op": 0.0, "triples": 0, "vestigingen": 0}
+_TOEZICHTGRAAF: dict = {"graaf": None, "gebouwd_op": 0.0, "bron": None, "telling": {}}
 _TOEZICHTGRAAF_TTL_S = 86400
 
 
-def _toezicht_graaf(nu=None):
-    """De register-brede toezichtgraaf, gecachet. Levert `(graaf, meta)`.
+def _toezicht_graaf_cfg() -> dict:
+    """Waar de opgebouwde graaf staat en vanaf welke ouderdom de pagina erover klaagt."""
+    cfg = _config.get("leefomgevinglab", {}).get("toezicht", {})
+    return {"pad": cfg.get("graaf_pad", ""),
+            "max_ouderdom_s": float(cfg.get("graaf_max_ouderdom_dagen", 7)) * 86400}
 
-    De context verschilt **per vestiging**: `waterlichaam` wordt uit de eigen coördinaat van elke
-    vergunning opgezocht. Eén waterlichaam aan het hele register toekennen zou
-    `regel_norm_overschreden_bovenstrooms` laten vuren met een richting die voor vrijwel elke
-    vergunning onjuist is, dus `graaf.bouw` krijgt hier een functie in plaats van een dict."""
-    nu = nu if nu is not None else time.time()
-    if (_TOEZICHTGRAAF["graaf"] is not None
-            and nu - _TOEZICHTGRAAF["gebouwd_op"] < _TOEZICHTGRAAF_TTL_S):
-        return _TOEZICHTGRAAF["graaf"], _graaf_meta()
 
+def _bouw_toezicht_graaf_live():
+    """De graaf live uit de bronnen, via de gedeelde bouwer die `scripts/22` ook gebruikt.
+
+    Deze functie haalt alleen de bronnen op; het bouwen zelf staat in
+    `toezicht.graafbouw` -- zodat het bestand op schijf niet stil een andere graaf kan zijn dan
+    deze route in het geheugen heeft."""
     register = _toezicht_register()
     aquo_ref = _toezicht_aquo_ref()
     normenset = _toezicht_normenset()
-    doelenset = _toezicht_doelenset()
     getoetst = toezicht_context.toetsing(
-        kmg_metingen.punten(_toezicht_metingen()), doelenset, normenset)
-    gedeeld = {
-        "stoffen_met_norm": toezicht_graaf.stoffen_met_norm(normenset),
-        "gemeten_codes": _toezicht_gemeten_codes(),
-        "overschrijdingen": toezicht_context.overschrijdingen(getoetst),
-        "register_codes": toezicht_aquo.register_codes(
-            [toezicht_aquo.verrijk(p, aquo_ref) for p in register]),
+        kmg_metingen.punten(_toezicht_metingen()), _toezicht_doelenset(), normenset)
+
+    def per_vergunning(reg):
+        per_sleutel, _redenen = kmg_service._waterlichaam_per_vergunning(reg, True)
+        uit = {}
+        for i, post in enumerate(reg):
+            sleutel = kmg_toerekening.sleutel_post(post, i)
+            if sleutel in per_sleutel:
+                uit[(post.get("kenmerk"), post.get("locatiecode"))] = per_sleutel[sleutel]
+        return uit
+
+    return toezicht_graafbouw.bouw_met_telling(
+        register=register, metingen=_toezicht_metingen(), normen=normenset, aquo_ref=aquo_ref,
+        overschrijdingen=toezicht_context.overschrijdingen(getoetst),
+        gemeten_codes=_toezicht_gemeten_codes(),
+        stoffen_met_norm=toezicht_graaf.stoffen_met_norm(normenset),
+        waterlichaam_per_vergunning=per_vergunning)
+
+
+def _toezicht_graaf(nu=None):
+    """De register-brede toezichtgraaf, in drie trappen: geheugen, bestand, live.
+
+    **Waarom een bestand de voorkeur heeft.** De vergunningen wijzigen zelden, en een opgebouwd
+    bestand (`scripts/22_bouw_toezichtgraaf.py`) draagt een datum. Daarmee is een antwoord
+    herleidbaar tot een versie van het register, en blijft de vraagweg werken als de Atlas
+    onbereikbaar is -- de live-bouw heeft de Atlas plus een coördinaatopzoeking per vergunning
+    nodig. De tijdwinst is bijzaak en is nagemeten: inlezen ~4 s tegen ~9 s live bouwen, op een
+    vraag die ~10 s aan het taalmodel besteedt.
+
+    **Verouderen mag niet stil gebeuren.** Een oud bestand wordt wél gebruikt (beter een
+    herleidbaar antwoord van vorige week dan geen antwoord), maar `meta["verouderd"]` gaat aan en
+    de pagina zegt het luid. Stil verouderen is het faalpatroon dat dit lab het meeste heeft
+    gekost."""
+    nu = nu if nu is not None else time.time()
+    if (_TOEZICHTGRAAF["graaf"] is not None
+            and nu - _TOEZICHTGRAAF["gebouwd_op"] < _TOEZICHTGRAAF_TTL_S):
+        return _TOEZICHTGRAAF["graaf"], _graaf_meta(nu)
+
+    cfg = _toezicht_graaf_cfg()
+    pad = Path(cfg["pad"]) if cfg["pad"] else None
+    if pad is not None and pad.exists():
+        graaf = ld_store.load_graph(str(pad.parent), naam=pad.name)
+        if graaf is not None and len(graaf):
+            _TOEZICHTGRAAF.update({
+                "graaf": graaf, "gebouwd_op": pad.stat().st_mtime, "bron": "bestand",
+                "telling": toezicht_graafbouw.telling(graaf)})
+            return graaf, _graaf_meta(nu)
+
+    graaf, telling = _bouw_toezicht_graaf_live()
+    _TOEZICHTGRAAF.update({"graaf": graaf, "gebouwd_op": nu, "bron": "live",
+                            "telling": telling})
+    return graaf, _graaf_meta(nu)
+
+
+def _graaf_meta(nu=None) -> dict:
+    """Wat de pagina over de graaf mag vertellen: waar hij vandaan komt, van wanneer hij is, en
+    of hij oud is. Afgeleid, niet getypt -- de telling komt uit de graaf zelf."""
+    nu = nu if nu is not None else time.time()
+    gebouwd_op = _TOEZICHTGRAAF["gebouwd_op"]
+    cfg = _toezicht_graaf_cfg()
+    ouderdom_s = max(0.0, nu - gebouwd_op) if gebouwd_op else None
+    return {
+        **_TOEZICHTGRAAF["telling"],
+        "bron": _TOEZICHTGRAAF["bron"],
+        "gebouwd_op": gebouwd_op,
+        "ouderdom_dagen": round(ouderdom_s / 86400, 1) if ouderdom_s is not None else None,
+        "verouderd": bool(ouderdom_s is not None and ouderdom_s > cfg["max_ouderdom_s"]),
+        "max_ouderdom_dagen": round(cfg["max_ouderdom_s"] / 86400, 1),
+        "opnieuw_bouwen": "scripts/22_bouw_toezichtgraaf.py",
     }
-    per_sleutel, _redenen = kmg_service._waterlichaam_per_vergunning(register, True)
-    # `kmg_toerekening.sleutel_post` is `kenmerk or locatiecode or "#<positie>"`, en die positie
-    # kent `context_voor` niet: `graaf.bouw` geeft een door `aquo.verrijk` gemaakte kópie door,
-    # dus noch de index noch de objectidentiteit reist mee. Daarom wordt hier één keer een
-    # mapping gelegd op de twee velden die de verrijking ongemoeid laat. Een post zonder kenmerk
-    # én zonder locatiecode krijgt zo geen waterlichaam -- dat is dezelfde eerlijke uitkomst als
-    # `mag.buiten_toerekening` op `/kmg`, en in dit register komt het niet voor (alle 69 dragen
-    # een locatiecode).
-    per_vergunning = {}
-    for i, post in enumerate(register):
-        sleutel = kmg_toerekening.sleutel_post(post, i)
-        if sleutel in per_sleutel:
-            per_vergunning[(post.get("kenmerk"), post.get("locatiecode"))] = per_sleutel[sleutel]
-
-    def context_voor(vestiging: dict) -> dict:
-        paar = (vestiging.get("kenmerk"), vestiging.get("locatiecode"))
-        return {**gedeeld, "waterlichaam": per_vergunning.get(paar)}
-
-    graaf = toezicht_graaf.bouw(register, _toezicht_metingen(), normenset, aquo_ref,
-                                 context=context_voor)
-    _TOEZICHTGRAAF.update({"graaf": graaf, "gebouwd_op": nu, "triples": len(graaf),
-                            "vestigingen": len(register)})
-    return graaf, _graaf_meta()
-
-
-def _graaf_meta() -> dict:
-    """Wat de pagina over de graaf mag vertellen. Afgeleid, niet getypt: het aantal triples komt
-    uit de graaf zelf, zodat de pagina niet kan beweren dat er meer in zit dan er in zit."""
-    return {"triples": _TOEZICHTGRAAF["triples"],
-            "vestigingen": _TOEZICHTGRAAF["vestigingen"],
-            "gebouwd_op": _TOEZICHTGRAAF["gebouwd_op"]}
 
 
 class ToezichtVraagRequest(BaseModel):
