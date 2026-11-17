@@ -214,9 +214,10 @@ def test_bevoegd_gezag_is_in_beide_registers_iets_anders(a):
     assert o["join"] == "nee"
     assert "OIN" in o["gir"] and "enum" in o["imev"]
     # De twee GIR-artefacten doen het verschillend; "GIR" zonder meer is hier niet genoeg.
-    assert "databasemodel" in o["gir"] and "architectuur" in o["gir"], (
-        "in het databasemodel is bevoegdheid een GEO-query, in de architectuur een associatie -- "
-        "dat onderscheid hoort in de cel, anders is de uitspraak niet te controleren")
+    assert "databasemodel" in o["gir"] and "informatiemodel" in o["gir"], (
+        "in het databasemodel is bevoegdheid een GEO-query, in het informatiemodel een "
+        "associatie -- dat onderscheid hoort in de cel, anders is de uitspraak niet te "
+        "controleren")
 
 
 # --- GIR is ook meer dan één ding -------------------------------------------------------------
@@ -231,11 +232,33 @@ def test_elk_gir_artefact_zegt_wat_het_is_en_wat_het_niet_is(a):
         assert x["niet"], f"{x['bestand']} zonder 'niet' nodigt uit tot de verwarring"
 
 
-def test_de_twee_gir_artefacten_zijn_van_een_andere_soort():
+def test_de_gir_artefacten_zijn_elk_van_een_andere_soort():
+    """**Bob's correctie, en zij was terecht.** Ik noemde de aangeleverde set één
+    "architectuurmodel". Maar de set is aangeleverd als *informatiemodellen*, en dat is ook wat
+    laag 3 bevat: Enterprise Architect geeft die drie views het diagramtype `class` mee, tegenover
+    `business`, `motivation` en `application` voor de tien andere. Drie UML-klassenmodellen met
+    attributen, datatypen, multipliciteit en benoemde associaties zíjn een informatiemodel; ze
+    een architectuurmodel noemen verschuift precies de soort die deze pagina uit elkaar houdt.
+
+    Daarom nu drie artefacten van drie soorten: het informatiemodel, de architectuurviews
+    eromheen, en het databasemodel."""
     soorten = {x["soort"] for x in mo.GIR_ARTEFACTEN}
     assert len(soorten) == len(mo.GIR_ARTEFACTEN), (
         "twee artefacten van dezelfde soort zou de scheiding zinloos maken")
-    assert "databasemodel" in soorten and "architectuurmodel" in soorten
+    assert soorten == {"informatiemodel", "architectuurviews", "databasemodel"}, soorten
+
+
+def test_gir_heeft_een_informatiemodel_en_staat_dus_niet_alleen_op_de_fysieke_laag(a):
+    """Het schema van vijf lagen noemt per soort één voorbeeld, en zette GIR op 'fysiek'. Dat is
+    het databasemodel. GIR heeft daarnáást een informatiemodel -- dezelfde soort als IMEV -- en
+    juist die gelijkstelling 'GIR = fysiek' maakte dat twee uitspraken over het databasemodel
+    konden doorgaan voor uitspraken over GIR."""
+    assert any(x["soort"] == "informatiemodel" for x in a["gir_artefacten"]), (
+        "zonder dit artefact leest de fysieke laag als 'GIR'")
+    gir_laag = next(l for l in a["lagen"] if l["id"] == "gir")
+    assert "databasemodel" in gir_laag["zegt_niets_over"], (
+        "de laagrij moet zelf zeggen dat zij over het databasemodel gaat, niet over GIR")
+    assert "informatiemodel" in gir_laag["zegt_niets_over"]
 
 
 def test_geen_gir_artefact_belooft_een_publieke_url_die_er_niet_is(a):
@@ -399,11 +422,12 @@ def test_de_pagina_toont_de_gir_artefacten_en_noemt_haar_eigen_correctie(monkeyp
     gelezen, draagt nu een onjuiste overtuiging mee."""
     r = _client(monkeypatch).get("/modellen")
     assert 'id="girartefacten"' in r.text
-    assert "Projectstartarchitectuur GIR 2.0" in r.text
     # Op witruimte genormaliseerd: de HTML is op leeslengte afgebroken, dus een zoekterm met
     # enkele spaties matcht niets -- dezelfde valkuil als bij de proza-bewaking op /toezicht.
     import re as _re
     plat = _re.sub(r"\s+", " ", r.text)
-    assert "waar over het databasemodel en onwaar over de architectuur" in plat
+    assert "waar over het databasemodel en onwaar over het informatiemodel" in plat
+    assert "GIR heeft óók een <b>informatiemodel</b>" in plat, (
+        "de pagina moet zeggen dát GIR een informatiemodel heeft -- dat is de correctie")
     # De namen van de artefacten komen uit de API, niet uit de HTML.
     assert "databasemodel (ICTU" not in r.text, "de artefactnamen horen uit /api/modellen te komen"

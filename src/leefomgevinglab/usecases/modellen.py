@@ -115,18 +115,31 @@ BRONNEN = {
 #: zijn -- en een uitspraak over "GIR" zonder te zeggen welk artefact, is daarom niet te
 #: controleren.
 GIR_ARTEFACTEN = [
-    {"bestand": "Projectstartarchitectuur GIR 2.0 (set november 2023)",
-     "soort": "architectuurmodel",
-     "wat": "dertien UML- en ArchiMate-views in vier lagen: grondslagen (wetgeving), "
-            "organisaties/producten/processen (actoren, VTH-processen, toezichthoudende "
-            "instanties), informatie (Registers, Inspectieresultaten, en het RGBZ-zaakschema) "
-            "en applicatie (componentdecompositie). Plus een begrippenlijst met per begrip een "
-            "definitie en de wettelijke vindplaats (Awb, Arbowet, Brzo 2015).",
-     "niet": "geen databaseontwerp: er staan klassen, attributen met multipliciteit en "
-             "associaties in, geen tabellen, kolomtypen of indexen",
+    {"bestand": "GIR 2.0 informatiemodellen (november 2023)",
+     "soort": "informatiemodel",
+     "wat": "drie UML-klassenmodellen in laag 3 'Informatie': Registers (rechtspersoon, "
+            "vestiging, exploitant, milieubelastende activiteit, Seveso-inrichting, installatie, "
+            "gevaarlijke stof, besluit, overheidsorganisatie), Inspectieresultaten "
+            "(aandachtspunt, normenkader, oordeel, bevinding, wettelijke grondslag) en het "
+            "RGBZ-zaakschema. Klassen met attributen, datatypen, multipliciteit en benoemde "
+            "associaties.",
+     "niet": "geen databaseontwerp -- geen tabellen, kolomtypen of indexen; en geen "
+             "begrippenkader met juridische definities (dat is de begrippenlijst ernaast)",
      "houder": "GIR 2.0-programma (BRZO+), modelbeheer via Enterprise Architect",
-     "vindplaats": "als modelset aangeleverd (svg-views plus begrippenlijst), geen publieke URL",
-     "omvang": "13 views; de Registers-view alleen draagt al ruim veertig klassen"},
+     "vindplaats": "als modelset aangeleverd, geen publieke URL",
+     "omvang": "3 klassenmodellen; Registers alleen draagt al ruim veertig klassen"},
+    {"bestand": "GIR 2.0 architectuurviews + begrippenlijst (november 2023)",
+     "soort": "architectuurviews",
+     "wat": "tien ArchiMate-views om die informatiemodellen heen: grondslagen (wetgeving), "
+            "actoren, producten, VTH-processen, de toezichthoudende instanties per soort, en de "
+            "applicatiecomponenten van GIR 2.0. Plus een begrippenlijst die per begrip de "
+            "definitie én de wettelijke vindplaats geeft (Awb art. 5:1 en 5:11, Arbowet, "
+            "Brzo 2015).",
+     "niet": "geen informatiemodel: hier staan actoren, processen en componenten, geen klassen "
+             "met attributen",
+     "houder": "GIR 2.0-programma (BRZO+), als Projectstartarchitectuur GIR 2.0",
+     "vindplaats": "als modelset aangeleverd, geen publieke URL",
+     "omvang": "10 views (3 business, 5 motivation, 1 application) plus de begrippenlijst"},
     {"bestand": "GIR 2.0 databasemodel (ICTU, v3.0 van 25 mei 2023)",
      "soort": "databasemodel",
      "wat": "het fysieke ontwerp: tabellen met reg_-prefix, kolommen, sleutels en de "
@@ -269,7 +282,11 @@ LAGEN = [
      "kleur": "teal"},
     {"id": "gir", "soort": "fysiek",
      "legt_vast": "kolommen, datatypes, foreign keys, locking, historie",
-     "zegt_niets_over": "de betekenis van een begrip buiten deze database",
+     "zegt_niets_over": "de betekenis van een begrip buiten deze database -- en let op: dit is "
+                        "het GIR-databasemodel, niet 'GIR'. GIR heeft daarnáást een eigen "
+                        "informatiemodel (zie de GIR-artefacten), en dat staat op dezelfde laag "
+                        "als IMEV. Wie 'GIR' met deze rij gelijkstelt, verschuift uitspraken van "
+                        "het ene artefact naar het andere.",
      "omvang": "38 tabellen, waarvan ongeveer 10 ontworpen maar nooit gebouwd",
      "vorm": "ER-diagram plus kolomtabellen, per attribuut een kolom 'gerealiseerd'",
      "toetsbaar": "ja, maar alleen binnen dit systeem",
@@ -299,23 +316,23 @@ VERTALINGEN = [
      "imev": "geen eigen objecttype, maar in het berichtschema wél drie velden op 44 van de "
              "79 objecttypen: basisVergunningNummer, datumVergunningOfMelding en "
              "vergunningsPlicht",
-     "gir": "hangt af van wélk GIR-artefact. In het databasemodel buiten scope gelaten; in de "
-            "Projectstartarchitectuur (november 2023) staan Omgevingsvergunning en "
+     "gir": "hangt af van wélk GIR-artefact. In het databasemodel buiten scope gelaten; in het "
+            "informatiemodel (november 2023) staan Omgevingsvergunning en "
             "Vergunninghouder als klasse, met een Besluit dat Besluitidentificatie, Url, "
             "Bestuursorgaan, ingangs- en vervaldatum draagt",
      "les": "Hier stond dat GIR de identificatie laat vallen. Dat gold voor het databasemodel, "
-            "niet voor GIR — de architectuur legt besluit én nummer wél vast, via het "
+            "niet voor GIR — het informatiemodel legt besluit én nummer wél vast, via het "
             "zaakgerichte RGBZ-spoor. Koppelen blijft moeilijk, maar om een andere reden: twee "
             "identificaties uit twee stelsels zonder crosswalk, niet één ontbrekende."},
     {"begrip": "Wie is hier bevoegd gezag?",
      "cim": "VTH-INSTANTIE, een objecttype met een relatie naar de activiteit",
      "imev": "bevoegdGezag als veld op het object, in het schema een enumeratie van vier "
              "waarden — dus een bestuurslaag, geen organisatie",
-     "gir": "in de Projectstartarchitectuur een gemodelleerde associatie 'heeft als bevoegd "
+     "gir": "in het informatiemodel een gemodelleerde associatie 'heeft als bevoegd "
             "gezag', naast 'is gelegen in werkgebied van' en een Overheidsorganisatie met "
             "'heeft werkgebied: vlakOfMultivlak'; in het databasemodel wordt zij als GEO-query "
             "opgelost in plaats van opgeslagen",
-     "les": "Hier stond dat deze relatie in GIR niet als gegeven bestaat. In de architectuur "
+     "les": "Hier stond dat deze relatie in GIR niet als gegeven bestaat. In het informatiemodel "
             "bestaat zij wél — het is het databasemodel dat haar als vraag uitvoert in plaats "
             "van als feit bewaart. Dat verschil is precies het punt van deze pagina: een "
             "relatie in het model kan in de database een query zijn, en dan is het antwoord van "
@@ -402,9 +419,19 @@ BEVINDINGEN = [
             "van gisteren niet reproduceerbaar is. Een conceptueel model ziet dat verschil "
             "niet; een datamodel maakt het — en wie 'GIR' zegt zonder te zeggen welk artefact, "
             "kan beide kanten beweren.",
-     "bron": "PSA GIR 2.0 (nov 2023), view 'Registers', tegenover GIR 2.0 databasemodel "
-             "§4.19.1"},
-    {"kop": "Twee uitspraken over GIR op deze pagina waren onjuist, en de nieuwe modelset "
+     "bron": "GIR 2.0 informatiemodel (nov 2023), view 'Registers', tegenover het "
+             "GIR 2.0 databasemodel §4.19.1"},
+    {"kop": "GIR staat op twéé lagen van dit schema, en daardoor konden uitspraken verschuiven",
+     "wat": "Deze pagina zette GIR op de fysieke laag: 38 tabellen, kolommen, sleutels. Dat is "
+            "het databasemodel. Maar GIR heeft óók een informatiemodel -- drie UML-klassenmodellen "
+            "met attributen, datatypen, multipliciteit en benoemde associaties -- en dat staat op "
+            "dezelfde laag als IMEV, niet op de fysieke. Het schema van vijf lagen noemt per "
+            "soort één voorbeeld; dat is bruikbaar, maar het verleidt tot 'GIR = fysiek'. En "
+            "precies daardoor konden twee uitspraken over het databasemodel doorgaan voor "
+            "uitspraken over GIR.",
+     "bron": "GIR 2.0 informatiemodellen (nov 2023), laag 3 'Informatie' -- drie "
+             "class-diagrammen, tegenover het ICTU-databasemodel v3.0"},
+    {"kop": "Twee uitspraken over GIR op deze pagina waren onjuist, en het informatiemodel "
             "wees dat uit",
      "wat": "Deze pagina leert dat 'IMEV' vier bestanden en drie soorten ding is. Voor GIR "
             "deed zij datzelfde niet: zij schreef 'GIR 2.0 databasemodel' en hing daar "
@@ -414,7 +441,7 @@ BEVINDINGEN = [
             "plus een Besluit met Besluitidentificatie, Url en Bestuursorgaan) en dat 'heeft "
             "als bevoegd gezag' er niet als gegeven bestaat (het is er een associatie). Beide "
             "waren waar over het databasemodel en onwaar over GIR.",
-     "bron": "PSA GIR 2.0 (nov 2023), views 'Registers' en 'Bevoegd gezag'"},
+     "bron": "GIR 2.0 informatiemodel (nov 2023), view 'Registers'"},
     {"kop": "GIR modelleert een bevinding compléter dan dit lab",
      "wat": "De view 'Inspectieresultaten' legt per Aandachtspunt een normenkader, een "
             "stelling, een voorgesteld oordeel en een voorgestelde wettelijke grondslag van de "
@@ -424,7 +451,7 @@ BEVINDINGEN = [
             "(/toezicht) hebben bewijs, herkomst en zwaarte — maar geen grondslag en geen "
             "termijn. Wat hier als eigen vondst is gebouwd, bestaat daar als model, en "
             "preciezer.",
-     "bron": "PSA GIR 2.0 (nov 2023), view 'Inspectieresultaten'"},
+     "bron": "GIR 2.0 informatiemodel (nov 2023), view 'Inspectieresultaten'"},
     {"kop": "GIR heeft wél een eigen vorm voor onzekerheid, maar alleen voor datums",
      "wat": "Hier stond dat een ontbrekend gegeven aan de GIR-kant simpelweg NULL is, "
             "tegenover IMEV's Voidable met een verplichte geenWaardeReden. Dat is te kort door "
@@ -432,7 +459,7 @@ BEVINDINGEN = [
             "en multipliciteiten als [0..1] en [0..*] zeggen per attribuut of leeg mag. Wat "
             "GIR niet heeft, is een réden bij een leeg veld — en dat is het verschil dat "
             "overblijft.",
-     "bron": "PSA GIR 2.0 (nov 2023), type DatumIncompleet in de view 'Registers'"},
+     "bron": "GIR 2.0 informatiemodel (nov 2023), type DatumIncompleet in de view 'Registers'"},
     {"kop": "Twee registers over dezelfde bedrijven, en één harde sleutel",
      "wat": "Van de twaalf begrippen die het REV en het GIR beide vastleggen, zijn er drie op "
             "een gedeelde sleutel te joinen — en alle drie komen van buiten: het KvK-nummer, "
@@ -500,14 +527,14 @@ OVERLAP = [
              "leidt die af uit het adres."},
     {"begrip": "Het bevoegd gezag",
      "gir": "reg_org met een OIN van Logius; in het databasemodel volgt de bevoegdheid uit "
-            "een GEO-query op het werkgebied, in de architectuur uit de associatie 'heeft als "
+            "een GEO-query op het werkgebied, in het informatiemodel uit de associatie 'heeft als "
             "bevoegd gezag'",
      "imev": "bevoegdGezag als enum met vier waarden — rijk, provincie, gemeente, "
              "gegevenInTransitie — plus bronhoudercode van 3 tot 6 tekens",
      "join": "nee", "waarom": "IMEV noemt de bestuurslaag, GIR de organisatie. Uit 'gemeente' "
              "volgt niet wélke gemeente, en uit een OIN volgt geen bestuurslaag."},
     {"begrip": "De vergunning",
-     "gir": "in het databasemodel buiten scope; in de architectuur Omgevingsvergunning plus "
+     "gir": "in het databasemodel buiten scope; in het informatiemodel Omgevingsvergunning plus "
             "een Besluit met Besluitidentificatie als sleutel, Url en Bestuursorgaan",
      "imev": "basisVergunningNummer (1-50 tekens), datumVergunningOfMelding, vergunningsPlicht",
      "join": "nee", "waarom": "Niet eenzijdig, zoals hier eerder stond, maar onvergelijkbaar: "
