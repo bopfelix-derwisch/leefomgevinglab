@@ -421,6 +421,37 @@ BEVINDINGEN = [
             "kan beide kanten beweren.",
      "bron": "GIR 2.0 informatiemodel (nov 2023), view 'Registers', tegenover het "
              "GIR 2.0 databasemodel §4.19.1"},
+    {"kop": "GIR markeert zijn joinbare sleutels zélf als afgeleid — en bevestigt daarmee de "
+            "conclusie van deze pagina",
+     "wat": "Deze pagina concludeerde dat de drie joinbare begrippen allemaal op een sleutel van "
+            "buiten leunen: KvK-nummer, vestigingsnummer en BAG-identificatie. Het "
+            "GIR-informatiemodel zegt dat onafhankelijk hetzelfde, in notatie: /kvk-nummer, "
+            "/vestigingsnummer, /rsin en /oin staan er met een schuine streep ervoor, en dat is "
+            "in UML de aanduiding voor een afgeleid attribuut — niet zelf vastgelegd, maar "
+            "overgenomen uit het object waar het thuishoort. Wat de twee registers verbindt, "
+            "staat in het ene model dus letterlijk aangemerkt als niet-eigen.",
+     "bron": "GIR 2.0 informatiemodel (nov 2023), view 'Registers': Exploitant en "
+             "Overheidsorganisatie"},
+    {"kop": "De stof heeft in GIR geen CAS-nummer — in geen van beide artefacten",
+     "wat": "IMEV valideert CASNummer als eigen type. Het GIR-informatiemodel identificeert een "
+            "stof via Stofcategorie (code, gevaarsoort, lage en hoge drempelwaarde mét eenheid) "
+            "en Gevaarlijke stof (hoeveelheid kennisgeving) — en nergens via een CAS-nummer. "
+            "Dit was de enige van de twaalf begrippen waarvan de GIR-kant er in het "
+            "informatiemodel niet beter uitkomt dan in het databasemodel: daar is een stof een "
+            "vrije tekst in een sleutel-waardetabel, hier een klasse zonder stofidentificatie. "
+            "Op stof koppelen kan dus aan geen van beide kanten.",
+     "bron": "GIR 2.0 informatiemodel (nov 2023), klassen Stofcategorie en Gevaarlijke stof, "
+             "tegenover imev30-schema.yaml CASNummer"},
+    {"kop": "Domino bestaat in het informatiemodel en niet in de database",
+     "wat": "De domino-relatie — welk Seveso-bedrijf kan bij welk ander een zwaar ongeval "
+            "veroorzaken — staat in het informatiemodel als datum dominoaanwijzing plus een "
+            "afgeleid /domino blootgesteld vanuit [0..*], met een associatie 'domino "
+            "veroorzakend naar'. In het databasemodel was reg_domino_relatie ontworpen maar "
+            "nooit gebouwd, en inmiddels geschrapt. Hetzelfde begrip, in het ene artefact "
+            "gemodelleerd en in het andere afwezig: dat is wat het scheiden van die twee "
+            "artefacten oplevert.",
+     "bron": "GIR 2.0 informatiemodel (nov 2023), klasse Seveso-inrichting, tegenover het "
+             "databasemodel"},
     {"kop": "GIR staat op twéé lagen van dit schema, en daardoor konden uitspraken verschuiven",
      "wat": "Deze pagina zette GIR op de fysieke laag: 38 tabellen, kolommen, sleutels. Dat is "
             "het databasemodel. Maar GIR heeft óók een informatiemodel -- drie UML-klassenmodellen "
@@ -504,38 +535,54 @@ OVERLAP = [
     {"begrip": "De Seveso-inrichting zelf",
      "gir": "reg_mba met mba_soort = Seveso-inrichting, plus parent_mba_id voor "
             "subactiviteiten (niet geïmplementeerd)",
+     "gir_im": "klasse Seveso-inrichting, een specialisatie van Milieubelastende activiteit, met hog"
+               "edrempelinrichting: Boolean, industrietype (MARS) als enum, datum dominoaanwijzing e"
+               "n /domino blootgesteld vanuit [0..*]",
      "imev": "SevesoInrichting als eigen objecttype in het schema, 19 properties — alle base- "
              "en vergunningvelden, niets Seveso-specifieks",
      "join": "nee", "waarom": "GIR sleutelt op een eigen uuid, IMEV op identificatie plus "
              "bronobjectID. Hetzelfde bedrijf, twee nummers, geen vertaling."},
     {"begrip": "Wie het uitvoert",
      "gir": "reg_exploitant → reg_rechtspersoon, met kvk en rsin uit het handelsregister",
+     "gir_im": "klasse Exploitant met /kvk-nummer en /vestigingsnummer — beide als afgeleid gemarkee"
+               "rd — plus datum ingang en datum einde; de identiteit zelf zit in Rechtspersoon en Ve"
+               "stiging",
      "imev": "naamExploitant, kvkNummerExploitant en vestigingsnummerExploitant als velden "
              "op de activiteit",
      "join": "ja", "waarom": "Het KvK-nummer staat in beide. Dit is de enige harde join "
              "tussen de twee registers."},
     {"begrip": "De vestiging",
      "gir": "reg_vestiging.vestigingsnummer, zoals door het KvK uitgegeven",
+     "gir_im": "klasse Vestiging met vestigingsnummer, indicatie hoofdvestiging, en aandachtsbedrijf"
+               " plus aandachtsbedrijf reden — twee velden die IMEV niet kent",
      "imev": "vestigingsnummerExploitant en vestigingsnummerAanvrager",
      "join": "ja", "waarom": "Zelfde bron, zelfde nummer. Let op: GIR waarschuwt dat "
              "hetzelfde vestigingsnummer meermaals in de tabel kan staan, omdat vestigingen "
              "per rechtspersoon worden opgehaald."},
     {"begrip": "De plek",
      "gir": "reg_locatie met reg_adres; de geografische positie komt uit de BAG-adressen",
+     "gir_im": "klasse Adres met identificatie {id}, woonplaats, naam openbare ruimte, postcode, hui"
+               "snummer met letter en toevoeging, en geometrie: puntOfVlak; daarnaast Locatie met lo"
+               "catienummer en aantal werkzame personen",
      "imev": "idNummeraanduidingBAG, idPandBAG en een eigen geometrie",
      "join": "ja", "waarom": "Allebei via de BAG. IMEV draagt daarnaast zelf geometrie, GIR "
              "leidt die af uit het adres."},
     {"begrip": "Het bevoegd gezag",
-     "gir": "reg_org met een OIN van Logius; in het databasemodel volgt de bevoegdheid uit "
-            "een GEO-query op het werkgebied, in het informatiemodel uit de associatie 'heeft als "
-            "bevoegd gezag'",
+     "gir": "reg_org met een OIN van Logius; welke organisatie bevoegd is volgt uit een "
+            "GEO-query op het werkgebied, niet uit een opgeslagen verband",
+     "gir_im": "klasse Overheidsorganisatie met /rsin en /oin (afgeleid) en heeft werkgebied: vlakOf"
+               "Multivlak, plus Overheidsorganisatietype en een benoemde associatie 'heeft als bevoe"
+               "gd gezag'",
      "imev": "bevoegdGezag als enum met vier waarden — rijk, provincie, gemeente, "
              "gegevenInTransitie — plus bronhoudercode van 3 tot 6 tekens",
      "join": "nee", "waarom": "IMEV noemt de bestuurslaag, GIR de organisatie. Uit 'gemeente' "
              "volgt niet wélke gemeente, en uit een OIN volgt geen bestuurslaag."},
     {"begrip": "De vergunning",
-     "gir": "in het databasemodel buiten scope; in het informatiemodel Omgevingsvergunning plus "
-            "een Besluit met Besluitidentificatie als sleutel, Url en Bestuursorgaan",
+     "gir": "buiten scope gelaten — geen Omgevingsvergunning-entiteit en geen "
+            "vergunningnummer in de tabellen",
+     "gir_im": "klassen Omgevingsvergunning en Vergunninghouder, plus Besluit met Besluitidentificat"
+               "ie {id}, Url, Bestuursorgaan, Ingangsdatum, Vervaldatum en Vervalreden, en BesluitIn"
+               "formatieobject",
      "imev": "basisVergunningNummer (1-50 tekens), datumVergunningOfMelding, vergunningsPlicht",
      "join": "nee", "waarom": "Niet eenzijdig, zoals hier eerder stond, maar onvergelijkbaar: "
              "een Besluitidentificatie is een zaaksleutel van de nemende organisatie en "
@@ -544,6 +591,8 @@ OVERLAP = [
     {"begrip": "De wettelijke grondslag",
      "gir": "wettelijke grondslag als Juriconnect-URI in een varchar; reg_wet met BWB-nummer "
             "is ontworpen maar nooit gebouwd",
+     "gir_im": "klasse Wet met titel en bwb-nummer; in de view Inspectieresultaten bovendien een eig"
+               "en klasse Wettelijke grondslag met omschrijving en juriconnect",
      "imev": "balActiviteit als lijst, plus idActiviteitTR — een IMOW-identificatie uit het "
              "DSO, bijvoorbeeld nl.imow-mnre1034.activiteit.KoelinstalKooldioKoolwstAmmo",
      "join": "deels", "waarom": "Beide verwijzen naar wetgeving, maar via verschillende "
@@ -551,6 +600,8 @@ OVERLAP = [
              "omgevingsplan. Die twee zijn te verbinden, maar niet zonder tussentabel."},
     {"begrip": "De stof",
      "gir": "een waarde in de generieke attribuuttabel, opgeslagen als varchar",
+     "gir_im": "klasse Gevaarlijke stof met hoeveelheid kennisgeving, en Stofcategorie met code, gev"
+               "aarsoort en lage/hoge drempelwaarde mét eenheid — géén CAS-nummer, nergens",
      "imev": "CASNummer als eigen type; de reguliere expressie die het formaat afdwingt is een "
              "constructie van het berichtschema, niet van het informatiemodel",
      "join": "nee", "waarom": "IMEV valideert het CAS-nummer, GIR kent het niet als begrip. "
@@ -558,12 +609,16 @@ OVERLAP = [
     {"begrip": "Geldigheid in de tijd",
      "gir": "datum_ingang en datum_einde, met een losse precision-kolom (1=jaar, 2=jaar en "
             "maand, 3=compleet) voor onvolledige datums uit het handelsregister",
+     "gir_im": "een eigen datatype DatumIncompleet op élke datum, plus datum begin/einde geldigheid "
+               "op de typeklassen (Milieubelastende activiteittype, Risicotype)",
      "imev": "beginGeldigheid en eindGeldigheid op alle 79 objecttypen die een levensloop "
              "hebben",
      "join": "deels", "waarom": "Hetzelfde begrip, andere omgang met onzekerheid. GIR maakt "
              "een onvolledige datum expliciet; IMEV kent die precisie niet."},
     {"begrip": "Een ontbrekende waarde",
      "gir": "NULL",
+     "gir_im": "multipliciteit per attribuut ([0..1], [0..*]) en DatumIncompleet voor een onvolledig"
+               "e datum — maar nergens een reden bij een leeg veld",
      "imev": "Voidable in het berichtschema: het veld mag ontbreken, maar dan moet er een "
              "geenWaardeReden bij — gegevenInTransitie, nietVanToepassing of waardeOnbekend",
      "join": "nee", "waarom": "Dit is het scherpste verschil. IMEV dwingt af dat je zégt "
@@ -572,12 +627,16 @@ OVERLAP = [
     {"begrip": "Historie",
      "gir": "reg_locatie_historie bestaat; reg_mba_historie en "
             "reg_mba_attribuut_waarde_historie zijn ontworpen maar nooit gebouwd",
+     "gir_im": "geen historieklassen; geldigheid wordt per relatie en per type gedragen (datum ingan"
+               "g/einde op Exploitant, datum begin/einde geldigheid op de typeklassen)",
      "imev": "een /historie-endpoint per resource in de API-specificatie, werkend",
      "join": "nee", "waarom": "IMEV levert de tijdlijn, GIR deels. Een vergelijking over de "
              "tijd is daarmee aan één kant onmogelijk."},
     {"begrip": "Domino-relaties tussen Seveso-bedrijven",
      "gir": "reg_domino_relatie met veroorzaker en blootgestelde; nooit gebouwd, en nu "
             "vervangen door een losse boolean op de MBA",
+     "gir_im": "wél aanwezig: datum dominoaanwijzing en /domino blootgesteld vanuit [0..*] op Seveso"
+               "-inrichting, met de associatie 'domino veroorzakend naar'",
      "imev": "geen tegenhanger",
      "join": "nee", "waarom": "Een relatie die alleen in GIR bestaat, en daar als vlag in "
              "plaats van als relatie. Welk bedrijf welk ander blootstelt, is in geen van beide "

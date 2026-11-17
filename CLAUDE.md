@@ -99,6 +99,27 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
      een **gemodelleerde associatie**, naast `is gelegen in werkgebied van` en een
      `Overheidsorganisatie` met `heeft werkgebied: vlakOfMultivlak`. Het is hét **databasemodel**
      dat die relatie als GEO-query oplost in plaats van haar op te slaan.
+  **De overlaptabel vergelijkt nu op gelijk niveau.** Zij zette IMEV tegenover het
+  GIR-*databasemodel* — een berichtschema tegenover tabellen — en de moduledocstring zei dat zelf
+  al ("een GIR-kolom en een IMEV-veld zijn niet dezelfde soort ding"), maar deed het toch omdat de
+  informatiemodelkant ontbrak. Elke rij draagt nu `gir_im`, en de pagina toont **drie kolommen**:
+  REV-informatiemodel + schema · GIR-informatiemodel · GIR-databasemodel. De eerste twee zijn van
+  gelijke soort; het **joinoordeel blijft over de registers** gaan en niet over de modellen (3 ja /
+  2 deels / 7 nee, ongewijzigd). Op twee van de twaalf begrippen lopen de twee GIR-artefacten
+  uiteen, en dát is de opbrengst van het scheiden: **de vergunning** (informatiemodel:
+  `Omgevingsvergunning` + `Besluit`; database: buiten scope) en de **domino-relatie**
+  (informatiemodel: `datum dominoaanwijzing` + `/domino blootgesteld vanuit [0..*]` met associatie
+  'domino veroorzakend naar'; database: `reg_domino_relatie` ontworpen maar nooit gebouwd).
+  Twee dingen die de vergelijking op dit niveau opleverde:
+  * **GIR markeert zijn joinbare sleutels zélf als afgeleid.** `/kvk-nummer`,
+    `/vestigingsnummer`, `/rsin` en `/oin` staan met een schuine streep — in UML de notatie voor
+    een afgeleid attribuut. De pagina concludeerde al dat de drie joinbare begrippen op een
+    sleutel van buiten leunen; het GIR-informatiemodel zegt dat onafhankelijk, in notatie.
+  * **De stof heeft in GIR nergens een CAS-nummer.** Niet in het databasemodel (vrije tekst in een
+    sleutel-waardetabel) en niet in het informatiemodel (`Stofcategorie` met code, gevaarsoort en
+    drempelwaarden; `Gevaarlijke stof` met hoeveelheid kennisgeving). IMEV valideert `CASNummer`
+    als eigen type. Dit is het enige van de twaalf begrippen waarvan de GIR-kant er in het
+    informatiemodel **niet** beter uitkomt.
   De `gir`-rij in `LAGEN` zegt nu zelf dat zij over het **databasemodel** gaat en niet over GIR —
   die gelijkstelling ("GIR = fysiek") is precies wat de twee uitspraken liet verschuiven. De
   pagina toont de drie artefacten met dezelfde opmaak als de IMEV-artefacten.

@@ -110,6 +110,11 @@
     .ov .kanten .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
       font-weight:700; margin-bottom:3px; }
     .ov .kanten .g .lbl { color:var(--mag); } .ov .kanten .i .lbl { color:var(--gebeurt); }
+    /* De GIR-informatiemodelkant krijgt de kleur van de modellaag, niet die van het datamodel:
+       zij staat op dezelfde laag als IMEV en dat mag je zien. */
+    .ov .kanten .gim .lbl { color:var(--kan); }
+    .ov .kanten .gim { border-left:2px solid var(--kan); }
+    .ov .kanten .i { border-left:2px solid var(--gebeurt); }
     .ov .waarom { margin-top:10px; padding-top:9px; border-top:1px solid var(--border);
       font-size:13px; color:var(--text); }
     .joinbalk { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; font-size:12.5px;
@@ -220,6 +225,14 @@
       joinen</b> — want zonder gedeelde sleutel is overeenkomst van begrippen alleen een
       gesprek, geen koppeling. Per begrip staat hier wat elk register ervan vastlegt en of de
       twee bij elkaar te brengen zijn.</p>
+    <p class="tekst zacht"><b>Drie kolommen, en de eerste twee zijn van gelijke soort.</b> Deze
+      tabel zette eerst IMEV tegenover het GIR-<i>databasemodel</i> — een berichtschema tegenover
+      tabellen, en dat is geen eerlijke vergelijking. Links staat nu het REV-informatiemodel met
+      zijn schema, in het midden het <b>GIR-informatiemodel</b> (dezelfde laag: klassen met
+      attributen, datatypen en multipliciteit) en rechts het databasemodel. Op twee plekken loopt
+      het midden en rechts uiteen, en dat is informatie: de vergunning en de domino-relatie staan
+      in het informatiemodel wél en in de database niet. Het <b>joinoordeel</b> gaat over de
+      registers, niet over de modellen — een gedeeld begrip is nog geen gedeelde sleutel.</p>
     <div class="joinbalk" id="joinbalk"></div>
     <div id="overlap"></div>
 
@@ -315,9 +328,16 @@
         `<div class="ov ${esc(o.join)}">` +
         `<div class="kop"><h4>${esc(o.begrip)}</h4>` +
         `<span class="chip">${esc(jb[o.join])}</span></div>` +
+        // Drie kanten, in deze orde met opzet: de twee **informatiemodellen** naast elkaar --
+        // dat is de vergelijking van gelijke soort -- en het databasemodel ernaast. Zolang de
+        // tabel alleen IMEV tegenover het datamodel zette, vergeleek zij een berichtschema met
+        // tabellen, en dat zijn niet dezelfde soort ding.
         `<div class="kanten">` +
-        `<div class="g"><div class="lbl">GIR 2.0 · datamodel</div>${esc(o.gir)}</div>` +
-        `<div class="i"><div class="lbl">REV · berichtschema</div>${esc(o.imev)}</div>` +
+        `<div class="i"><div class="lbl">REV · informatiemodel + schema</div>` +
+          `${esc(o.imev)}</div>` +
+        `<div class="gim"><div class="lbl">GIR 2.0 · informatiemodel</div>` +
+          `${esc(o.gir_im || "— niet in het informatiemodel")}</div>` +
+        `<div class="g"><div class="lbl">GIR 2.0 · databasemodel</div>${esc(o.gir)}</div>` +
         `</div><div class="waarom">${esc(o.waarom)}</div></div>`).join("");
 
       $("bevindingen").innerHTML = d.bevindingen.map(b =>

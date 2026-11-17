@@ -214,10 +214,12 @@ def test_bevoegd_gezag_is_in_beide_registers_iets_anders(a):
     assert o["join"] == "nee"
     assert "OIN" in o["gir"] and "enum" in o["imev"]
     # De twee GIR-artefacten doen het verschillend; "GIR" zonder meer is hier niet genoeg.
-    assert "databasemodel" in o["gir"] and "informatiemodel" in o["gir"], (
-        "in het databasemodel is bevoegdheid een GEO-query, in het informatiemodel een "
-        "associatie -- dat onderscheid hoort in de cel, anders is de uitspraak niet te "
-        "controleren")
+    # Het onderscheid tussen de twee GIR-artefacten staat nu in twee kolommen in plaats van in
+    # één cel: het databasemodel lost bevoegdheid op als GEO-query, het informatiemodel draagt
+    # een benoemde associatie. Beide kanten worden apart getoetst.
+    assert "GEO-query" in o["gir"] and "niet uit een opgeslagen verband" in o["gir"]
+    assert "heeft als " in o["gir_im"] and "bevoegd gezag" in o["gir_im"], (
+        "het informatiemodel draagt de relatie wél -- dat hoort in die kolom te staan")
 
 
 # --- GIR is ook meer dan één ding -------------------------------------------------------------
@@ -271,8 +273,8 @@ def test_geen_gir_artefact_belooft_een_publieke_url_die_er_niet_is(a):
 def test_de_vergunning_is_aan_beide_kanten_vastgelegd_maar_onvergelijkbaar(a):
     """**Deze test heette eerst `..._is_eenzijdig_vastgelegd` en bewaakte een onjuiste
     bewering.** De pagina zei dat GIR de vergunningidentificatie laat vallen; de
-    Projectstartarchitectuur GIR 2.0 (november 2023) draagt Omgevingsvergunning plus een Besluit
-    met `Besluitidentificatie`. Het oude `assert "buiten scope" in o["gir"]` bleef na de
+    GIR-informatiemodel (november 2023) draagt Omgevingsvergunning plus een Besluit met
+    `Besluitidentificatie`. Het oude `assert "buiten scope" in o["gir"]` bleef na de
     correctie gewoon slagen -- de nieuwe tekst bevat die woorden óók, over het *databasemodel* --
     dus de test keurde de correctie goed zonder haar te zien. Precies het patroon dat dit
     project het meeste heeft gekost: groen om de verkeerde reden.
@@ -283,8 +285,12 @@ def test_de_vergunning_is_aan_beide_kanten_vastgelegd_maar_onvergelijkbaar(a):
     o = next(x for x in a["overlap"] if x["begrip"] == "De vergunning")
     assert o["join"] == "nee"
     assert "basisVergunningNummer" in o["imev"]
-    assert "Besluitidentificatie" in o["gir"], (
-        "de architectuur draagt de identificatie wél -- dat hoort hier te staan")
+    # De identificatie staat in de informatiemodelkolom; de databasemodelkolom zegt terecht dat
+    # zij daar buiten scope is. Sinds de vergelijking op gelijk niveau wordt getrokken, zijn dat
+    # twee kolommen in plaats van één cel met beide verhalen erin.
+    assert "Besluitidentificatie" in o["gir_im"], (
+        "het informatiemodel draagt de identificatie wél -- dat hoort in die kolom")
+    assert "buiten scope" in o["gir"], "en het databasemodel niet"
     # Op de bewering, niet op een los woord: de tekst mág "eenzijdig" noemen om te zeggen dat
     # zij dat juist níet is -- en die zelfcorrectie is waardevol voor een lezer. Wat hier moet
     # staan is de reden waarom het dán niet joint.
@@ -431,3 +437,61 @@ def test_de_pagina_toont_de_gir_artefacten_en_noemt_haar_eigen_correctie(monkeyp
         "de pagina moet zeggen dát GIR een informatiemodel heeft -- dat is de correctie")
     # De namen van de artefacten komen uit de API, niet uit de HTML.
     assert "databasemodel (ICTU" not in r.text, "de artefactnamen horen uit /api/modellen te komen"
+
+
+# --- de vergelijking op niveau informatiemodel -------------------------------------------------
+
+def test_elke_overlaprij_noemt_ook_het_gir_informatiemodel(a):
+    """**De vergelijking doorgetrokken op gelijk niveau.** Deze tabel zette IMEV tegenover het
+    GIR-*databasemodel*: een berichtschema tegenover tabellen. De module zei dat zelf al in haar
+    docstring ("een GIR-kolom en een IMEV-veld zijn niet dezelfde soort ding"), maar deed het
+    toch, omdat de informatiemodelkant ontbrak. Nu staat per begrip ook wat het
+    GIR-informatiemodel vastlegt -- dezelfde laag als IMEV."""
+    for o in a["overlap"]:
+        assert o.get("gir_im"), f"{o['begrip']} mist de informatiemodelkant"
+        assert len(o["gir_im"]) > 30, f"{o['begrip']}: te kort om iets te zeggen"
+
+
+def test_de_informatiemodelkant_noemt_klassen_en_niet_tabellen(a):
+    """De twee kolommen moeten van elkaar te onderscheiden zijn: het informatiemodel spreekt in
+    klassen en attributen, het databasemodel in reg_-tabellen. Lopen die door elkaar, dan is de
+    scheiding alleen een kopje."""
+    met_klasse = [o for o in a["overlap"] if "klasse" in o["gir_im"]]
+    assert len(met_klasse) >= 8, "het informatiemodel hoort in klassen te spreken"
+    for o in a["overlap"]:
+        assert "reg_" not in o["gir_im"], (
+            f"{o['begrip']}: een reg_-tabel in de informatiemodelkolom -- dat is de andere laag")
+
+
+def test_twee_begrippen_lopen_tussen_de_twee_gir_artefacten_uiteen(a):
+    """Dát is wat het scheiden oplevert. De vergunning en de domino-relatie staan in het
+    informatiemodel wél en in het databasemodel niet -- in het ene geval buiten scope, in het
+    andere ontworpen maar nooit gebouwd."""
+    vergunning = next(o for o in a["overlap"] if o["begrip"] == "De vergunning")
+    assert "buiten scope" in vergunning["gir"]
+    assert "informatiemodel" not in vergunning["gir"], (
+        "de databasemodelkolom hoort alleen over het databasemodel te gaan -- anders is de "
+        "scheiding in kolommen alleen een kopje")
+    assert "Besluitidentificatie" in vergunning["gir_im"]
+    domino = next(o for o in a["overlap"] if "Domino" in o["begrip"])
+    assert "nooit gebouwd" in domino["gir"] or "geschrapt" in domino["gir"]
+    assert "wél aanwezig" in domino["gir_im"]
+
+
+def test_de_pagina_toont_drie_kanten_en_zegt_waarom_twee_ervan_gelijkwaardig_zijn(monkeypatch):
+    import re as _re
+    r = _client(monkeypatch).get("/modellen")
+    plat = _re.sub(r"\s+", " ", r.text)
+    assert "GIR 2.0 · informatiemodel" in plat
+    assert "REV · informatiemodel + schema" in plat
+    assert "GIR 2.0 · databasemodel" in plat
+    assert "de eerste twee zijn van gelijke soort" in plat
+    assert "o.gir_im" in r.text, "de kolom hoort uit de API te komen"
+
+
+def test_het_joinoordeel_gaat_over_de_registers_en_niet_over_de_modellen(monkeypatch):
+    """Een gedeeld begrip is nog geen gedeelde sleutel. Zonder die zin kan een lezer denken dat
+    de nieuwe kolom het joinoordeel verandert -- en dat doet zij niet."""
+    import re as _re
+    plat = _re.sub(r"\s+", " ", _client(monkeypatch).get("/modellen").text)
+    assert "gaat over de registers, niet over de modellen" in plat
