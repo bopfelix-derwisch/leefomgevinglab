@@ -45,6 +45,7 @@ from leefomgevinglab.connectors.ozon import OzonConnector
 from leefomgevinglab.connectors.stelselcatalogus import StelselcatalogusConnector
 from leefomgevinglab.usecases import begrippen as begrippen_mod
 from leefomgevinglab.usecases import onderwater as onderwater_mod
+from leefomgevinglab.usecases import maquette as maquette_mod
 from leefomgevinglab.usecases import water_hub as water_hub_mod
 from leefomgevinglab.usecases import waterpresentatie as waterpresentatie_mod
 from leefomgevinglab.usecases import stoffengraaf as stoffengraaf_mod
@@ -268,7 +269,10 @@ def _keten_tab(dossier: str) -> str:
     nav = water_hub_mod.subnav_html("keten") if dossier == "lozing" else ""
     tegenhanger = ('<a href="/lozing">Doelbeeld lozing</a>' if dossier == "dvth"
                    else '<a href="/dvth">Doelbeeld D-VTH</a>')
-    kruisnav = tegenhanger + '<a href="/kwaliteit">Kwaliteit</a>'
+    # De maquette hoort bij de doelbeelden: /dvth en /lozing zijn één dossier door de keten, de
+    # maquette is het stelsel eromheen in de tijd. Daarom staat zij in dezelfde kruisnav.
+    kruisnav = (tegenhanger + '<a href="/maquette">Maquette 2037</a>'
+                + '<a href="/kwaliteit">Kwaliteit</a>')
     return (sjabloon.replace("__DOSSIER__", dossier)
             .replace("__WATERNAV__", nav)
             .replace("__KRUISNAV__", kruisnav))
@@ -277,6 +281,28 @@ def _keten_tab(dossier: str) -> str:
 @app.get("/dvth", response_class=HTMLResponse)
 def dvth_page():
     return _keten_tab("dvth")
+
+
+@app.get("/maquette", response_class=HTMLResponse)
+def maquette_page():
+    """De doelarchitectuur stelsel leefomgeving 2037 als maquette, met de transitie als derde as.
+
+    Hoort bij de doelbeelden (`/dvth`, `/lozing`) maar stelt een andere vraag: niet hoe één
+    dossier door de keten loopt, maar wie in 2037 wat doet en wat er tussen nu en dan besloten
+    moet worden. Geen eigen template -- de pagina is zelfstandig omdat haar vorm (plateaus in de
+    diepte) niets deelt met de ketenplaat."""
+    return (Path(__file__).parent.parent / "static" / "maquette.html").read_text()
+
+
+@app.get("/api/maquette")
+def api_maquette():
+    """Het hele model: vijf plateaus met hun beeld, de voorzieningen met hun gaps, de begrippen
+    eromheen en de herkomst per onderdeel.
+
+    Geen bron en geen netwerk: dit is een modelstuk uit twee documenten, met de fasetekst
+    geciteerd en de plaatsing in lagen als lezing van dit lab gemarkeerd (zie
+    `usecases/maquette.py`)."""
+    return maquette_mod.maquette()
 
 
 @app.get("/lozing", response_class=HTMLResponse)

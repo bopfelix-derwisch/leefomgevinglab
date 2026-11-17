@@ -143,6 +143,39 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   `test_de_vergunning_is_aan_beide_kanten_vastgelegd_maar_onvergelijkbaar` en pint de inhoudelijke
   positie.
 - 🚧 **Doelbeeld D-VTH (`/dvth`, `/api/dvth/architectuur`):** doelarchitectuur voor één MBA Seveso-inrichting — DSO-loket → zaaksysteem OD → Data.OD → analyse/beoordeling → besluit als STOP/TPOD met uit IMEV afgeleid objectmodel → omgebouwd REV → GIR/LBR → LHSO, met CIM-VTH-Flo als informatiemodel. Interactieve architectuurplaat (17 componenten, 17 koppelvlakken), de keten in 8 stappen en een roadmap van 23 features. Data in `usecases/dvth.py`. **Het ketentje draait**: `GET /api/dvth/keten?live=1&straal=1000` doorloopt alle 8 stappen in ~1,4 s, met live bevraging van REV-WFS (DWITHIN) en BAG (bbox) op het RD-punt in stap 3; `live=0` slaat dat over en is reproduceerbaar. Code in `usecases/dvth_keten/` (casus, cim, bronnen, tpod, lbr, lhso, stappen, motor). Straal begrensd op 5000 m.
+- ✅ **Maquette stelsel 2037 (`/maquette`, `/api/maquette`):** de doelarchitectuur stelsel
+  leefomgeving 2037 als schaalmodel waar je **door de tijd reist**. Vijf **plateaus** (2026 ·
+  2027 · 2028-2030 · 2031-2033 · 2034-2037) liggen achter elkaar in de diepte; op elk plateau
+  staan de voorzieningen verdeeld over drie lagen (aanbod · knooppunt · vraag), en tussen twee
+  plateaus zit een **gap**. Dat zijn geen zelfbedachte beelden maar de staande begrippen van deze
+  wereld: ArchiMate kent in zijn Implementation & Migration-uitbreiding `Plateau` en `Gap`, TOGAF
+  noemt hetzelfde een *Transition Architecture*. Hoort bij de doelbeelden (`/dvth`, `/lozing`) en
+  staat in hun kruisnav, maar stelt een andere vraag: niet hoe één dossier door de keten loopt,
+  maar wie in 2037 wat doet en wat er tussen nu en dan besloten moet worden.
+  **Bronnen:** `Doelarchitectuur stelsel LO 2037 en roadmap v0.1` (concept, nov 2026) en `BALO
+  businessarchitectuur v1.0`. Beide intern aangeleverd, **geen publieke URL, niet in de repo**.
+  De fasetekst per voorziening is **geciteerd**, niet samengevat.
+  **⚠️ Wat van het lab is, en waarom dat ertoe doet:** de bron plaatst de voorzieningen **niet**
+  in lagen. Die plaatsing per plateau — en dus de beweging die de maquette toont — is een lezing
+  van dit lab op de geciteerde fasetekst (een REV waarvan bronhouders zelf leveren schuift naar
+  aanbod; een Atlas waarvan de presentatie naar DSO-LV verschuift beweegt naar vraag). `HERKOMST`
+  markeert per onderdeel `bron` of `lab`, en de pagina toont die tabel. Zonder die beweging zou
+  het transitiepad een plaat zijn waarin niets verandert; een test eist daarom dat **minstens
+  drie** voorzieningen van laag wisselen (nu 6 van 10) én dat niet álles beweegt.
+  **Afgeleid, nooit getypt:** `gaps()` leidt elke overgang af uit `lagen` (verschuift / vervalt),
+  zodat een gap niet uit de pas kan lopen met de plateaus die hij verbindt. `VASTSTAAND` houdt
+  de drie dingen die de bron zelf vaststaand noemt (offerteperiode D-VTH 2027-2030, visie DSO
+  2032, eindbeeld 2037) apart van al het andere, dat **voorstel ter toetsing** is. Een `?` bij
+  een rol in 2037 blijft open — dit lab vult die niet in (nu 7 van 10 open). Tijdens het schrijven
+  typte ik zelf "de negen voorzieningen" bij tien rijen; een test scant de moduletekst daar nu op.
+  **Vorm:** CSS-3D-transforms, **geen WebGL-bibliotheek** — de blokken blijven echte
+  DOM-elementen, dus labels blijven scherp, ze zijn met het toetsenbord te bereiken en er is geen
+  afhankelijkheid. Reizen kan met de tijdbalk én met de pijltjestoetsen; slepen draait de
+  maquette; `prefers-reduced-motion` wordt gerespecteerd. **Let op bij het bewerken van de
+  kantelhoek:** bij `rotateX(58deg)` lagen de platen zo vlak dat de labels onleesbaar werden —
+  34° leest als een maquette op tafel. De drie banden zijn een flexkolom en géén absolute
+  `top`-waarden: bij smalle schermen breken de blokken over meer regels af, en met vaste hoogtes
+  liepen de banden in elkaar.
 - 🚧 **Doelbeeld directe lozing (`/lozing`, `/api/lozing/{architectuur,keten}`):** spiegeldossier van D-VTH — één lozingsactiviteit op een rijkswater (IJssel bij Deventer), RWS namens de minister als bevoegd gezag. Kern: de **knip** (gemeente doet de MBA, waterbeheerder de lozing, geen koppelvlak ertussen), ABM + immissietoets i.p.v. afstandscirkels, **Aquo** i.p.v. IMEV als annotatiebron, en een **Register Lozingen dat niet bestaat**. Stap 2/3 leiden het bevoegd gezag **live** af: een treffer in de KRW-service van RWS (89 rijkswaterlichamen) betekent rijkswater → minister; PDOK bestuurlijke gebieden geeft de gemeente. Code: `usecases/lozing.py` + `usecases/lozing_keten/`.
 - **Gedeelde ketenkern** (`usecases/ketenkern/`): `cim` (objectbibliotheek met validatie tegen het CIM), `lhso` (interventiematrix), `wfs` (WFS-helpers met retries) en `motor` (dossier-onafhankelijk; een dossier levert DOSSIER/CASUS/STAPPEN/ANNOTATIES). Beide tabs draaien op **één sjabloon** `static/keten-tab.html`; de route vervangt `__DOSSIER__` en alle teksten komen uit `PRESENTATIE` in het architectuurmodule. Een derde dossier kost daarmee alleen een architectuur- en een ketenmodule.
 - ✅ **BALO-redeneerlijnen (`/balo`, `/api/balo/overzicht`):** beide doelbeeld-casussen geplot op het redeneermodel van de BALO-businessarchitectuur v0.9 (concept, RWS/WVL). Per ketenstap links **redeneerlijn 2** (waardestroom W1–W8 → informatiebehoefte → informatiefuncties uit de gesloten set van 9) en rechts **redeneerlijn 3** (informatieobjecten → registers, met status bestaat/moet om/bestaat niet). Plus de gedeelde knelpunten (stappen waar béíde ketens vastlopen), een besluitenkwadrant kosten × waarde met 7 besluiten, en de vijf vragen die BALO zelf aan management stelt. Kern van de pagina is de **informatiebehoefte als spil**: 16 behoeften (één per ketenstap), elk met eigenaar, waarde-als-het-lukt, kosten-als-het-niet-lukt en status (voldaan/deels/niet). Analysefuncties `behoeften()`, `cyclus()`, `waardeoverzicht()`, `besluitwaarde()` en `onbediend()`. Uitkomst: 2 voldaan / 6 deels / 8 niet; 5 van 8 waardestromen geraakt (W1, W3, W8 niet); W5 is het zwartste gat met 5 onvervulde behoeften. De waarde van een besluit is niet beweerd maar afgeleid uit de behoeften die het bedient — een test dwingt af dat waarde=hoog ≥2 behoeften betekent. Data in `usecases/balo.py`. NB: structuur en begrippen komen uit het document, de koppeling aan de casussen en de kosten-batenafweging zijn van dit lab — dat onderscheid staat ook op de pagina.
