@@ -87,3 +87,72 @@ def test_de_anatomie_is_een_lid_van_het_waterdossier():
     lid = next(l for l in leden if l["pad"] == "/onderwater")
     assert lid["label"] and lid["titel"] and lid["samenvatting"]
     assert lid["live"] and lid["synthetisch"]
+
+
+# -- Het waterdossier: informatiemodel en kennisgraaf -------------------------------------------
+
+def test_het_waterdossier_staat_op_een_eigen_eindpunt():
+    """Apart van `/api/onderwater`, en met opzet: die is instant (YAML en constanten), deze heeft
+    bronnen nodig. Ze samenvoegen zou de hele pagina laten wachten op iets wat onderaan staat."""
+    d = _client().get("/api/onderwater/waterdossier").json()
+    assert d["informatiemodel"]["zekerheden"], "de constanten horen er altijd te zijn"
+    assert [g["id"] for g in d["grafen"]] == ["stoffen", "toezicht"]
+
+
+def test_de_route_bouwt_de_toezichtgraaf_niet_om_een_uitlegpagina_te_vullen():
+    """**De belangrijkste eigenschap van dit eindpunt.** Een uitlegpagina die een graaf van
+    73.000 triples opbouwt omdat iemand haar opent, is zelf het probleem dat zij beschrijft -- en
+    live kost dat ~9 s plus een coördinaatopzoeking per vergunning. Alleen wat al in het geheugen
+    zit gaat mee; anders staat de sectie er met `nog_niet_geteld` aan."""
+    import leefomgevinglab.geluidsmeter.api as api_mod
+    api_mod._TOEZICHTGRAAF.update({"graaf": None, "gebouwd_op": 0.0, "bron": None, "telling": {}})
+    d = _client().get("/api/onderwater/waterdossier").json()
+    tz = next(g for g in d["grafen"] if g["id"] == "toezicht")
+    assert tz["nog_niet_geteld"] is True
+    assert not tz["telling"]
+    # De klassen komen uit het model en zijn dus altijd bekend, ook zonder graaf.
+    assert "Signaal" in tz["klassen"] and "Overschrijding" in tz["klassen"]
+
+
+def test_een_onbereikbare_aquo_tabel_laat_de_sectie_staan(monkeypatch):
+    """Zelfde regel als elders in dit lab: een bron die wegvalt maakt de uitleg niet onzichtbaar,
+    hij maakt haar ongeteld."""
+    import leefomgevinglab.geluidsmeter.api as api_mod
+
+    def valt_om(*a, **k):
+        raise OSError("aquo onbereikbaar")
+
+    monkeypatch.setattr(api_mod.stoffengraaf_mod, "bouw", valt_om)
+    d = _client().get("/api/onderwater/waterdossier").json()
+    st = next(g for g in d["grafen"] if g["id"] == "stoffen")
+    assert st["nog_niet_geteld"] is True
+    assert st["wat"] and st["waarom_graaf"], "de uitleg blijft, de cijfers niet"
+
+
+def test_de_pagina_rendert_het_informatiemodel_en_de_grafen_uit_de_api():
+    """Zelfde eis als de rest van deze pagina: geen veldnaam, geen zekerheid en geen klasse
+    hardgecodeerd in de HTML. Zou dat wel zo zijn, dan kan de pagina iets anders zeggen dan het
+    model doet -- en dan is 'uitleggen wat er onder water gebeurt' een holle belofte."""
+    r = _client().get("/onderwater")
+    assert 'id="informatiemodel"' in r.text and 'id="grafen"' in r.text
+    assert "/api/onderwater/waterdossier" in r.text
+    # Wat deze test wél kan bewaken: dat de veldenlijst en de klassen niet in de HTML staan.
+    # Twee dingen mogen er met opzet in voorkomen en zijn hier dus uitgezonderd: de zekerheden
+    # verschijnen als CSS-klasse (afgeleid uit de waarde zelf, zodat kleur en model niet uit de
+    # pas kunnen lopen), en "hoedanigheid" staat in één prozazin over de aanname die meereist --
+    # die zin gaat over het veld en is geen tweede vastlegging ervan.
+    for naam in ("lozingspunt", "bemonsteringstermen\"", "Gevaarlijke stof"):
+        assert naam not in r.text, f"{naam} hoort uit de API te komen"
+    assert "Stoffengraaf" not in r.text and "Toezichtgraaf" not in r.text, (
+        "de graafnamen komen uit /api/onderwater/waterdossier")
+    assert "t:Vestiging" not in r.text, "de klassen komen uit het model"
+    assert "g.klassen" in r.text and "im.velden" in r.text, (
+        "en de pagina moet ze wél uit de API lezen")
+
+
+def test_de_pagina_laadt_het_waterdossier_apart_van_de_hoofdanatomie():
+    """De hoofdanatomie is instant; deze sectie heeft bronnen nodig. In één fetch zou de hele
+    pagina wachten op iets wat onderaan staat."""
+    r = _client().get("/onderwater")
+    assert "laadWaterdossier()" in r.text
+    assert r.text.count("async function laad") >= 2, "twee aparte laadfuncties"

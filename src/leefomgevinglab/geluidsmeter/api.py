@@ -1069,6 +1069,32 @@ def onderwater_page():
     return _waterpagina("onderwater.html", "onderwater")
 
 
+@app.get("/api/onderwater/waterdossier")
+def api_onderwater_waterdossier():
+    """Het informatiemodel en de twee grafen van het waterdossier.
+
+    **Apart eindpunt, en met opzet.** `/api/onderwater` is nu instant: het leest YAML en
+    constanten. Deze sectie heeft bronnen nodig -- de Aquo-domeintabel voor de stoffengraaf, en
+    voor de toezichtgraaf een bestand van 2,4 MB of een live bouw van ~9 s. Dat in de
+    hoofdanatomie trekken zou de hele pagina laten wachten op iets wat onderaan staat.
+
+    **De toezichtgraaf wordt hier niet geláden.** Alleen als hij al in het geheugen zit, gaan zijn
+    tellingen mee; anders staat de sectie er met `nog_niet_geteld` aan. Een uitlegpagina mag geen
+    graaf van 73.000 triples opbouwen omdat iemand haar opent -- dan is zij zelf het probleem dat
+    zij beschrijft. Wie de cijfers wil, stelt een vraag op `/toezicht`; dan is de graaf warm."""
+    kmg = _config.get("leefomgevinglab", {}).get("kmg", {})
+    try:
+        stoffen = stoffengraaf_mod.bouw(kmg.get("aquo_csv_pad"))
+    except Exception as exc:                        # noqa: BLE001 -- bron mag wegvallen
+        stoffen = None
+        _ = exc
+    # Niet `_toezicht_graaf()`: dat zou hem bouwen. Alleen wat er al staat.
+    toezicht_telling = _TOEZICHTGRAAF["telling"] or None
+    return {**onderwater_mod.waterdossier(stoffengraaf=stoffen,
+                                           toezichtgraaf=toezicht_telling),
+            "graaf_bron": _TOEZICHTGRAAF["bron"]}
+
+
 @app.get("/api/onderwater")
 def api_onderwater():
     """De hele anatomie in één gegeven. Leest dezelfde YAML als de runner en dezelfde

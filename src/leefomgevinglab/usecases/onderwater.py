@@ -434,3 +434,148 @@ def anatomie(agents_pad: str, tasks_pad: str, config: dict) -> dict:
         "config": _config_uit(config),
         "onderdelen": ONDERDELEN,
     }
+
+
+# -- Het waterdossier: het informatiemodel en de twee grafen ------------------------------------
+#
+# `/onderwater` legde de twee signaalpagina's uit. Het waterdossier draagt daarnaast twee dingen
+# die nergens samen worden uitgelegd, en die je nodig hebt om te begrijpen waarom een getal op
+# `/kmg` of `/toezicht` staat zoals het staat: een informatiemodel dat per veld een zekerheid
+# meevoert, en twee grafen met een verschillend doel.
+
+#: Per veld van een gedataficeerd lozingsvoorschrift: de hoogste zekerheid die het kan halen, en
+#: waarom. **Dit is de kern van dat model.** Twee velden kunnen per bron nooit "uit de bron" zijn,
+#: en dat is geen gebrek van dit lab maar van de bron -- zichtbaar maken is het hele punt.
+#: `hoogste_zekerheid` wordt tegen `lozingsmodel.ZEKERHEDEN` getoetst, zodat hier geen waarde kan
+#: staan die het model niet kent.
+VELDEN_ZEKERHEID = [
+    {"veld": "parameter", "hoogste_zekerheid": "afgeleid",
+     "waarom": "de bron geeft een naam; de Aquo-code eronder is een koppeling op die naam, dus "
+               "afgeleid en niet gelezen"},
+    {"veld": "hoedanigheid", "hoogste_zekerheid": "aangenomen",
+     "waarom": "geen enkele parameternaam in het Maasstroomgebied zegt of het om de totale of "
+               "de opgeloste fractie gaat. Voor zink is dat bepalend, want de KRW-norm geldt op "
+               "de opgeloste fractie"},
+    {"veld": "eenheid", "hoogste_zekerheid": "uit de bron",
+     "waarom": "staat er letterlijk, inclusief een schrijffout die als zodanig genoteerd is"},
+    {"veld": "waarde", "hoogste_zekerheid": "uit de bron",
+     "waarom": "de grenswaarde zelf; het enige veld waar niets aan te interpreteren valt"},
+    {"veld": "grondslag", "hoogste_zekerheid": "afgeleid",
+     "waarom": "uit de bemonsteringsterm: een verzamelmonster over een etmaal is een "
+               "etmaalgemiddelde, een steekmonster is momentaan. Dat bepaalt welke grenswaarde "
+               "geldt als er meerdere zijn"},
+    {"veld": "lozingspunt", "hoogste_zekerheid": "uit de bron",
+     "waarom": "de coördinaat van het voorschrift"},
+    {"veld": "geldigheid", "hoogste_zekerheid": "ontbreekt",
+     "waarom": "er is geen begin- en einddatum per voorschrift, alleen een besluitdatum per "
+               "vergunning. Een vervallen voorschrift is dus niet van een geldend te "
+               "onderscheiden"},
+]
+
+#: Wat elke zekerheid betekent. De reeks zelf komt uit `lozingsmodel.ZEKERHEDEN`.
+ZEKERHEID_UITLEG = {
+    "uit de bron": "staat letterlijk in het voorschrift; hier valt niets te interpreteren",
+    "afgeleid": "via een referentietabel of een regel uit de bron bepaald -- navolgbaar, maar "
+                "niet gelezen",
+    "aangenomen": "een keuze van dit lab, met de reden erbij. Zij reist mee zodat een lezer haar "
+                  "kan verwerpen",
+    "ontbreekt": "de bron geeft dit niet. Niet leeg laten maar als ontbrekend tonen, anders ziet "
+                 "een onvolledige vergunning er netjes uit",
+}
+
+
+def _stoffengraaf_deel(gegeven: dict | None) -> dict:
+    """De stoffengraaf als referentiegraaf: stof → CAS → Aquo-parameter, met per rand de bron."""
+    deel = {
+        "id": "stoffen", "soort": "referentiegraaf", "naam": "Stoffengraaf",
+        "pagina": "/kennisgraaf",
+        "wat": "de stoffen uit de E-PRTR-verordening, hun CAS-nummers en de Aquo-parameters "
+               "waaraan die hangen -- drie lagen die elk een eigen naamgeving hebben voor "
+               "dezelfde stof.",
+        "waarom_graaf": "een tabel kan vastleggen dát twee namen bij elkaar horen; zij kan niet "
+                        "vastleggen op wiens gezag. Hier draagt elke rand een herkomst, en "
+                        "daarmee is een koppeling te verwerpen in plaats van te geloven. Het "
+                        "levert ook iets op wat een tabel niet geeft: een somparameter met zijn "
+                        "delen, zodat dubbeltelling te zien is in plaats van te gebeuren.",
+        "nog_niet_geteld": gegeven is None,
+        "telling": {},
+        "herkomsten": [],
+    }
+    if gegeven is None:
+        return deel
+    knopen, randen = gegeven.get("knopen") or [], gegeven.get("randen") or []
+    per_soort: dict[str, int] = {}
+    for k in knopen:
+        per_soort[k.get("soort", "onbekend")] = per_soort.get(k.get("soort", "onbekend"), 0) + 1
+    deel["telling"] = {
+        "knopen": len(knopen),
+        "randen": len(randen),
+        "per_soort": per_soort,
+        # Een rand zonder herkomst is een bewering zonder bron. Door beide te tellen is het
+        # verschil zichtbaar in plaats van te moeten worden aangenomen.
+        "randen_met_herkomst": sum(1 for r in randen if r.get("herkomst")),
+        **{k: v for k, v in (gegeven.get("telling") or {}).items()},
+    }
+    deel["herkomsten"] = sorted({r["herkomst"] for r in randen if r.get("herkomst")})
+    return deel
+
+
+def _toezichtgraaf_deel(telling: dict | None) -> dict:
+    """De toezichtgraaf als registergraaf: de vergunningen, metingen en signalen zelf."""
+    return {
+        "id": "toezicht", "soort": "registergraaf", "naam": "Toezichtgraaf",
+        "pagina": "/toezicht",
+        "wat": "het Maas-lozingenregister zelf: vergunningen met hun voorschriften, de "
+               "metingen, de normen, de vastgestelde overschrijdingen en de signalen van beide "
+               "lezers -- met per onzeker feit een eigen knooppunt dat de zekerheid draagt.",
+        "waarom_graaf": "twee dingen die een tabel niet geeft. De zekerheid hangt aan de "
+                        "bewéring en niet aan de rij, dus 'welke grenswaarden zijn aangenomen "
+                        "in plaats van gelezen' is een gewone vraag. En een vraag kan over de "
+                        "twee lezers heen lopen: welke vergunning heeft iets aan het papier én "
+                        "een meting boven de norm. Dat laatste kon pas toen de signalen in de "
+                        "graaf kwamen.",
+        "klassen": sorted(k for k in ("Vestiging", "Voorschrift", "Bewering", "Meting", "Norm",
+                                       "Signaal", "Overschrijding")),
+        "nog_niet_geteld": telling is None,
+        "telling": dict(telling or {}),
+    }
+
+
+def waterdossier(stoffengraaf: dict | None = None,
+                  toezichtgraaf: dict | None = None) -> dict:
+    """Het informatiemodel en de twee grafen van het waterdossier, voor `/onderwater`.
+
+    Beide argumenten komen van buiten (de route haalt ze op), zodat deze module geen bron
+    aanraakt -- dezelfde regel als de rest van `onderwater.py`. Ontbreken ze, dan staat de sectie
+    er nog steeds, met `nog_niet_geteld` aan: de pagina mag niet wachten op een graaf, en mag ook
+    niet doen alsof die leeg is.
+
+    Het informatiemodel heeft geen bron nodig: dat zijn constanten uit `kmg.lozingsmodel`, en de
+    tellingen eromheen worden daaruit afgeleid in plaats van hier opgeschreven.
+    """
+    from leefomgevinglab.usecases.kmg import lozingsmodel as lm
+
+    for veld in VELDEN_ZEKERHEID:
+        assert veld["hoogste_zekerheid"] in lm.ZEKERHEDEN, veld["veld"]
+
+    return {
+        "informatiemodel": {
+            "naam": "Informatiemodel lozingsvoorschriften",
+            "pagina": "/watermodel",
+            "wat": "wat een lozingsvoorschrift als gegeven is -- welke stof, welke hoedanigheid, "
+                   "welke eenheid, welke grondslag, welke waarde, waar en wanneer geldig.",
+            "waarom": "en vooral: hoe zeker we daarvan zijn. Elk veld draagt een zekerheid. Een "
+                      "model dat alleen de velden vastlegt, maakt een onvolledige vergunning er "
+                      "netjes uitziend; een model dat de zekerheid meevoert, maakt zichtbaar wat "
+                      "er mist. Dat is geen nette bijkomstigheid maar de reden dat dit model "
+                      "bestaat.",
+            "zekerheden": [{"naam": z, "wat": ZEKERHEID_UITLEG[z]} for z in lm.ZEKERHEDEN],
+            "velden": VELDEN_ZEKERHEID,
+            "hoedanigheid_aanname": dict(lm.HOEDANIGHEID_AANNAME),
+            "aantal_eenheden": len(lm.EENHEDEN),
+            "aantal_bemonsteringstermen": len(lm.GRONDSLAGEN),
+            "aantal_grondslagen": len(set(lm.GRONDSLAGEN.values())),
+            "waar": "usecases/kmg/lozingsmodel.py",
+        },
+        "grafen": [_stoffengraaf_deel(stoffengraaf), _toezichtgraaf_deel(toezichtgraaf)],
+    }
