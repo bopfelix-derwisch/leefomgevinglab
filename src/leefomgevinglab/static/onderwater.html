@@ -168,6 +168,39 @@
       .wrap { padding:0 14px 50px; }
       .paginas { grid-template-columns:1fr; }
     }
+    /* Informatiemodel: per veld de hoogste zekerheid die het kan halen. De twee velden die
+       nooit 'uit de bron' kunnen zijn, zijn het punt -- die krijgen kleur. */
+    .zek { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
+    .zek .z { background:var(--panel); border:1px solid var(--border); border-radius:8px;
+      padding:9px 12px; flex:1 1 200px; }
+    .zek .z .naam { font-size:12.5px; font-weight:700; color:#eafff6; }
+    .zek .z .wat { font-size:11.5px; color:var(--muted); margin-top:3px; }
+    .veldtabel td.bron { color:var(--accent); }
+    .veldtabel td.afgeleid { color:var(--werkelijk); }
+    .veldtabel td.aangenomen { color:var(--papier); font-weight:600; }
+    .veldtabel td.ontbreekt { color:var(--weg); font-weight:600; }
+    .aanname { margin-top:11px; background:var(--panel2); border:1px solid var(--papier);
+      border-radius:9px; padding:11px 14px; font-size:12.5px; color:var(--text); }
+    .aanname b { color:var(--papier); }
+    .modelvoet { font-size:11.5px; color:var(--dim); margin-top:10px; }
+    .modelvoet code { font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+
+    .graaf { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; margin-bottom:10px; }
+    .graaf .kop { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+    .graaf .kop h3 { font-size:15px; color:#eafff6; }
+    .graaf .soort { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+      padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--dim); }
+    .graaf .wat { font-size:13px; color:var(--text); margin-top:7px; max-width:78ch; }
+    .graaf .waarom { font-size:13px; color:var(--muted); margin-top:7px; max-width:78ch;
+      border-left:2px solid var(--accent2); padding-left:11px; }
+    .graaf .cijfers { margin-top:11px; display:flex; gap:16px; flex-wrap:wrap; }
+    .graaf .cijfer { font-size:11px; color:var(--dim); }
+    .graaf .cijfer b { display:block; font-size:18px; color:var(--text); font-weight:800;
+      line-height:1.25; font-variant-numeric:tabular-nums; }
+    .graaf .klassen, .graaf .bronnen { font-size:11.5px; color:var(--muted); margin-top:9px; }
+    .graaf .klassen code { font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:11px; }
+    .graaf .ongeteld { font-size:11.5px; color:var(--papier); margin-top:9px; }
   </style>
 </head>
 <body>
@@ -229,6 +262,19 @@
       waar zij gelezen wordt — zonder vindplaats is een bronnenlijst niet te controleren, en
       controleerbaar maken is de hele reden dat deze pagina bestaat.</p>
     <div id="bronnen"></div>
+
+    <div class="section-title">Het informatiemodel van het waterdossier</div>
+    <p class="section-noot">De twee pagina's hierboven rusten op één model van wat een
+      <b>lozingsvoorschrift</b> is. Het bijzondere eraan is niet welke velden het vastlegt, maar
+      dat elk veld een <b>zekerheid</b> meevoert. Een model dat alleen velden vastlegt, laat een
+      onvolledige vergunning er netjes uitzien.</p>
+    <div id="informatiemodel"></div>
+
+    <div class="section-title">De kennisgraaf — twee grafen, twee doelen</div>
+    <p class="section-noot">"De kennisgraaf" bestaat niet: er zijn <b>twee</b> grafen met een
+      ander doel, en ze verwisselen leidt tot de verwachting dat je aan de ene kant vragen kunt
+      stellen die alleen aan de andere te beantwoorden zijn.</p>
+    <div id="grafen"></div>
 
     <div class="section-title">De configuratiesleutels die het gedrag bepalen</div>
     <p class="section-noot">Een <b>witte lijst</b>, geen sectiedump: het configuratiebestand
@@ -415,6 +461,78 @@
       ).join("");
     }
 
+    function tekenInformatiemodel(im) {
+      const zek = (im.zekerheden || []).map(z =>
+        `<div class="z"><div class="naam">${esc(z.naam)}</div>` +
+        `<div class="wat">${esc(z.wat)}</div></div>`).join("");
+      // De klasse op de cel komt uit de waarde zelf, niet uit een eigen lijst: zo kan de
+      // kleurcodering niet uit de pas lopen met wat het model zegt.
+      const rijen = (im.velden || []).map(v =>
+        `<tr><td class="naam">${esc(v.veld)}</td>` +
+        `<td class="${esc(v.hoogste_zekerheid.split(" ").pop())}">` +
+          `${esc(v.hoogste_zekerheid)}</td>` +
+        `<td>${esc(v.waarom)}</td></tr>`).join("");
+      const h = im.hoedanigheid_aanname || {};
+      $("informatiemodel").innerHTML =
+        `<div class="zek">${zek}</div>` +
+        `<div class="tabelhuls"><table class="rijen veldtabel"><thead><tr>` +
+          `<th>veld</th><th>hoogste zekerheid</th><th>waarom niet hoger</th>` +
+        `</tr></thead><tbody>${rijen}</tbody></table></div>` +
+        `<div class="aanname"><b>De aanname die meereist.</b> De hoedanigheid wordt gelezen als ` +
+          `<code>${esc(h.code || "")}</code>: ${esc(h.herkomst || "")}</div>` +
+        `<div class="modelvoet">${esc(im.aantal_eenheden)} eenheden, ` +
+          `${esc(im.aantal_bemonsteringstermen)} bemonsteringstermen die op ` +
+          `${esc(im.aantal_grondslagen)} grondslagen uitkomen. ` +
+          `Code: <code>${esc(im.waar)}</code> — de memo erachter staat op ` +
+          `<a href="${esc(im.pagina)}">${esc(im.pagina)}</a>.</div>`;
+    }
+
+    function tekenGrafen(grafen) {
+      $("grafen").innerHTML = (grafen || []).map(g => {
+        // Welke cijfers een graaf heeft verschilt per graaf, dus ze worden gelezen in plaats van
+        // verondersteld. Een lege telling levert geen nul op maar een melding.
+        const labels = { knopen: "knopen", randen: "randen",
+          randen_met_herkomst: "met herkomst", triples: "triples",
+          vestigingen: "vergunningen", voorschriften: "voorschriften",
+          signalen: "signalen", overschrijdingen: "overschrijdingen" };
+        const cijfers = Object.keys(labels)
+          .filter(k => (g.telling || {})[k] != null)
+          .map(k => `<div class="cijfer"><b>${esc(g.telling[k])}</b>${esc(labels[k])}</div>`)
+          .join("");
+        return `<div class="graaf"><div class="kop">` +
+            `<h3>${esc(g.naam)}</h3><span class="soort">${esc(g.soort)}</span>` +
+            `<a class="pad" href="${esc(g.pagina)}" style="margin-left:auto;` +
+              `font-size:12.5px;color:var(--accent);text-decoration:none">` +
+              `${esc(g.pagina)} →</a></div>` +
+          `<div class="wat">${esc(g.wat)}</div>` +
+          `<div class="waarom">${esc(g.waarom_graaf)}</div>` +
+          (cijfers ? `<div class="cijfers">${cijfers}</div>` : "") +
+          (g.klassen ? `<div class="klassen">klassen: ` +
+            g.klassen.map(k => `<code>t:${esc(k)}</code>`).join(", ") + `</div>` : "") +
+          (g.herkomsten && g.herkomsten.length
+            ? `<div class="bronnen">bronnen achter de randen: ` +
+              `${esc(g.herkomsten.join("; "))}</div>` : "") +
+          (g.nog_niet_geteld
+            ? `<div class="ongeteld">Nog niet geteld — deze graaf wordt niet opgebouwd om deze ` +
+              `pagina te vullen. Stel een vraag op <a href="${esc(g.pagina)}">` +
+              `${esc(g.pagina)}</a>, dan is hij warm en staan de cijfers er.</div>` : "") +
+          `</div>`;
+      }).join("");
+    }
+
+    async function laadWaterdossier() {
+      try {
+        const r = await fetch("/api/onderwater/waterdossier");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const w = await r.json();
+        tekenInformatiemodel(w.informatiemodel || {});
+        tekenGrafen(w.grafen);
+      } catch (e) {
+        $("informatiemodel").innerHTML =
+          `<p class="status">Het waterdossier kon niet worden geladen: ${esc(e.message)}</p>`;
+      }
+    }
+
     async function laad() {
       try {
         const r = await fetch("/api/onderwater");
@@ -439,6 +557,8 @@
     }
 
     laad();
+    // Apart geladen: de hoofdanatomie is instant, deze sectie heeft bronnen nodig.
+    laadWaterdossier();
   </script>
 </body>
 </html>

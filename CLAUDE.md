@@ -534,6 +534,36 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   ```
   Zonder `--doelen` en `--gemeten-codes` bouwt het script een graaf zonder de drie
   werkelijkheidssignalen; het script meldt dat luid in plaats van het stil op te leveren.
+- ✅ **Het waterdossier op `/onderwater`** (`GET /api/onderwater/waterdossier`): het
+  informatiemodel en de kennisgraaf, als eigen secties onder de anatomie van de twee
+  signaalpagina's.
+  **Het informatiemodel** (`kmg/lozingsmodel.py`, memo op `/watermodel`) wordt gepresenteerd op
+  wat het bijzonder maakt: niet welke velden het vastlegt maar dat elk veld een **zekerheid**
+  meevoert. `onderwater.VELDEN_ZEKERHEID` geeft per veld de **hoogste zekerheid die het kan
+  halen**, met de reden — en twee velden kunnen per bron nooit "uit de bron" zijn: de
+  **hoedanigheid** is altijd `aangenomen` (geen parameternaam in het Maasstroomgebied zegt totaal
+  of opgelost, en voor zink is dat bepalend) en de **geldigheidsperiode** `ontbreekt` altijd (geen
+  begin/einddatum per voorschrift). Een test toetst elke `hoogste_zekerheid` tegen
+  `lozingsmodel.ZEKERHEDEN`, zodat hier geen waarde kan staan die het model niet kent; de vier
+  zekerheden en alle tellingen komen uit de constanten.
+  **"De kennisgraaf" bestaat niet — er zijn twee grafen met een ander doel**, en ze verwisselen
+  wekt de verwachting dat je aan de ene kant vragen kunt stellen die alleen aan de andere te
+  beantwoorden zijn:
+  * **Stoffengraaf** (*referentiegraaf*, `/kennisgraaf`): stof → CAS → Aquo-parameter. Gemeten:
+    **38 knopen, 29 randen, 29 met herkomst** — dus élke rand draagt een bron, en dát tilt hem
+    boven een tabel uit (een koppeling is te verwerpen in plaats van te geloven). Plus
+    somparameters mét hun delen, zodat dubbeltelling te zien is in plaats van te gebeuren.
+  * **Toezichtgraaf** (*registergraaf*, `/toezicht`): **73.071 triples, 69 vergunningen, 650
+    voorschriften, 598 signalen, 29 overschrijdingen**. Zekerheid hangt aan de bewéring en niet
+    aan de rij, en een vraag kan over de twee lezers heen lopen.
+  **⚠️ De route bouwt de toezichtgraaf níet.** Alleen als hij al in het geheugen zit gaan zijn
+  tellingen mee; anders staat de sectie er met `nog_niet_geteld` en de melding dat een vraag op
+  `/toezicht` hem warm maakt. Een uitlegpagina die een graaf van 73.000 triples opbouwt omdat
+  iemand haar opent (~9 s live, plus een coördinaatopzoeking per vergunning) is zelf het probleem
+  dat zij beschrijft. Om dezelfde reden is dit een **apart eindpunt**: `/api/onderwater` leest
+  alleen YAML en constanten en blijft instant, en de pagina laadt deze sectie los bij.
+  In een echte browser nagekeken, koud én warm: 4 zekerheidskaartjes, 7 veldrijen, 2 graafkaarten,
+  en koud precies één "nog niet geteld".
 - **⚠️ Vier valkuilen van de vraagweg, alle vier gevonden doordat de vraag "niet meer werkte"** —
   en geen van de vier door code te lezen. Ze hebben één gemene deler: de lezer kreeg *"Geen
   resultaten voor deze vraag"*, en dat leest als "er is niets aan de hand" in plaats van "de
