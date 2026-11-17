@@ -213,13 +213,60 @@ def test_bevoegd_gezag_is_in_beide_registers_iets_anders(a):
     o = next(x for x in a["overlap"] if "bevoegd gezag" in x["begrip"])
     assert o["join"] == "nee"
     assert "OIN" in o["gir"] and "enum" in o["imev"]
+    # De twee GIR-artefacten doen het verschillend; "GIR" zonder meer is hier niet genoeg.
+    assert "databasemodel" in o["gir"] and "architectuur" in o["gir"], (
+        "in het databasemodel is bevoegdheid een GEO-query, in de architectuur een associatie -- "
+        "dat onderscheid hoort in de cel, anders is de uitspraak niet te controleren")
 
 
-def test_de_vergunning_is_eenzijdig_vastgelegd(a):
+# --- GIR is ook meer dan één ding -------------------------------------------------------------
+
+def test_elk_gir_artefact_zegt_wat_het_is_en_wat_het_niet_is(a):
+    """Dezelfde eis als voor de IMEV-artefacten. Dat deze lijst er niet was, is de reden dat
+    twee uitspraken over 'GIR' jarenlang als waar konden gelden terwijl ze alleen over het
+    databasemodel klopten."""
+    assert len(a["gir_artefacten"]) >= 2, "één artefact noemen is het probleem, niet de oplossing"
+    for x in a["gir_artefacten"]:
+        assert x["bestand"] and x["soort"] and x["wat"] and x["houder"] and x["omvang"]
+        assert x["niet"], f"{x['bestand']} zonder 'niet' nodigt uit tot de verwarring"
+
+
+def test_de_twee_gir_artefacten_zijn_van_een_andere_soort():
+    soorten = {x["soort"] for x in mo.GIR_ARTEFACTEN}
+    assert len(soorten) == len(mo.GIR_ARTEFACTEN), (
+        "twee artefacten van dezelfde soort zou de scheiding zinloos maken")
+    assert "databasemodel" in soorten and "architectuurmodel" in soorten
+
+
+def test_geen_gir_artefact_belooft_een_publieke_url_die_er_niet_is(a):
+    """Beide zijn aangeleverd, geen van beide staat publiek. Dat moet er staan, want de pagina
+    mag niet suggereren dat een lezer het na kan kijken."""
+    for x in a["gir_artefacten"]:
+        assert "geen publieke URL" in x["vindplaats"], x["bestand"]
+
+
+def test_de_vergunning_is_aan_beide_kanten_vastgelegd_maar_onvergelijkbaar(a):
+    """**Deze test heette eerst `..._is_eenzijdig_vastgelegd` en bewaakte een onjuiste
+    bewering.** De pagina zei dat GIR de vergunningidentificatie laat vallen; de
+    Projectstartarchitectuur GIR 2.0 (november 2023) draagt Omgevingsvergunning plus een Besluit
+    met `Besluitidentificatie`. Het oude `assert "buiten scope" in o["gir"]` bleef na de
+    correctie gewoon slagen -- de nieuwe tekst bevat die woorden óók, over het *databasemodel* --
+    dus de test keurde de correctie goed zonder haar te zien. Precies het patroon dat dit
+    project het meeste heeft gekost: groen om de verkeerde reden.
+
+    Nu wordt de inhoudelijke positie gepind: beide kanten leggen een identificatie vast, uit
+    twee stelsels, zonder crosswalk. Niet joinbaar, maar om een andere reden dan 'de ene kant
+    heeft het niet'."""
     o = next(x for x in a["overlap"] if x["begrip"] == "De vergunning")
     assert o["join"] == "nee"
     assert "basisVergunningNummer" in o["imev"]
-    assert "niets" in o["gir"] or "buiten scope" in o["gir"]
+    assert "Besluitidentificatie" in o["gir"], (
+        "de architectuur draagt de identificatie wél -- dat hoort hier te staan")
+    # Op de bewering, niet op een los woord: de tekst mág "eenzijdig" noemen om te zeggen dat
+    # zij dat juist níet is -- en die zelfcorrectie is waardevol voor een lezer. Wat hier moet
+    # staan is de reden waarom het dán niet joint.
+    assert "onvergelijkbaar" in o["waarom"]
+    assert "crosswalk" in o["waarom"], "zeg waarom het dán niet joint"
 
 
 def test_imev_eist_een_reden_bij_een_ontbrekende_waarde_en_gir_niet(a):
@@ -343,3 +390,20 @@ def test_het_eindpunt_levert_de_hele_analyse(monkeypatch):
     for sleutel in ("bronnen", "artefacten", "lagen", "vertalingen", "overlap", "bevindingen",
                     "herkomst", "telling"):
         assert d[sleutel], sleutel
+
+
+def test_de_pagina_toont_de_gir_artefacten_en_noemt_haar_eigen_correctie(monkeypatch):
+    """De GIR-artefacten moeten op de pagina staan, niet alleen in de API: het hele punt is dat
+    een lézer kan zien over welk artefact een uitspraak gaat. En de pagina zegt dat zij zelf
+    twee dingen fout had -- dat is geen zelfkastijding maar informatie: wie de oude versie heeft
+    gelezen, draagt nu een onjuiste overtuiging mee."""
+    r = _client(monkeypatch).get("/modellen")
+    assert 'id="girartefacten"' in r.text
+    assert "Projectstartarchitectuur GIR 2.0" in r.text
+    # Op witruimte genormaliseerd: de HTML is op leeslengte afgebroken, dus een zoekterm met
+    # enkele spaties matcht niets -- dezelfde valkuil als bij de proza-bewaking op /toezicht.
+    import re as _re
+    plat = _re.sub(r"\s+", " ", r.text)
+    assert "waar over het databasemodel en onwaar over de architectuur" in plat
+    # De namen van de artefacten komen uit de API, niet uit de HTML.
+    assert "databasemodel (ICTU" not in r.text, "de artefactnamen horen uit /api/modellen te komen"

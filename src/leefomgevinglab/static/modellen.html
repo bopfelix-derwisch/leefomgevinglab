@@ -184,6 +184,14 @@
       liggen er twee hulpbestanden. In het dagelijks gesprek heten ze alle vier IMEV, en daardoor
       verschuiven uitspraken ongemerkt van het model naar de interface en terug.</p>
     <div class="arte" id="artefacten"></div>
+    <p class="tekst zacht" style="margin-top:22px"><b>En aan de GIR-kant geldt hetzelfde — deze
+      pagina trapte daar zelf in.</b> Zij schreef "GIR 2.0 databasemodel" en hing daar uitspraken
+      onder die over <i>GIR</i> gaan. Toen de <b>Projectstartarchitectuur GIR 2.0</b> (set
+      november 2023) erbij lag, bleken er twee onjuist: dat GIR de vergunningidentificatie laat
+      vallen, en dat "heeft als bevoegd gezag" er niet als gegeven bestaat. Beide waren waar over
+      het databasemodel en onwaar over de architectuur. De correcties staan hieronder bij de
+      bevindingen en in de overlaptabel.</p>
+    <div class="arte" id="girartefacten"></div>
     <p class="tekst zacht" style="margin-top:12px">Dat dit geen muggenziften is, blijkt uit de
       verhouding: van de <b id="reftot"></b> verwijzingen in de API-specificatie gaan er
       <b id="refenv"></b> naar de envelop — paginering, links, foutmeldingen — en maar
@@ -243,6 +251,20 @@
         c(t.api_resourcefamilies, "resourcefamilies in de API-specificatie") +
         c(t.gir_tabellen, "tabellen in het GIR-datamodel") +
         c(t.gir_niet_gebouwd, "daarvan ontworpen maar nooit gebouwd");
+
+      // Eén renderfunctie voor beide lijsten: de GIR-artefacten moeten dezelfde vragen
+      // beantwoorden als de IMEV-artefacten (wat is het, wat is het niet, wie houdt het),
+      // anders is de symmetrie alleen een belofte.
+      const artefact = a =>
+        `<div class="art">` +
+        `<div><div class="naam">${esc(a.bestand)}</div>` +
+        `<div class="soort">${esc(a.soort)}</div>` +
+        `<div class="vp">${esc(a.vindplaats)}</div></div>` +
+        `<div><div class="wat">${esc(a.wat)}</div>` +
+        `<div class="niet">${esc(a.niet)}</div></div>` +
+        `<div class="omvang"><span>${esc(a.omvang)}</span>` +
+        `<span>houder: <b>${esc(a.houder)}</b></span></div></div>`;
+      $("girartefacten").innerHTML = (d.gir_artefacten || []).map(artefact).join("");
 
       $("artefacten").innerHTML = d.artefacten.map(a =>
         `<div class="art">` +
