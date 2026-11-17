@@ -1,15 +1,16 @@
-"""De routes `/maquette` en `/api/maquette`.
+"""De routes `/maquette`, `/api/maquette` en `/api/maquette/transitie`.
 
-De inhoudelijke bewaking (bron tegenover lezing, afgeleide tellingen, gaps) staat in
-`tests/test_maquette.py`. Hier gaat het om de pagina: haalt zij haar model uit de API, en maakt
-zij het verschil tussen bron en eigen lezing zichtbaar in plaats van het in de code te laten?
+De pagina toont **alleen het eindbeeld**, als gebouw. De eerste versie toonde ook de transitie
+door de tijd en werd daarmee te druk voor wie geen architect is; die data is niet weg maar staat
+op een eigen eindpunt. Deze tests bewaken dat onderscheid, en dat de pagina haar gebouw uit de
+API haalt in plaats van het zelf te tekenen.
 """
 import re
 
 from fastapi.testclient import TestClient
 
 from leefomgevinglab.geluidsmeter import api as api_mod
-from leefomgevinglab.usecases import maquette as mq
+from leefomgevinglab.usecases import eindbeeld_stelsel as eb
 
 
 def _client():
@@ -18,90 +19,104 @@ def _client():
 
 def _plat(html: str) -> str:
     """Witruimte genormaliseerd -- de HTML breekt op leeslengte af, dus een zoekterm met enkele
-    spaties matcht anders niets. Dezelfde valkuil als bij de proza-bewaking op `/toezicht`."""
+    spaties matcht anders niets."""
     return re.sub(r"\s+", " ", html)
 
 
-def test_het_model_komt_volledig_uit_de_api():
+def test_de_api_levert_het_eindbeeld_als_gebouw():
     d = _client().get("/api/maquette").json()
-    for sleutel in ("lagen", "plateaus", "voorzieningen", "functies", "waardestromen",
-                     "beslismomenten", "transitievragen", "vaststaand", "herkomst", "telling"):
+    for sleutel in ("bodemplaat", "dak", "verdiepingen", "trappenhuis", "gevels",
+                     "standpunten", "herkomst", "telling"):
         assert d[sleutel], sleutel
+    assert "plateaus" not in d, (
+        "de pagina gaat over het eindbeeld; de transitie heeft een eigen eindpunt")
+
+
+def test_de_transitie_heeft_een_eigen_eindpunt_en_is_niet_weggegooid():
+    """De plateau-data is echt en gecontroleerd. Zij hoort alleen niet op dezelfde pagina, want
+    dan wordt het geheel onleesbaar -- dat was de reden om te splitsen."""
+    d = _client().get("/api/maquette/transitie").json()
+    assert len(d["plateaus"]) == 5
+    assert d["telling"]["voorzieningen_die_bewegen"] >= 3
 
 
 def test_de_route_raakt_geen_bron_en_is_dus_snel():
-    """Dit is een modelstuk uit twee documenten; er is niets op te halen. Zou deze route een bron
-    bevragen, dan zou een architectuurplaat afhangen van de bereikbaarheid van een dienst."""
+    """Een modelstuk uit BALO; er is niets op te halen. Zou deze route een bron bevragen, dan
+    hing een architectuurplaat af van de bereikbaarheid van een dienst."""
     import time
     t0 = time.perf_counter()
     assert _client().get("/api/maquette").status_code == 200
     assert time.perf_counter() - t0 < 1.0
 
 
-def test_de_pagina_haalt_alles_uit_de_api_en_typt_niets_zelf():
-    """Geen voorzieningnaam, geen fasetekst en geen jaartal van een plateau in de HTML. Zou dat
-    wel zo zijn, dan kan de plaat iets anders tonen dan het model zegt -- en op een pagina die
-    bron en lezing uit elkaar houdt is dat precies de fout die zij wil voorkomen."""
+def test_de_pagina_haalt_het_gebouw_uit_de_api_en_typt_niets_zelf():
+    """Geen verdiepingsnaam, geen vraag en geen onderdeel in de HTML. Zou dat wel zo zijn, dan
+    kan het gebouw iets anders tonen dan BALO zegt."""
     r = _client().get("/maquette")
     assert r.status_code == 200
     assert "/api/maquette" in r.text
-    for v in mq.VOORZIENINGEN:
-        assert v["naam"] not in r.text, f"{v['naam']} hoort uit de API te komen"
-    for p in mq.PLATEAUS:
-        assert p["stelselstand"] not in r.text, f"de stand van {p['jaren']} hoort uit de API"
-    for f in mq.FUNCTIES:
-        assert f["plek_2037"] not in r.text, f"{f['id']} hoort uit de API te komen"
+    for v in eb.VERDIEPINGEN:
+        assert v["naam"] not in r.text, f"verdieping {v['naam']} hoort uit de API te komen"
+        assert v["wat"] not in r.text
+    for q in eb.VRAGEN:
+        assert q["vraag"] not in r.text, "de vragen komen uit BALO via de API"
+    for o in eb.DAK["onderdelen"] + eb.BODEMPLAAT["onderdelen"]:
+        assert o not in r.text
 
 
-def test_de_pagina_noemt_de_architectuurbegrippen_waar_de_vorm_op_rust():
-    """Plateau en gap zijn geen zelfbedachte beelden maar de staande woordenschat van ArchiMate
-    en TOGAF. Een lezer uit die wereld moet dat herkennen, anders lijkt de 3D versiering."""
+def test_de_pagina_legt_het_gebouw_uit_in_gewone_woorden():
+    """Het doel is dat iemand zonder architectuuropleiding het begrijpt. Dan moeten de woorden
+    die de vorm dragen -- bodemplaat, verdiepingen, dak, gevels, vensters -- er ook staan."""
     plat = _plat(_client().get("/maquette").text)
-    assert "ArchiMate" in plat and "TOGAF" in plat
-    assert "Plateau" in plat and "Gap" in plat
-    assert "transitiearchitectuur" in plat
+    for woord in ("bodemplaat", "verdiepingen", "dak", "gevels", "vensters"):
+        assert woord in plat.lower(), woord
+    assert "links wordt geleverd, rechts wordt gehaald" in plat
 
 
 def test_de_pagina_zegt_dat_dit_geen_vastgesteld_beleid_is():
-    """De bron zegt het drie keer; een plaat die dat weglaat leest als besloten beleid. Op een
-    publieke pagina over andermans architectuur is dat het ergste wat zij kan doen."""
+    """BALO v1.0 draagt zelf de status concept en het eindbeeld is 'nog in bewerking'. Een plaat
+    die dat weglaat leest als besloten beleid."""
     plat = _plat(_client().get("/maquette").text)
     assert "geen vastgesteld beleid" in plat.lower()
-    assert "werkhypothese" in plat
-    assert "voorstel ter toetsing" in plat
-    assert "nog te besluiten" in plat
+    assert "concept" in plat.lower()
+    assert "nog in bewerking" in plat
 
 
-def test_de_pagina_draagt_een_herkomsttabel_die_bron_en_lab_onderscheidt():
+def test_de_pagina_draagt_een_herkomsttabel_die_balo_en_lab_onderscheidt():
     r = _client().get("/maquette")
     assert 'id="herkomsttabel"' in r.text
     assert "h.van" in r.text, "de herkomst komt uit de API"
     plat = _plat(r.text)
-    assert "Wat uit de bron komt, en wat dit lab erbij leest" in plat
+    assert "Wat uit BALO komt, en wat dit lab erbij leest" in plat
 
 
-def test_de_maquette_is_zonder_muis_te_gebruiken():
-    """De tijdas is de kern van de pagina. Zou reizen alleen met slepen kunnen, dan is zij voor
-    een toetsenbordgebruiker niet te bedienen -- en de tijdbalk is dan decoratie."""
+def test_het_gebouw_is_zonder_muis_te_draaien():
+    """Draaien is de kern van deze pagina. Kan het alleen met slepen, dan is zij voor een
+    toetsenbordgebruiker niet te bedienen."""
     r = _client().get("/maquette")
-    assert "ArrowRight" in r.text and "ArrowLeft" in r.text
+    assert "ArrowLeft" in r.text and "ArrowUp" in r.text
+    assert 'tabindex="0"' in r.text, "de scène moet focus kunnen krijgen"
     assert "focus-visible" in r.text
-    assert 'aria-current="step"' in r.text, "de tijdbalk hoort te zeggen waar je staat"
     assert "prefers-reduced-motion" in r.text
 
 
-def test_de_pagina_laadt_geen_3d_bibliotheek():
-    """CSS-transforms in plaats van WebGL: de blokken blijven echte DOM-elementen, dus de labels
-    blijven scherp en zijn met het toetsenbord te bereiken. Een bibliotheek zou dat alle drie
-    opgeven voor een beeld dat niet beter wordt."""
+def test_een_standpunt_is_deelbaar_via_de_url():
+    """'Kijk eens van onderen' moet een link kunnen zijn -- anders moet je uitleggen welke knop
+    iemand moet indrukken."""
     r = _client().get("/maquette")
-    assert "<script src=" not in r.text, "geen externe bibliotheek op deze pagina"
+    assert "standpunt" in r.text
+    assert "URLSearchParams" in r.text and "replaceState" in r.text
+    assert _client().get("/maquette?standpunt=bodemplaat").status_code == 200
+
+
+def test_de_pagina_laadt_geen_3d_bibliotheek():
+    """CSS-transforms in plaats van WebGL: de vlakken blijven echte DOM-elementen, dus de teksten
+    blijven scherp en de vensters zijn met het toetsenbord te bereiken."""
+    r = _client().get("/maquette")
+    assert "<script src=" not in r.text
     assert "preserve-3d" in r.text and "perspective" in r.text
 
 
 def test_de_doelbeelden_verwijzen_naar_de_maquette():
-    """Bob's vraag was om dit bij doelbeeld VTH te zetten. Zonder link vanaf /dvth is de pagina
-    niet te vinden."""
     for pad in ("/dvth", "/lozing"):
-        r = _client().get(pad)
-        assert '/maquette' in r.text, f"{pad} verwijst niet naar de maquette"
+        assert "/maquette" in _client().get(pad).text, f"{pad} verwijst niet naar de maquette"

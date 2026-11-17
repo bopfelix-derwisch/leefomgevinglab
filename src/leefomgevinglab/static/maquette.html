@@ -3,22 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LeefomgevingLab — Maquette stelsel leefomgeving 2037</title>
+  <title>LeefomgevingLab — Maquette van het eindbeeld</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
       --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
-      --aanbod:#2ecc8f; --knooppunt:#e8b84b; --vraag:#4fc3f7; --weg:#ff7a6b;
-      /* De tijdas krijgt één eigen kleur, los van de drie lagen: zo is in één oogopslag te zien
-         of iets over een laag of over een moment gaat. */
-      --tijd:#b48ee8; }
+      --aanbod:#2ecc8f; --vraag:#4fc3f7; --dak:#e8b84b; --bodem:#b48ee8; --weg:#ff7a6b; }
     body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
            line-height:1.6; }
     a { color:inherit; }
     header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
       display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
     header .mark { width:22px; height:22px; border-radius:6px;
-      background:linear-gradient(135deg,var(--tijd),var(--accent2)); flex:none; }
+      background:linear-gradient(135deg,var(--dak),var(--accent2)); flex:none; }
     header h1 { font-size:15px; color:var(--accent); font-weight:700; }
     .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--weg);
       color:var(--weg); letter-spacing:.06em; }
@@ -28,145 +25,115 @@
     header nav a:hover { border-color:var(--border); color:var(--accent); }
 
     .wrap { max-width:1180px; margin:0 auto; padding:0 20px 60px; }
-
-    .hero { padding:18px 0 14px; }
+    .hero { padding:18px 0 12px; }
     .hero h2 { font-size:25px; font-weight:800; color:#eafff6; margin-bottom:7px;
       text-wrap:balance; }
-    .hero p { color:var(--muted); font-size:13.5px; max-width:76ch; }
+    .hero p { color:var(--muted); font-size:13.5px; max-width:74ch; }
     .hero b { color:var(--text); }
 
-    /* ---- De maquette ---------------------------------------------------------------------
-       Vijf plateaus achter elkaar in de diepte. Met opzet CSS-3D en geen WebGL: de blokken
-       blijven echte DOM-elementen, dus de labels blijven scherp, ze zijn met het toetsenbord
-       te bereiken en er is geen bibliotheek nodig. Een maquette van een architect is ook
-       gestapelde platen in perspectief. */
-    .scene { margin-top:10px; height:430px; perspective:1700px; perspective-origin:50% 44%;
-      position:relative; overflow:hidden; border:1px solid var(--border); border-radius:12px;
-      background:radial-gradient(ellipse at 50% 20%, #10243a 0%, var(--panel2) 62%, #060a11 100%); }
-    .stapel { position:absolute; inset:0; transform-style:preserve-3d;
-      transition:transform .55s cubic-bezier(.22,.61,.36,1); }
-    .plateau { position:absolute; left:50%; top:37%; width:700px; height:212px;
-      margin:-106px 0 0 -350px; transform-style:preserve-3d;
-      transition:transform .55s cubic-bezier(.22,.61,.36,1), opacity .4s; }
-    /* De plaat is een flexkolom met drie banden erin, niet drie absoluut geplaatste blokken op
-       vaste hoogtes. Dat scheelt drie magische top-waarden, en belangrijker: bij een smal scherm
-       breken de blokken over meer regels af en groeien de banden mee in plaats van in elkaar te
-       lopen. */
-    .plateau .plaat { position:absolute; inset:0; border-radius:10px;
-      border:1px solid var(--border); background:linear-gradient(160deg,#0f2237,#0a1626);
-      box-shadow:0 18px 40px -22px #000;
-      display:flex; flex-direction:column; gap:6px; padding:11px; }
-    .plateau.actief .plaat { border-color:var(--tijd);
-      box-shadow:0 0 0 1px var(--tijd), 0 24px 52px -24px #000; }
-    .plateau .jaar { position:absolute; left:14px; top:-24px; font-size:12px; font-weight:700;
-      color:var(--dim); letter-spacing:.04em; white-space:nowrap; }
-    .plateau.actief .jaar { color:var(--tijd); }
-    .plateau .fase { position:absolute; right:14px; top:-24px; font-size:11px; color:var(--dim); }
+    /* ---- Het gebouw ------------------------------------------------------------------------
+       Eén object dat je ronddraait, in plaats van een plaat die je leest. Met opzet CSS-3D en
+       geen WebGL: de vlakken blijven echte DOM-elementen, dus de teksten blijven scherp, de
+       vensters zijn met het toetsenbord te bereiken en er is geen bibliotheek nodig. */
+    .bouwplaats { display:grid; grid-template-columns:1fr 330px; gap:16px; margin-top:8px; }
+    @media (max-width:900px) { .bouwplaats { grid-template-columns:1fr; } }
 
-    /* De drie lagen als banden op de plaat. */
-    .band { flex:1 1 auto; min-height:0; border-radius:7px;
-      border:1px dashed #1c3550; padding:4px 8px; }
-    .band[data-laag="aanbod"]    { border-color:#1d4435; }
-    .band[data-laag="knooppunt"] { border-color:#43371a; }
-    .band[data-laag="vraag"]     { border-color:#153a4e; }
-    .band .bandnaam { font-size:9px; text-transform:uppercase; letter-spacing:.1em;
-      color:var(--dim); }
-    .band[data-laag="aanbod"] .bandnaam { color:var(--aanbod); }
-    .band[data-laag="knooppunt"] .bandnaam { color:var(--knooppunt); }
-    .band[data-laag="vraag"] .bandnaam { color:var(--vraag); }
-    .band .blokken { display:flex; gap:5px; flex-wrap:wrap; margin-top:2px; }
+    .scene { height:600px; perspective:1900px; position:relative; overflow:hidden;
+      border:1px solid var(--border); border-radius:12px; cursor:grab;
+      background:radial-gradient(ellipse at 50% 30%, #11263d 0%, var(--panel2) 60%, #05080e 100%); }
+    .scene:active { cursor:grabbing; }
+    .scene:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+    .gebouw { position:absolute; left:50%; top:50%; width:0; height:0;
+      transform-style:preserve-3d; transition:transform .6s cubic-bezier(.22,.61,.36,1); }
+    .gebouw.sleept { transition:none; }
 
-    .blok { font-size:11px; line-height:1.4; padding:4px 8px; border-radius:5px;
-      border:1px solid var(--border); background:#0c1a2b; color:var(--muted);
-      cursor:pointer; white-space:nowrap; max-width:168px; overflow:hidden;
-      text-overflow:ellipsis; }
-    .blok:hover, .blok:focus-visible { color:var(--text); border-color:var(--accent);
+    .laag { position:absolute; transform-style:preserve-3d;
+      transition:opacity .3s; }
+    .vlak { position:absolute; border:1px solid var(--border);
+      background:rgba(14,32,52,.94); backface-visibility:hidden; padding:7px 9px;
+      overflow:hidden; }
+    .vlak.voor, .vlak.achter { width:440px; margin-left:-220px; left:0; top:0; }
+    .vlak.links, .vlak.rechts { width:300px; margin-left:-150px; left:0; top:0; }
+    .vlak.deksel { width:440px; height:300px; margin:-150px 0 0 -220px; left:0; top:0;
+      background:rgba(10,24,40,.96); }
+
+    .vlak .titel { font-size:12.5px; font-weight:700; color:#eafff6; line-height:1.3; }
+    .vlak .nr { font-size:10px; color:var(--dim); margin-right:5px; }
+    .vlak .regel { font-size:10.5px; color:var(--muted); line-height:1.45; }
+    .vlak .kantnaam { font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
+    .laag[data-id] .vlak.links { border-left:3px solid var(--aanbod); }
+    .laag[data-id] .vlak.rechts { border-left:3px solid var(--vraag); }
+    .vlak.links .kantnaam { color:var(--aanbod); }
+    .vlak.rechts .kantnaam { color:var(--vraag); }
+    .laag[data-id] { cursor:pointer; }
+    .laag.gekozen .vlak { background:rgba(22,52,82,.97); border-color:var(--accent); }
+    .laag.gedimd { opacity:.3; }
+
+    /* Dak en bodemplaat zijn platter en hebben hun eigen kleur: zij dragen geen stap in de
+       keten maar houden hem bij elkaar. */
+    .laag.dak .vlak { border-color:#4a3a14; background:rgba(32,26,10,.94); }
+    .laag.dak .vlak.deksel { background:rgba(40,32,12,.97); }
+    .laag.dak .titel { color:var(--dak); }
+    .laag.bodem .vlak { border-color:#33265a; background:rgba(24,18,44,.94); }
+    .laag.bodem .vlak.deksel { background:rgba(30,22,54,.97); }
+    .laag.bodem .titel { color:var(--bodem); }
+
+    .vensters { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+    .venster { width:24px; height:17px; border-radius:2px; border:1px solid #2a557f;
+      background:#0a1829; cursor:pointer; padding:0; }
+    .venster:hover, .venster:focus-visible { background:var(--dak); border-color:var(--dak);
       outline:none; }
-    .blok[aria-pressed="true"] { background:#143050; color:#eafff6; border-color:var(--accent); }
-    .blok.verschuift { border-color:var(--tijd); }
-    .blok.open::after { content:" ?"; color:var(--weg); font-weight:700; }
+    .venster[aria-pressed="true"] { background:var(--dak); border-color:#fff2cf; }
 
-    .ruit { position:absolute; left:-7px; top:50%; margin-top:-7px; width:14px; height:14px;
-      background:var(--weg); transform:rotate(45deg); border-radius:2px; }
+    .trap { position:absolute; width:30px; margin-left:-15px; left:0; top:0;
+      background:linear-gradient(180deg, rgba(180,142,232,.55), rgba(180,142,232,.14));
+      border:1px solid #4a3a72; border-radius:3px; }
 
-    /* ---- De tijdbalk --------------------------------------------------------------------- */
-    .tijdbalk { margin-top:14px; display:flex; gap:0; align-items:stretch;
-      border:1px solid var(--border); border-radius:10px; overflow:hidden;
-      background:var(--panel); }
-    .tijdbalk button { flex:1 1 0; min-width:0; background:transparent; border:none;
-      border-right:1px solid var(--border); padding:9px 10px; cursor:pointer; text-align:left;
-      color:var(--muted); font-family:inherit; }
-    .tijdbalk button:last-child { border-right:none; }
-    .tijdbalk button:hover { background:#12283f; }
-    .tijdbalk button:focus-visible { outline:2px solid var(--tijd); outline-offset:-2px; }
-    .tijdbalk button[aria-current] { background:#17213a; color:var(--text); }
-    .tijdbalk .tj { display:block; font-size:13px; font-weight:700; color:var(--text);
-      font-variant-numeric:tabular-nums; }
-    .tijdbalk button[aria-current] .tj { color:var(--tijd); }
-    .tijdbalk .tn { display:block; font-size:11px; color:var(--dim); line-height:1.3; }
-    .tijdbalk .tv { display:block; font-size:9.5px; color:var(--weg); margin-top:3px; }
+    .standpunten { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+    .standpunten button { background:var(--panel); border:1px solid var(--border);
+      border-radius:8px; padding:7px 12px; cursor:pointer; color:var(--muted);
+      font-family:inherit; font-size:12.5px; text-align:left; }
+    .standpunten button:hover { color:var(--text); border-color:var(--accent); }
+    .standpunten button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+    .standpunten button[aria-pressed="true"] { background:#143050; color:#eafff6;
+      border-color:var(--accent); }
+    .standpunten .ziet { display:block; font-size:10.5px; color:var(--dim); }
+    .standpunten button[aria-pressed="true"] .ziet { color:var(--muted); }
 
-    .stand { margin-top:11px; background:var(--panel); border:1px solid var(--border);
-      border-radius:10px; padding:12px 15px; }
-    .stand .kop { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
-      color:var(--dim); }
-    .stand .tekst { font-size:13.5px; color:#eafff6; margin-top:3px; max-width:80ch; }
-    .stand .besluit { margin-top:9px; font-size:12.5px; color:var(--text);
-      border-left:2px solid var(--weg); padding-left:11px; }
-    .stand .besluit b { color:var(--weg); }
-
-    .kolommen { display:grid; grid-template-columns:1.25fr 1fr; gap:14px; margin-top:14px; }
-    @media (max-width:860px) { .kolommen { grid-template-columns:1fr; } }
-
+    .zijkant { display:flex; flex-direction:column; gap:12px; }
     .kaart { background:var(--panel); border:1px solid var(--border); border-radius:10px;
       padding:13px 15px; }
     .kaart h3 { font-size:14.5px; color:#eafff6; }
-    .kaart .onder { font-size:11.5px; color:var(--dim); margin-top:1px; }
-    .codes { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
-    .code { font-size:10px; padding:2px 7px; border-radius:9px; border:1px solid var(--border);
-      color:var(--muted); }
-    .code.w { border-color:#2a4a66; }
-    .code.f { border-color:#3a5a46; color:var(--accent); }
-    .reis { margin-top:11px; }
-    .reis .stap { display:grid; grid-template-columns:78px 1fr; gap:9px; padding:7px 0;
-      border-top:1px solid #112a42; font-size:12.5px; }
-    .reis .stap:first-child { border-top:none; }
-    .reis .jr { color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums; }
-    .reis .wat { color:var(--muted); }
-    .reis .gap { color:var(--tijd); font-size:11.5px; margin-top:3px; }
-    .reis .weg { color:var(--weg); font-size:11.5px; margin-top:3px; }
-    .rol { margin-top:11px; font-size:12.5px; color:var(--text);
-      border-top:1px solid var(--border); padding-top:9px; }
-    .rol .lbl { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
-      color:var(--dim); display:block; }
-    .rol .onbeslist { color:var(--weg); }
+    .kaart .kop { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      color:var(--dim); }
+    .kaart p { font-size:12.5px; color:var(--muted); margin-top:5px; }
+    .kaart .waarom { font-size:12.5px; color:var(--muted); margin-top:8px;
+      border-left:2px solid var(--accent2); padding-left:10px; }
+    .kaart ul { list-style:none; margin-top:6px; }
+    .kaart li { font-size:12px; color:var(--muted); padding:3px 0 3px 13px; position:relative; }
+    .kaart li::before { content:"·"; position:absolute; left:3px; color:var(--dim); }
+    .kaart .bronregel { font-size:10.5px; color:var(--dim); margin-top:9px;
+      border-top:1px solid var(--border); padding-top:7px; }
+    .kaart .omhoog { font-size:12px; color:var(--dak); margin-top:9px; }
+
+    .vraagkaart { background:var(--panel2); border:1px solid var(--dak); border-radius:10px;
+      padding:13px 15px; }
+    .vraagkaart .kop { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+      color:var(--dak); }
+    .vraagkaart .q { font-size:15px; color:#fff2cf; margin-top:5px; line-height:1.45; }
+    .vraagkaart .waar { font-size:11.5px; color:var(--muted); margin-top:8px; }
 
     .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
       color:var(--dim); margin:28px 0 10px; }
     .section-noot { font-size:11.5px; color:var(--dim); margin:-6px 0 11px; max-width:78ch; }
 
-    .fnlijst, .wlijst { display:grid; gap:7px;
-      grid-template-columns:repeat(auto-fit,minmax(248px,1fr)); }
-    .fn, .ws { background:var(--panel); border:1px solid var(--border); border-radius:8px;
-      padding:9px 12px; }
-    .fn .id, .ws .id { font-size:11px; font-weight:700; }
-    .fn .naam { font-size:12.5px; color:#eafff6; }
-    .fn .plek { font-size:11.5px; color:var(--muted); margin-top:3px; }
-    .fn[data-laag="aanbod"] { border-left:2px solid var(--aanbod); }
-    .fn[data-laag="knooppunt"] { border-left:2px solid var(--knooppunt); }
-    .fn[data-laag="vraag"] { border-left:2px solid var(--vraag); }
-    .fn[data-laag="aanbod"] .id { color:var(--aanbod); }
-    .fn[data-laag="knooppunt"] .id { color:var(--knooppunt); }
-    .fn[data-laag="vraag"] .id { color:var(--vraag); }
-    .ws .id { color:var(--muted); }
-    .ws .wat { font-size:12.5px; color:var(--muted); }
-
-    .vast { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
-    .vast .v { background:var(--panel2); border:1px solid var(--accent); border-radius:8px;
-      padding:10px 13px; font-size:12.5px; color:#eafff6; }
-    .vraaglijst { display:grid; gap:7px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
-    .vraaglijst .q { background:var(--panel); border:1px solid var(--border); border-radius:8px;
-      padding:10px 13px; font-size:12.5px; color:var(--muted); }
+    .trapkaart { background:var(--panel); border:1px solid #4a3a72; border-radius:10px;
+      padding:13px 15px; }
+    .trapkaart h3 { color:var(--bodem); font-size:14.5px; }
+    .trapkaart p { font-size:12.5px; color:var(--muted); margin-top:5px; max-width:80ch; }
+    .trapkaart .waarom { font-size:12.5px; color:var(--muted); margin-top:8px;
+      border-left:2px solid var(--bodem); padding-left:10px; max-width:80ch; }
+    .trapkaart .bronregel { font-size:10.5px; color:var(--dim); margin-top:9px; }
 
     table.herkomst { width:100%; border-collapse:collapse; font-size:12.5px; }
     table.herkomst th { text-align:left; font-size:10px; text-transform:uppercase;
@@ -177,25 +144,22 @@
     table.herkomst tr:last-child td { border-bottom:none; }
     table.herkomst td.van { white-space:nowrap; font-weight:700; }
     table.herkomst td.van.bron { color:var(--accent); }
-    table.herkomst td.van.lab { color:var(--knooppunt); }
+    table.herkomst td.van.lab { color:var(--dak); }
     .tabelhuls { background:var(--panel); border:1px solid var(--border); border-radius:10px;
       padding:13px 5px 6px; overflow-x:auto; }
 
-    .status { font-size:12px; color:var(--dim); margin-top:12px; }
-    footer { margin-top:34px; padding-top:15px; border-top:1px solid var(--border);
+    .status { font-size:12px; color:var(--dim); margin-top:10px; }
+    footer { margin-top:32px; padding-top:15px; border-top:1px solid var(--border);
       font-size:11.5px; color:var(--dim); }
     footer p { margin-bottom:7px; max-width:82ch; }
     footer b { color:var(--muted); }
 
     @media (max-width:640px) {
       .wrap { padding:0 14px 50px; }
-      .scene { height:470px; perspective:1100px; }
-      .plateau { width:92vw; height:362px; margin-left:-46vw; margin-top:-181px; }
-      .tijdbalk { flex-wrap:wrap; }
-      .tijdbalk button { flex:1 1 44%; border-bottom:1px solid var(--border); }
+      .scene { height:430px; perspective:1200px; }
     }
     @media (prefers-reduced-motion:reduce) {
-      .stapel, .plateau { transition:none; }
+      .gebouw, .laag { transition:none; }
     }
   </style>
 </head>
@@ -203,53 +167,40 @@
   <header>
     <div class="mark"></div><h1>LeefomgevingLab</h1><span class="badge">CONCEPT</span>
     <nav><a href="/">Home</a><a href="/dvth">Doelbeeld D-VTH</a><a href="/lozing">Doelbeeld
-      lozing</a><a href="/vth">VTH-kapstok</a></nav>
+      lozing</a><a href="/balo">BALO</a></nav>
   </header>
 
   <div class="wrap">
     <div class="hero">
-      <h2>Het stelsel leefomgeving in 2037, en de weg ernaartoe</h2>
-      <p>Een maquette met vijf <b>plateaus</b> achter elkaar in de diepte. Elk plateau is een
-        periode waarin de architectuur stilstaat; tussen twee plateaus zit een <b>gap</b> — wat er
-        verandert. Dat zijn geen beelden maar de staande begrippen van deze wereld: ArchiMate kent
-        <i>Plateau</i> en <i>Gap</i>, TOGAF noemt hetzelfde een transitiearchitectuur op weg naar
-        het eindbeeld. Reis door de tijd en kijk wat er beweegt.</p>
+      <h2>Het stelsel leefomgeving als gebouw</h2>
+      <p>Het functioneel eindbeeld uit BALO, maar dan om te pakken. Een <b>bodemplaat</b> waar
+        alles op rust, vier <b>verdiepingen</b> die op elkaar staan, een <b>dak</b> met de
+        afspraken, en twee gevels: links wordt geleverd, rechts wordt gehaald. Draai het rond en
+        van elke kant zie je iets anders. In de gevels zitten <b>vensters</b> — achter elk
+        venster zit een vraag die BALO stelt.</p>
     </div>
 
-    <div class="scene" id="scene">
-      <div class="stapel" id="stapel"></div>
+    <div class="bouwplaats">
+      <div>
+        <div class="scene" id="scene" tabindex="0" role="application"
+             aria-label="Maquette van het eindbeeld. Sleep om te draaien, of gebruik de pijltjestoetsen.">
+          <div class="gebouw" id="gebouw"></div>
+        </div>
+        <div class="standpunten" id="standpunten"></div>
+        <p class="status" id="status">Maquette laden…</p>
+      </div>
+      <div class="zijkant">
+        <div id="vraagpaneel"></div>
+        <div class="kaart" id="detail"></div>
+      </div>
     </div>
-    <div class="tijdbalk" id="tijdbalk"></div>
-    <div class="stand" id="stand"></div>
 
-    <div class="kolommen">
-      <div class="kaart" id="detail"></div>
-      <div class="kaart" id="lagenkaart"></div>
-    </div>
+    <div class="section-title">Het trappenhuis</div>
+    <div class="trapkaart" id="trappenhuis"></div>
 
-    <div class="section-title">Wat er in 2037 waar hoort — de informatiefuncties</div>
-    <p class="section-noot">De bron noemt per functie waar zij in 2037 thuishoort. Die
-      plaatsbepaling is geciteerd; de indeling in de drie lagen is een lezing van dit lab, en
-      staat als zodanig in de herkomsttabel onderaan.</p>
-    <div class="fnlijst" id="functies"></div>
-
-    <div class="section-title">Waar de waarde ontstaat — de waardestromen</div>
-    <p class="section-noot">Elke voorziening draagt hierboven haar W-codes. Deze acht komen uit
-      BALO en zijn woordelijk gelijk aan die op <a href="/balo">/balo</a>; dat is nagekeken.</p>
-    <div class="wlijst" id="waardestromen"></div>
-
-    <div class="section-title">Wat vaststaat — en al het andere niet</div>
-    <p class="section-noot">De bron zegt het zelf: fasering en jaartallen zijn een voorstel ter
-      toetsing, en de verdeling van informatiefuncties is een werkhypothese. Alleen dit staat
-      vast.</p>
-    <div class="vast" id="vaststaand"></div>
-
-    <div class="section-title">De vaste transitievragen</div>
-    <p class="section-noot">Niet "wat wordt het", maar wie de overgang draagt. Deze vier worden
-      per voorziening gesteld.</p>
-    <div class="vraaglijst" id="transitievragen"></div>
-
-    <div class="section-title">Wat uit de bron komt, en wat dit lab erbij leest</div>
+    <div class="section-title">Wat uit BALO komt, en wat dit lab erbij leest</div>
+    <p class="section-noot">Het gebouw is een vorm die dit lab kiest; de indeling, de
+      verdiepingen en de vragen zijn van BALO.</p>
     <div class="tabelhuls">
       <table class="herkomst" id="herkomsttabel">
         <thead><tr><th>onderdeel</th><th>van</th><th>grondslag</th></tr></thead>
@@ -257,19 +208,18 @@
       </table>
     </div>
 
-    <p class="status" id="status">Maquette laden…</p>
-
     <footer>
-      <p><b>Bron.</b> Doelarchitectuur stelsel LO 2037 en roadmap v0.1 (concept, november 2026)
-        en BALO businessarchitectuur v1.0. Beide zijn intern aangeleverd en hebben geen publieke
-        URL; de fasetekst per voorziening is geciteerd, niet samengevat.</p>
-      <p><b>Dit is geen vastgesteld beleid.</b> De fasering is een voorstel ter toetsing in de
-        verkenningen D-VTH en de productvisies, en de verdeling van informatiefuncties is een
-        werkhypothese. Een vraagteken bij een rol betekent dat die in 2037 nog te besluiten is —
-        dit lab vult die niet in.</p>
-      <p>Zie ook <a href="/dvth">doelbeeld D-VTH</a> en <a href="/lozing">doelbeeld lozing</a>
-        (één dossier door de keten, waar dit het stelsel eromheen is), de
-        <a href="/balo">BALO-redeneerlijnen</a> en de <a href="/vth">VTH-kapstok</a>.</p>
+      <p><b>Bron.</b> BALO businessarchitectuur v1.0 — §5.5 voor de indeling van het functioneel
+        eindbeeld, §8.1 voor de informatieketen in vijf niveaus, en de vragen verspreid door het
+        stuk. Intern aangeleverd, geen publieke URL, niet in de repo.</p>
+      <p><b>Dit is geen vastgesteld beleid.</b> BALO v1.0 draagt zelf de status concept, en het
+        eindbeeld is volgens het stuk "ontwikkeld samen met het programma D-VTH en nog in
+        bewerking". Het gebouw staat hier als voorstel, niet als besluit.</p>
+      <p>Zie ook de <a href="/balo">BALO-redeneerlijnen</a>, <a href="/dvth">doelbeeld D-VTH</a>
+        en <a href="/lozing">doelbeeld lozing</a> — één dossier door de keten, waar dit het
+        stelsel eromheen is. De transitie ernaartoe staat apart op
+        <a href="/api/maquette/transitie">/api/maquette/transitie</a>; een eigen weergave
+        daarvoor komt later.</p>
     </footer>
   </div>
 
@@ -278,207 +228,285 @@
     const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
       c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
-    let M = null;          // het hele model
-    let actief = 0;        // index van het plateau waar we staan
-    let gekozen = null;    // id van de gekozen voorziening
-    let draai = -22;       // horizontale kijkhoek, met de muis te slepen
+    let G = null;
+    let ax = 10, ay = -28;
+    let gekozenLaag = null;
+    let gekozenVraag = null;
 
-    // -- De maquette -----------------------------------------------------------------------
-    //
-    // De tijdas is de diepte: plateau n staat op z = -(n - actief) * afstand. Vooruit reizen
-    // schuift de hele stapel naar de kijker toe. Zo is "door de tijd bewegen" letterlijk een
-    // beweging in de derde dimensie, en niet een tabel die van inhoud wisselt.
-    const DIEPTE = 215;
+    // Maten van het gebouw, op één plek: zo kunnen vlakken en verdiepingen niet uit elkaar lopen.
+    const B = 440, D = 290, H = 78, TUSSEN = 6, PLAT = 26;
 
-    function tekenMaquette() {
-      $("stapel").innerHTML = M.plateaus.map((p, i) => {
-        const banden = M.lagen.map(l => {
-          const blokken = (p.per_laag[l.id] || []).map(v => {
-            const verschuift = beweegtHier(v.id, i);
-            const klassen = ["blok", verschuift ? "verschuift" : "",
-                              v.rol_open ? "open" : ""].filter(Boolean).join(" ");
-            return `<button class="${klassen}" data-vz="${esc(v.id)}" type="button" ` +
-              `aria-pressed="${gekozen === v.id}" ` +
-              `title="${esc(v.naam + " — " + v.tekst)}">${esc(v.naam)}</button>`;
-          }).join("");
-          return `<div class="band" data-laag="${esc(l.id)}">` +
-            `<div class="bandnaam">${esc(l.naam)}</div>` +
-            `<div class="blokken">${blokken}</div></div>`;
-        }).join("");
-        return `<div class="plateau${i === actief ? " actief" : ""}" data-i="${i}">` +
-          `<div class="plaat">${banden}` +
-          (p.beslismoment ? `<span class="ruit" title="Beslismoment ${esc(p.beslismoment.nr)}: ` +
-            `${esc(p.beslismoment.kop)}"></span>` : "") +
-          `</div>` +
-          `<span class="jaar">${esc(p.jaren)}</span>` +
-          `<span class="fase">${esc(p.naam)}</span></div>`;
-      }).join("");
-      plaatsPlateaus();
-      $("stapel").querySelectorAll(".blok").forEach(b => {
-        b.onclick = () => { gekozen = b.dataset.vz; tekenMaquette(); tekenDetail(); };
-      });
+    function venstersHtml(vragen) {
+      if (!vragen || !vragen.length) return "";
+      return '<div class="vensters">' + vragen.map(v =>
+        `<button class="venster" type="button" data-vraag="${esc(v._i)}" ` +
+        `aria-pressed="${gekozenVraag === v._i}" ` +
+        `title="${esc(v.vraag)}" aria-label="Vraag: ${esc(v.vraag)}"></button>`).join("") +
+        '</div>';
     }
 
-    function plaatsPlateaus() {
-      $("stapel").style.transform = `rotateX(8deg) rotateY(${draai * 0.35}deg)`;
-      $("stapel").querySelectorAll(".plateau").forEach(el => {
-        const i = Number(el.dataset.i), d = i - actief;
-        // Achterliggende plateaus zakken weg en worden doorzichtiger; het actieve staat vooraan.
-        el.style.transform = `translateZ(${-d * DIEPTE}px) translateY(${d * 22}px) ` +
-          `rotateX(34deg) scale(${1 - Math.abs(d) * 0.045})`;
-        el.style.opacity = d === 0 ? 1 : Math.max(0.42, 0.78 - Math.abs(d) * 0.11);
-        el.style.zIndex = String(50 - Math.abs(d));
-        el.querySelectorAll(".blok").forEach(b => { b.tabIndex = d === 0 ? 0 : -1; });
-      });
-    }
-
-    // Wisselt deze voorziening van laag bij aankomst op plateau i? Afgeleid uit de gaps van het
-    // model, niet opnieuw bepaald: dan kan de markering niet uit de pas lopen met de reis.
-    function beweegtHier(vzId, i) {
-      if (i === 0) return false;
-      const vz = M.voorzieningen.find(v => v.id === vzId);
-      const g = (vz.gaps || []).find(x => x.naar_plateau === M.plateaus[i].id);
-      return !!(g && g.verschuift);
-    }
-
-    // -- De tijdbalk ------------------------------------------------------------------------
-    function tekenTijdbalk() {
-      $("tijdbalk").innerHTML = M.plateaus.map((p, i) => {
-        const bm = p.beslismoment;
-        return `<button type="button" data-i="${i}" ${i === actief ? 'aria-current="step"' : ""}>` +
-          `<span class="tj">${esc(p.jaren)}</span>` +
-          `<span class="tn">${esc(p.naam)}</span>` +
-          (bm ? `<span class="tv">◆ Beslismoment ${esc(bm.nr)}</span>` : "") +
-          `</button>`;
-      }).join("");
-      $("tijdbalk").querySelectorAll("button").forEach(b => {
-        b.onclick = () => reisNaar(Number(b.dataset.i));
-      });
-    }
-
-    function reisNaar(i) {
-      actief = Math.max(0, Math.min(M.plateaus.length - 1, i));
-      tekenMaquette(); tekenTijdbalk(); tekenStand(); tekenDetail();
-    }
-
-    function tekenStand() {
-      const p = M.plateaus[actief];
-      const bm = p.beslismoment;
-      $("stand").innerHTML =
-        `<div class="kop">Stand van het stelsel · ${esc(p.jaren)}</div>` +
-        `<div class="tekst">${esc(p.stelselstand)}</div>` +
-        (bm ? `<div class="besluit"><b>◆ Beslismoment ${esc(bm.nr)} · ${esc(bm.wanneer)} — ` +
-          `${esc(bm.kop)}.</b> ${esc(bm.vraag)}</div>` : "") +
-        (p.afgebouwd && p.afgebouwd.length
-          ? `<div class="besluit"><b>Afgebouwd op dit plateau.</b> ` +
-            p.afgebouwd.map(a => `${esc(a.naam)} — ${esc(a.tekst)}`).join(" · ") + `</div>`
+    // Eén doos: vier zijvlakken plus een deksel. `y` is het midden van de doos.
+    function doos(klasse, attr, y, hoogte, inhoud) {
+      const h2 = hoogte / 2;
+      const zij = (kant, extra, binnen) =>
+        `<div class="vlak ${kant}" style="height:${hoogte}px;margin-top:${-h2}px;` +
+        `transform:${extra}">${binnen || ""}</div>`;
+      return `<div class="${klasse}" ${attr} style="transform:translateY(${y}px)">` +
+        zij("voor", `translateZ(${D / 2}px)`, inhoud.voor) +
+        zij("achter", `rotateY(180deg) translateZ(${D / 2}px)`, inhoud.achter) +
+        zij("links", `rotateY(-90deg) translateZ(${B / 2}px)`, inhoud.links) +
+        zij("rechts", `rotateY(90deg) translateZ(${B / 2}px)`, inhoud.rechts) +
+        `<div class="vlak deksel" style="transform:rotateX(90deg) translateZ(${h2}px)">` +
+          (inhoud.deksel || "") + `</div>` +
+        (inhoud.onder
+          ? `<div class="vlak deksel" style="transform:rotateX(-90deg) translateZ(${h2}px)">` +
+            inhoud.onder + `</div>`
           : "") +
-        `<div class="kop" style="margin-top:9px">${esc(p.aantal_voorzieningen)} voorzieningen ` +
-          `op dit plateau, waarvan ${esc(p.aantal_rol_open)} met een rol die in 2037 nog ` +
-          `besloten moet worden</div>`;
+        `</div>`;
     }
 
-    // -- De gekozen voorziening: haar reis door de plateaus ---------------------------------
+    function tekenGebouw() {
+      const n = G.verdiepingen.length;
+      const stapel = n * H + (n - 1) * TUSSEN;
+      // y loopt in CSS naar beneden, dus de eerste verdieping krijgt de grootste y.
+      const yVan = i => stapel / 2 - H / 2 - i * (H + TUSSEN);
+      let html = "";
+
+      // Bodemplaat, onder de stapel. Haar deksel kijkt omhoog, dus wat erop staat zie je pas als
+      // je eronder gaat kijken -- precies de bedoeling.
+      html += doos("laag bodem", 'data-vlak="bodemplaat"',
+        stapel / 2 + TUSSEN + PLAT / 2, PLAT, {
+        voor: `<div class="titel">${esc(G.bodemplaat.naam)}</div>` +
+              `<div class="regel">${esc(G.bodemplaat.kop)}</div>`,
+        links: `<div class="regel">${esc(G.bodemplaat.onderdelen[1] || "")}</div>`,
+        rechts: `<div class="regel">${esc(G.bodemplaat.onderdelen[2] || "")}</div>`,
+        onder: `<div class="titel">${esc(G.bodemplaat.naam)} — ${esc(G.bodemplaat.kop)}</div>` +
+          G.bodemplaat.onderdelen.map(o => `<div class="regel">${esc(o)}</div>`).join("") +
+          venstersHtml(G.bodemplaat.vragen),
+      });
+
+      G.verdiepingen.forEach((v, i) => {
+        const gedimd = gekozenLaag && gekozenLaag !== v.id;
+        const klasse = "laag" + (gekozenLaag === v.id ? " gekozen" : "") +
+          (gedimd ? " gedimd" : "");
+        const aanbodV = (G.gevelVragen.aanbod || []).filter(q => q.verdieping === v.id);
+        const vraagV = (G.gevelVragen.vraag || []).filter(q => q.verdieping === v.id);
+        html += doos(klasse, `data-id="${esc(v.id)}"`, yVan(i), H, {
+          voor: `<div class="titel"><span class="nr">${esc(v.nr)}</span>${esc(v.naam)}</div>` +
+                `<div class="regel">${esc(v.wat)}</div>`,
+          achter: `<div class="titel">${esc(v.naam)}</div>` +
+                  `<div class="regel">${esc(v.omhoog)}</div>`,
+          links: `<div class="kantnaam">Aanbod</div>` +
+                 v.aanbod.slice(0, 3).map(a => `<div class="regel">${esc(a)}</div>`).join("") +
+                 venstersHtml(aanbodV),
+          rechts: `<div class="kantnaam">Vraag</div>` +
+                  v.vraag.slice(0, 3).map(a => `<div class="regel">${esc(a)}</div>`).join("") +
+                  venstersHtml(vraagV),
+        });
+      });
+
+      html += doos("laag dak", 'data-vlak="dak"',
+        -(stapel / 2 + TUSSEN + PLAT / 2), PLAT, {
+        voor: `<div class="titel">${esc(G.dak.naam)}</div>` +
+              `<div class="regel">${esc(G.dak.kop)}</div>`,
+        links: `<div class="regel">${esc(G.dak.onderdelen[0] || "")}</div>`,
+        rechts: `<div class="regel">${esc(G.dak.onderdelen[4] || "")}</div>`,
+        deksel: `<div class="titel">${esc(G.dak.naam)} — ${esc(G.dak.kop)}</div>` +
+          G.dak.onderdelen.map(o => `<div class="regel">${esc(o)}</div>`).join("") +
+          venstersHtml(G.dak.vragen),
+      });
+
+      // Het trappenhuis: het enige dat naar beneden loopt.
+      html += `<div class="trap" style="height:${stapel}px;margin-top:${-stapel / 2}px;` +
+        `transform:translateZ(${D / 2 + 1}px) translateX(${B / 2 - 36}px)" ` +
+        `title="${esc(G.trappenhuis.naam)}"></div>`;
+
+      $("gebouw").innerHTML = html;
+      draai();
+
+      $("gebouw").querySelectorAll(".laag").forEach(el => {
+        el.addEventListener("click", ev => {
+          if (ev.target.closest(".venster")) return;
+          const id = el.dataset.id || el.dataset.vlak;
+          gekozenLaag = gekozenLaag === id ? null : id;
+          tekenGebouw(); tekenDetail();
+        });
+      });
+      $("gebouw").querySelectorAll(".venster").forEach(b => {
+        b.addEventListener("click", ev => {
+          ev.stopPropagation();
+          const i = Number(b.dataset.vraag);
+          gekozenVraag = gekozenVraag === i ? null : i;
+          tekenGebouw(); tekenVraag();
+        });
+      });
+    }
+
+    // Het gebouw is 440px breed; op een telefoon is dat breder dan het scherm. De schaal volgt
+    // daarom de scènebreedte in plaats van een vast breekpunt -- zo past hij op elke maat, ook
+    // tussen de breekpunten in.
+    function schaal() {
+      // Het venster telt mee als ondergrens. Zou de scène ooit breder worden dan het venster
+      // (een ouder die overloopt), dan rekende de schaal het gebouw te groot en liep het buiten
+      // beeld -- een fout die je pas ziet op een telefoon. Vandaag gebeurt dat niet; dit is een
+      // vangnet, geen reparatie.
+      const breed = Math.min($("scene").clientWidth || Infinity,
+                              document.documentElement.clientWidth || Infinity);
+      if (!isFinite(breed) || !breed) return 1;
+      // Gekanteld steekt het gebouw ook in de diepte uit, dus reken met de diagonaal van het
+      // grondvlak in plaats van met de breedte alleen.
+      const nodig = Math.sqrt(B * B + D * D);
+      return Math.min(1, (breed - 36) / nodig);
+    }
+
+    function draai() {
+      $("gebouw").style.transform =
+        `scale(${schaal().toFixed(3)}) rotateX(${ax}deg) rotateY(${ay}deg)`;
+    }
+
+    // Het gekozen standpunt staat in de URL, zodat "kijk eens van onderen" een link kan zijn.
+    function zetStandpunt(s, inUrl) {
+      ax = s.draai.x; ay = s.draai.y;
+      $("gebouw").classList.remove("sleept");
+      draai();
+      $("standpunten").querySelectorAll("button").forEach(x =>
+        x.setAttribute("aria-pressed", String(x.dataset.sp === s.id)));
+      if (s.id === "dak" || s.id === "bodemplaat") {
+        gekozenLaag = s.id; tekenGebouw(); tekenDetail();
+      }
+      if (inUrl) {
+        try {
+          const u = new URL(location.href);
+          u.searchParams.set("standpunt", s.id);
+          history.replaceState(null, "", u);
+        } catch (e) { /* een URL die niet te schrijven is, hoeft de maquette niet te breken */ }
+      }
+    }
+
+    function tekenStandpunten() {
+      $("standpunten").innerHTML = G.standpunten.map(s =>
+        `<button type="button" data-sp="${esc(s.id)}" aria-pressed="false">` +
+        `${esc(s.naam)}<span class="ziet">${esc(s.ziet)}</span></button>`).join("");
+      $("standpunten").querySelectorAll("button").forEach(b => {
+        b.onclick = () => zetStandpunt(G.standpunten.find(x => x.id === b.dataset.sp), true);
+      });
+    }
+
     function tekenDetail() {
-      if (!gekozen) {
-        $("detail").innerHTML =
-          `<h3>Kies een voorziening</h3>` +
-          `<div class="onder">Klik een blok in de maquette. Een blok met een paarse rand ` +
-          `wisselt op dat plateau van laag; een vraagteken betekent dat de rol in 2037 nog ` +
-          `open is.</div>`;
+      const k = $("detail");
+      if (gekozenLaag === "dak" || gekozenLaag === "bodemplaat") {
+        const v = gekozenLaag === "dak" ? G.dak : G.bodemplaat;
+        k.innerHTML = `<div class="kop">${esc(v.naam)}</div><h3>${esc(v.kop)}</h3>` +
+          `<p>${esc(v.wat)}</p><div class="waarom">${esc(v.waarom)}</div>` +
+          `<ul>` + v.onderdelen.map(o => `<li>${esc(o)}</li>`).join("") + `</ul>` +
+          `<div class="bronregel">${esc(v.bron)}</div>`;
         return;
       }
-      const v = M.voorzieningen.find(x => x.id === gekozen);
-      const laagnaam = id => (M.lagen.find(l => l.id === id) || {}).naam || "afgebouwd";
-      const stappen = M.plateaus.map((p, i) => {
-        const g = (v.gaps || []).find(x => x.naar_plateau === p.id);
-        return `<div class="stap"><span class="jr">${esc(p.jaren)}</span><span>` +
-          `<span class="wat">${esc(v.fasen[p.id] || "")}</span>` +
-          (g && g.verschuift
-            ? `<div class="gap">↗ verschuift van ${esc(laagnaam(g.van_laag))} naar ` +
-              `${esc(laagnaam(g.naar_laag))}</div>` : "") +
-          (g && g.vervalt ? `<div class="weg">✕ afgebouwd</div>` : "") +
-          (v.besluit && v.besluit.plateau === p.id
-            ? `<div class="weg">◆ ${esc(v.besluit.vraag)}</div>` : "") +
-          `</span></div>`;
-      }).join("");
-      $("detail").innerHTML =
-        `<h3>${esc(v.naam)}</h3><div class="onder">${esc(v.toelichting)}</div>` +
-        `<div class="codes">` +
-          v.w.map(w => `<span class="code w">${esc(w)}</span>`).join("") +
-          v.f.map(f => `<span class="code f">${esc(f)}</span>`).join("") +
-        `</div>` +
-        `<div class="reis">${stappen}</div>` +
-        `<div class="rol"><span class="lbl">Rol in 2037</span>` +
-          `<span class="${v.rol_open ? "onbeslist" : ""}">${esc(v.rol_2037)}` +
-          (v.rol_open ? " — nog te besluiten" : "") + `</span></div>`;
+      const v = G.verdiepingen.find(x => x.id === gekozenLaag);
+      if (!v) {
+        k.innerHTML = `<div class="kop">Verdieping</div><h3>Klik een verdieping aan</h3>` +
+          `<p>Of draai het gebouw: slepen, pijltjestoetsen, of de knoppen onder de maquette. ` +
+          `De vensters in de gevels zijn vragen die BALO stelt.</p>`;
+        return;
+      }
+      k.innerHTML = `<div class="kop">Verdieping ${esc(v.nr)}</div><h3>${esc(v.naam)}</h3>` +
+        `<p>${esc(v.wat)}</p>` +
+        `<div class="kop" style="margin-top:11px">Aanbod — wie levert</div>` +
+        `<ul>` + v.aanbod.map(a => `<li>${esc(a)}</li>`).join("") + `</ul>` +
+        `<div class="kop" style="margin-top:9px">Vraag — wie haalt</div>` +
+        `<ul>` + v.vraag.map(a => `<li>${esc(a)}</li>`).join("") + `</ul>` +
+        `<div class="omhoog">↑ ${esc(v.omhoog)}</div>`;
     }
 
-    function tekenLagen() {
-      $("lagenkaart").innerHTML =
-        `<h3>De drie lagen</h3>` +
-        `<div class="onder">De verticale as van de maquette. Een voorziening die van laag ` +
-        `wisselt, verhuist in dit beeld van band naar band.</div>` +
-        M.lagen.map(l =>
-          `<div class="rol"><span class="lbl">${esc(l.naam)} · ${esc(l.wie)}</span>` +
-          `<span>${esc(l.wat)}</span>` +
-          `<div class="onder" style="margin-top:4px">${esc(l.belofte)}</div></div>`).join("");
+    function tekenVraag() {
+      if (gekozenVraag === null) { $("vraagpaneel").innerHTML = ""; return; }
+      const q = G.alleVragen[gekozenVraag];
+      const verd = G.verdiepingen.find(v => v.id === q.verdieping);
+      const waar = q.verdieping
+        ? `${q.vlak}gevel, verdieping ${(verd || {}).naam || q.verdieping}`
+        : q.vlak;
+      $("vraagpaneel").innerHTML =
+        `<div class="vraagkaart"><div class="kop">Vraag uit BALO</div>` +
+        `<div class="q">${esc(q.vraag)}</div>` +
+        `<div class="waar">Dit venster zit in: ${esc(waar)}. BALO stelt de vraag; waar zij ` +
+        `hangt is een lezing van dit lab.</div></div>`;
     }
 
     function tekenRest() {
-      $("functies").innerHTML = M.functies.map(f =>
-        `<div class="fn" data-laag="${esc(f.laag)}"><span class="id">${esc(f.id)}</span> ` +
-        `<span class="naam">${esc(f.naam)}</span>` +
-        `<div class="plek">${esc(f.plek_2037)}</div></div>`).join("");
-      $("waardestromen").innerHTML = M.waardestromen.map(w =>
-        `<div class="ws"><span class="id">${esc(w.id)}</span> ` +
-        `<span class="wat">${esc(w.wat)}</span></div>`).join("");
-      $("vaststaand").innerHTML = M.vaststaand.map(v =>
-        `<div class="v">${esc(v)}</div>`).join("");
-      $("transitievragen").innerHTML = M.transitievragen.map(q =>
-        `<div class="q">${esc(q)}</div>`).join("");
-      $("herkomsttabel").querySelector("tbody").innerHTML = M.herkomst.map(h =>
+      const t = G.trappenhuis;
+      $("trappenhuis").innerHTML =
+        `<h3>${esc(t.naam)} — ${esc(t.kop)}</h3><p>${esc(t.wat)}</p>` +
+        `<div class="waarom">${esc(t.waarom)}</div>` +
+        `<div class="bronregel">${esc(t.bron)}</div>`;
+      $("herkomsttabel").querySelector("tbody").innerHTML = G.herkomst.map(h =>
         `<tr><td>${esc(h.wat)}</td>` +
-        `<td class="van ${esc(h.van)}">${h.van === "bron" ? "de bron" : "dit lab"}</td>` +
+        `<td class="van ${esc(h.van)}">${h.van === "bron" ? "BALO" : "dit lab"}</td>` +
         `<td>${esc(h.bron)}</td></tr>`).join("");
     }
 
-    // -- Slepen om de maquette te draaien ---------------------------------------------------
-    (function sleep() {
+    // -- Draaien: slepen, en pijltjes voor wie geen muis gebruikt ---------------------------
+    (function bedien() {
       const scene = $("scene");
-      let bezig = false, vanaf = 0, begin = 0;
+      let bezig = false, vx = 0, vy = 0, bx = 0, by = 0;
       scene.addEventListener("pointerdown", e => {
-        bezig = true; vanaf = e.clientX; begin = draai;
+        bezig = true; vx = e.clientX; vy = e.clientY; bx = ay; by = ax;
+        $("gebouw").classList.add("sleept");
         scene.setPointerCapture(e.pointerId);
       });
       scene.addEventListener("pointermove", e => {
         if (!bezig) return;
-        draai = Math.max(-80, Math.min(80, begin + (e.clientX - vanaf) * 0.35));
-        plaatsPlateaus();
+        ay = bx + (e.clientX - vx) * 0.4;
+        ax = Math.max(-85, Math.min(85, by - (e.clientY - vy) * 0.35));
+        draai();
       });
-      scene.addEventListener("pointerup", () => { bezig = false; });
+      scene.addEventListener("pointerup", () => {
+        bezig = false; $("gebouw").classList.remove("sleept");
+      });
+      scene.addEventListener("keydown", e => {
+        const stap = 12;
+        if (e.key === "ArrowLeft") ay -= stap;
+        else if (e.key === "ArrowRight") ay += stap;
+        else if (e.key === "ArrowUp") ax = Math.min(85, ax + stap);
+        else if (e.key === "ArrowDown") ax = Math.max(-85, ax - stap);
+        else return;
+        e.preventDefault(); draai();
+      });
     })();
 
-    // Pijltjes reizen door de tijd: de maquette is zo ook zonder muis te gebruiken.
-    document.addEventListener("keydown", e => {
-      if (!M) return;
-      if (e.key === "ArrowRight") { reisNaar(actief + 1); }
-      else if (e.key === "ArrowLeft") { reisNaar(actief - 1); }
-    });
+    // Bij het verdraaien van het scherm moet de schaal mee. De waarnemer op de scène vangt ook
+    // de gevallen die `resize` mist: een zijbalk die inklapt, of een lettertype dat later laadt
+    // en de opmaak verschuift.
+    window.addEventListener("resize", () => { if (G) draai(); });
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => { if (G) draai(); }).observe($("scene"));
+    }
 
     (async function laad() {
       try {
         const r = await fetch("/api/maquette");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        M = await r.json();
-        tekenMaquette(); tekenTijdbalk(); tekenStand(); tekenDetail();
-        tekenLagen(); tekenRest();
-        const t = M.telling;
+        G = await r.json();
+        // Eén doorlopende nummering over alle vensters, zodat een venster zichzelf kan
+        // aanwijzen zonder dat de pagina een tweede lijst bijhoudt.
+        G.alleVragen = [];
+        const nummer = lijst => (lijst || []).map(q => {
+          q._i = G.alleVragen.length; G.alleVragen.push(q); return q;
+        });
+        G.dak.vragen = nummer(G.dak.vragen);
+        G.bodemplaat.vragen = nummer(G.bodemplaat.vragen);
+        G.gevelVragen = {};
+        G.gevels.forEach(g => { G.gevelVragen[g.id] = nummer(g.vragen); });
+
+        tekenGebouw(); tekenStandpunten(); tekenDetail(); tekenRest();
+        // Een standpunt uit de URL, als die er een noemt die bestaat.
+        let gevraagd = null;
+        try { gevraagd = new URLSearchParams(location.search).get("standpunt"); } catch (e) { }
+        const s = G.standpunten.find(x => x.id === gevraagd);
+        if (s) zetStandpunt(s, false);
+        const t = G.telling;
         $("status").textContent =
-          `${t.plateaus} plateaus, ${t.voorzieningen} voorzieningen, ` +
-          `${t.voorzieningen_die_bewegen} daarvan wisselen onderweg van laag. ` +
-          `${t.rollen_open_in_2037} rollen zijn in 2037 nog niet belegd. ` +
-          `Sleep om te draaien, pijltjes om te reizen.`;
+          `${t.verdiepingen} verdiepingen, ${t.vragen} vensters met een vraag uit BALO. ` +
+          `Sleep om te draaien, of gebruik de pijltjestoetsen.`;
       } catch (e) {
         $("status").textContent = `De maquette kon niet worden geladen: ${e.message}`;
       }
