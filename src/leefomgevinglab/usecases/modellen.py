@@ -105,6 +105,39 @@ BRONNEN = {
 # Wat het REV publiceert, bestand voor bestand. Dit staat apart omdat "IMEV" in de praktijk
 # voor alle vier wordt gebruikt, en elk van de vier iets anders is. `verwijzingen` is het aantal
 # $ref's uit de API-specificatie naar dat bestand -- geteld, niet geschat.
+#: **Ook "GIR" is meer dan één ding -- dezelfde valkuil als bij IMEV, en deze pagina trapte er
+#: zelf in.** Zij schreef "GIR 2.0 databasemodel" en zette daar uitspraken onder die over *GIR*
+#: gaan. Toen de Projectstartarchitectuur van november 2023 erbij kwam, bleken twee van die
+#: uitspraken onjuist voor dát artefact (zie `BEVINDINGEN`): de vergunning staat er wél in, en
+#: "heeft als bevoegd gezag" is er wél een gemodelleerde relatie.
+#:
+#: Twee artefacten, twee lagen. Wat in het ene buiten scope valt, kan in het andere een klasse
+#: zijn -- en een uitspraak over "GIR" zonder te zeggen welk artefact, is daarom niet te
+#: controleren.
+GIR_ARTEFACTEN = [
+    {"bestand": "Projectstartarchitectuur GIR 2.0 (set november 2023)",
+     "soort": "architectuurmodel",
+     "wat": "dertien UML- en ArchiMate-views in vier lagen: grondslagen (wetgeving), "
+            "organisaties/producten/processen (actoren, VTH-processen, toezichthoudende "
+            "instanties), informatie (Registers, Inspectieresultaten, en het RGBZ-zaakschema) "
+            "en applicatie (componentdecompositie). Plus een begrippenlijst met per begrip een "
+            "definitie en de wettelijke vindplaats (Awb, Arbowet, Brzo 2015).",
+     "niet": "geen databaseontwerp: er staan klassen, attributen met multipliciteit en "
+             "associaties in, geen tabellen, kolomtypen of indexen",
+     "houder": "GIR 2.0-programma (BRZO+), modelbeheer via Enterprise Architect",
+     "vindplaats": "als modelset aangeleverd (svg-views plus begrippenlijst), geen publieke URL",
+     "omvang": "13 views; de Registers-view alleen draagt al ruim veertig klassen"},
+    {"bestand": "GIR 2.0 databasemodel (ICTU, v3.0 van 25 mei 2023)",
+     "soort": "databasemodel",
+     "wat": "het fysieke ontwerp: tabellen met reg_-prefix, kolommen, sleutels en de "
+            "afstand tussen model en werkelijkheid per attribuut",
+     "niet": "geen begrippenkader en geen architectuur -- het zegt hoe het opgeslagen wordt, "
+             "niet waarom het zo heet",
+     "houder": "ICTU, in opdracht van het GIR-programma",
+     "vindplaats": "intern document, geen publieke URL",
+     "omvang": "38 tabellen"},
+]
+
 ARTEFACTEN = [
     {"bestand": "IMEV (het informatiemodel)",
      "soort": "model",
@@ -266,22 +299,27 @@ VERTALINGEN = [
      "imev": "geen eigen objecttype, maar in het berichtschema wél drie velden op 44 van de "
              "79 objecttypen: basisVergunningNummer, datumVergunningOfMelding en "
              "vergunningsPlicht",
-     "gir": "uitdrukkelijk buiten scope gelaten — de Omgevingsvergunning-entiteit is "
-            "vervangen door een directe relatie Vergunninghouder → MBA, en een "
-            "vergunningnummer komt nergens in het datamodel voor",
-     "les": "Geen van beide maakt er een entiteit van, maar daar houdt de gelijkenis op. IMEV "
-            "bewaart de identificatie van de vergunning; GIR laat hem vallen. Wie de twee "
-            "registers op vergunning wil koppelen, kan dat aan één kant wel en aan de andere "
-            "niet."},
+     "gir": "hangt af van wélk GIR-artefact. In het databasemodel buiten scope gelaten; in de "
+            "Projectstartarchitectuur (november 2023) staan Omgevingsvergunning en "
+            "Vergunninghouder als klasse, met een Besluit dat Besluitidentificatie, Url, "
+            "Bestuursorgaan, ingangs- en vervaldatum draagt",
+     "les": "Hier stond dat GIR de identificatie laat vallen. Dat gold voor het databasemodel, "
+            "niet voor GIR — de architectuur legt besluit én nummer wél vast, via het "
+            "zaakgerichte RGBZ-spoor. Koppelen blijft moeilijk, maar om een andere reden: twee "
+            "identificaties uit twee stelsels zonder crosswalk, niet één ontbrekende."},
     {"begrip": "Wie is hier bevoegd gezag?",
      "cim": "VTH-INSTANTIE, een objecttype met een relatie naar de activiteit",
      "imev": "bevoegdGezag als veld op het object, in het schema een enumeratie van vier "
              "waarden — dus een bestuurslaag, geen organisatie",
-     "gir": "géén foreign key maar een GEO-query: valt de locatie binnen het werkgebied van "
-            "de organisatie, dan is dat het bevoegd gezag",
-     "les": "In GIR bestaat deze relatie niet als gegeven. Zij wordt bij elke bevraging "
-            "opnieuw uitgerekend, is niet op historie te bevragen, en verschuift zodra iemand "
-            "een werkgebiedgeometrie aanpast."},
+     "gir": "in de Projectstartarchitectuur een gemodelleerde associatie 'heeft als bevoegd "
+            "gezag', naast 'is gelegen in werkgebied van' en een Overheidsorganisatie met "
+            "'heeft werkgebied: vlakOfMultivlak'; in het databasemodel wordt zij als GEO-query "
+            "opgelost in plaats van opgeslagen",
+     "les": "Hier stond dat deze relatie in GIR niet als gegeven bestaat. In de architectuur "
+            "bestaat zij wél — het is het databasemodel dat haar als vraag uitvoert in plaats "
+            "van als feit bewaart. Dat verschil is precies het punt van deze pagina: een "
+            "relatie in het model kan in de database een query zijn, en dan is het antwoord van "
+            "gisteren niet reproduceerbaar."},
     {"begrip": "Welke eigenschappen heeft de activiteit?",
      "cim": "attributen van het objecttype, conceptueel benoemd",
      "imev": "het informatiemodel benoemt de eigenschappen per objecttype; het berichtschema "
@@ -357,11 +395,44 @@ BEVINDINGEN = [
             "kan modelleren; het wordt per domein opnieuw besloten.",
      "bron": "imev30-schema.yaml, LocatieActiviteit (25 properties)"},
     {"kop": "Een relatie in het model kan in de database een query zijn",
-     "wat": "'Heeft als bevoegd gezag' is in GIR geen opgeslagen verband maar een ruimtelijke "
-            "vraag. Dat is efficiënt en het is verdedigbaar, maar het betekent dat het "
-            "antwoord van gisteren niet reproduceerbaar is. Een conceptueel model ziet dat "
-            "verschil niet; een datamodel maakt het.",
-     "bron": "GIR 2.0, §4.19.1 'heeft als bevoegd gezag'"},
+     "wat": "'Heeft als bevoegd gezag' staat in de Projectstartarchitectuur als gewone "
+            "associatie, naast een Overheidsorganisatie met een werkgebiedgeometrie. Het "
+            "databasemodel lost diezelfde relatie op als ruimtelijke vraag in plaats van haar "
+            "op te slaan. Dat is efficiënt en verdedigbaar, maar het betekent dat het antwoord "
+            "van gisteren niet reproduceerbaar is. Een conceptueel model ziet dat verschil "
+            "niet; een datamodel maakt het — en wie 'GIR' zegt zonder te zeggen welk artefact, "
+            "kan beide kanten beweren.",
+     "bron": "PSA GIR 2.0 (nov 2023), view 'Registers', tegenover GIR 2.0 databasemodel "
+             "§4.19.1"},
+    {"kop": "Twee uitspraken over GIR op deze pagina waren onjuist, en de nieuwe modelset "
+            "wees dat uit",
+     "wat": "Deze pagina leert dat 'IMEV' vier bestanden en drie soorten ding is. Voor GIR "
+            "deed zij datzelfde niet: zij schreef 'GIR 2.0 databasemodel' en hing daar "
+            "uitspraken onder die over GIR gaan. Twee bleken onjuist zodra de "
+            "Projectstartarchitectuur van november 2023 erbij lag: dat GIR de "
+            "vergunningidentificatie laat vallen (de architectuur draagt Omgevingsvergunning "
+            "plus een Besluit met Besluitidentificatie, Url en Bestuursorgaan) en dat 'heeft "
+            "als bevoegd gezag' er niet als gegeven bestaat (het is er een associatie). Beide "
+            "waren waar over het databasemodel en onwaar over GIR.",
+     "bron": "PSA GIR 2.0 (nov 2023), views 'Registers' en 'Bevoegd gezag'"},
+    {"kop": "GIR modelleert een bevinding compléter dan dit lab",
+     "wat": "De view 'Inspectieresultaten' legt per Aandachtspunt een normenkader, een "
+            "stelling, een voorgesteld oordeel en een voorgestelde wettelijke grondslag van de "
+            "overtreding vast; een Inspectieresultaat draagt daarnaast de bevinding, de "
+            "motivatie, het oordeel, de wettelijke grondslag met juncto, de datum waarop "
+            "herstel is geconstateerd en een begunstigingstermijn. De signalen van dit lab "
+            "(/toezicht) hebben bewijs, herkomst en zwaarte — maar geen grondslag en geen "
+            "termijn. Wat hier als eigen vondst is gebouwd, bestaat daar als model, en "
+            "preciezer.",
+     "bron": "PSA GIR 2.0 (nov 2023), view 'Inspectieresultaten'"},
+    {"kop": "GIR heeft wél een eigen vorm voor onzekerheid, maar alleen voor datums",
+     "wat": "Hier stond dat een ontbrekend gegeven aan de GIR-kant simpelweg NULL is, "
+            "tegenover IMEV's Voidable met een verplichte geenWaardeReden. Dat is te kort door "
+            "de bocht: de architectuur voert een eigen type DatumIncompleet voor elke datum, "
+            "en multipliciteiten als [0..1] en [0..*] zeggen per attribuut of leeg mag. Wat "
+            "GIR niet heeft, is een réden bij een leeg veld — en dat is het verschil dat "
+            "overblijft.",
+     "bron": "PSA GIR 2.0 (nov 2023), type DatumIncompleet in de view 'Registers'"},
     {"kop": "Twee registers over dezelfde bedrijven, en één harde sleutel",
      "wat": "Van de twaalf begrippen die het REV en het GIR beide vastleggen, zijn er drie op "
             "een gedeelde sleutel te joinen — en alle drie komen van buiten: het KvK-nummer, "
@@ -428,17 +499,21 @@ OVERLAP = [
      "join": "ja", "waarom": "Allebei via de BAG. IMEV draagt daarnaast zelf geometrie, GIR "
              "leidt die af uit het adres."},
     {"begrip": "Het bevoegd gezag",
-     "gir": "reg_org met een OIN van Logius; welke organisatie bevoegd is volgt uit een "
-            "GEO-query op het werkgebied",
+     "gir": "reg_org met een OIN van Logius; in het databasemodel volgt de bevoegdheid uit "
+            "een GEO-query op het werkgebied, in de architectuur uit de associatie 'heeft als "
+            "bevoegd gezag'",
      "imev": "bevoegdGezag als enum met vier waarden — rijk, provincie, gemeente, "
              "gegevenInTransitie — plus bronhoudercode van 3 tot 6 tekens",
      "join": "nee", "waarom": "IMEV noemt de bestuurslaag, GIR de organisatie. Uit 'gemeente' "
              "volgt niet wélke gemeente, en uit een OIN volgt geen bestuurslaag."},
     {"begrip": "De vergunning",
-     "gir": "niets — de entiteit is buiten scope gelaten",
+     "gir": "in het databasemodel buiten scope; in de architectuur Omgevingsvergunning plus "
+            "een Besluit met Besluitidentificatie als sleutel, Url en Bestuursorgaan",
      "imev": "basisVergunningNummer (1-50 tekens), datumVergunningOfMelding, vergunningsPlicht",
-     "join": "nee", "waarom": "Eenzijdig: IMEV heeft het nummer, GIR heeft het niet. Er valt "
-             "niets te koppelen zolang één kant het gegeven niet bewaart."},
+     "join": "nee", "waarom": "Niet eenzijdig, zoals hier eerder stond, maar onvergelijkbaar: "
+             "een Besluitidentificatie is een zaaksleutel van de nemende organisatie en "
+             "basisVergunningNummer is vrije tekst van maximaal vijftig tekens. Twee "
+             "identificaties uit twee stelsels, zonder crosswalk ertussen."},
     {"begrip": "De wettelijke grondslag",
      "gir": "wettelijke grondslag als Juriconnect-URI in een varchar; reg_wet met BWB-nummer "
             "is ontworpen maar nooit gebouwd",
@@ -519,6 +594,7 @@ def telling() -> dict:
     return {"lagen": len(LAGEN), "vertalingen": len(VERTALINGEN),
             "bevindingen": len(BEVINDINGEN), "overlap": len(OVERLAP),
             "artefacten": len(ARTEFACTEN),
+            "gir_artefacten": len(GIR_ARTEFACTEN),
             "refs_totaal": verwijzingen()["totaal"],
             "refs_envelop": verwijzingen()["per_bestand"]["imev30-oas-schema.yaml"],
             "refs_inhoud": verwijzingen()["per_bestand"]["imev30-schema.yaml"],
@@ -534,6 +610,7 @@ def telling() -> dict:
 
 
 def analyse() -> dict:
-    return {"bronnen": BRONNEN, "artefacten": ARTEFACTEN, "lagen": LAGEN,
+    return {"bronnen": BRONNEN, "artefacten": ARTEFACTEN,
+            "gir_artefacten": GIR_ARTEFACTEN, "lagen": LAGEN,
             "vertalingen": VERTALINGEN, "overlap": OVERLAP, "bevindingen": BEVINDINGEN,
             "herkomst": HERKOMST, "telling": telling()}
