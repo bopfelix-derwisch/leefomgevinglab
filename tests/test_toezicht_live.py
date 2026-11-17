@@ -606,6 +606,22 @@ def test_de_opgebouwde_graaf_op_schijf_is_dezelfde_als_de_route_live_bouwt():
     van_schijf = ld_store.load_graph(os.path.dirname(pad), naam=os.path.basename(pad))
     assert van_schijf is not None and len(van_schijf), "het bestand levert een lege graaf"
 
+    # **Eerst de bron polsen, en opgeven in plaats van hangen.** De live bouw doet een
+    # coördinaatopzoeking per vergunning tegen de KRW-WFS van RWS. Normaal kost die reeks ~8 s
+    # (parallel, ontdubbeld), maar als die dienst traag is loopt één opzoeking op tot tientallen
+    # seconden -- op 2026-11-17 gemeten: 25,6 s voor één punt, waarmee deze test de hele suite
+    # liet hangen in plaats van iets te zeggen. Een live test die een uur blijft staan is erger
+    # dan een die zich overslaat met de reden erbij.
+    from leefomgevinglab.usecases.kmg import service as kmg_service_mod
+    t0 = time.perf_counter()
+    kmg_service_mod._waterlichaam_opzoeken(190000.0, 350000.0)
+    duur = time.perf_counter() - t0
+    if duur > 5.0:
+        pytest.skip(
+            f"de KRW-WFS van RWS doet {duur:.1f}s over één opzoeking; een live bouw over het "
+            "hele register zou minuten duren. Dit raakt de dienst zelf niet -- die leest het "
+            "opgebouwde bestand (scripts/22) en is daar juist tegen beschermd.")
+
     live, telling_live = api_mod._bouw_toezicht_graaf_live()
     telling_schijf = graafbouw.telling(van_schijf)
 
