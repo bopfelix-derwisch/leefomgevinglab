@@ -184,6 +184,17 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   **⚠️ Met een route actief worden de voorkanten doorzichtig** (`.blok.inkijk`). Zonder dat
   tekende de route achter een dichte wand: aanwezig in de DOM, onzichtbaar voor de lezer. Een
   doorsnede moet je ín kunnen kijken.
+  **De stroom beweegt echt.** Drie korrels lopen de route af met CSS `offset-path`, en de twee
+  zijbanden schuiven elk hun eigen kant op (omhoog groen, omlaag rood).
+  **⚠️ SMIL werkte niet:** `animateMotion` met een `mpath` zette de eerste korrel wel op het
+  beginpunt maar liet hem daar staan — de klok liep niet. CSS `offset-path` doet hetzelfde langs
+  dezelfde padbeschrijving en is wél te meten (`getAnimations()[0].currentTime` loopt op).
+  **⚠️ En let op de specificiteit bij `prefers-reduced-motion`:** `.stroom { animation:none }`
+  verliest het van `.stroom.omhoog { animation:… }`, en dan blijven de banden doorlopen voor wie
+  om stilstand heeft gevraagd. In de code zag het er goed uit; het bleek pas door het te meten
+  met `chromium --force-prefers-reduced-motion`. Zonder beweging wordt de baan juist béter
+  zichtbaar (opacity .35 → .85) en verdwijnen de korrels: de informatie hangt niet aan de
+  animatie.
   **⚠️⚠️ De bug die alle velden stilbrak: `setPointerCapture` in `pointerdown`.** Om te kunnen
   slepen ving de scène elke pointer meteen af — en met een actieve pointer-capture gaat óók het
   `click`-event naar het vangende element in plaats van naar de tegel waarop je drukte. Niets

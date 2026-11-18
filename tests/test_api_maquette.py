@@ -192,3 +192,34 @@ def test_de_ingang_is_het_gebied():
     plat = _plat(_client().get("/maquette").text)
     assert "Begin op de kaart" in plat
     assert "bedrijf, het lozingspunt, het meetpunt" in plat
+
+
+def test_de_stroom_beweegt_met_css_en_niet_met_smil():
+    """**SMIL liep niet.** `animateMotion` met een `mpath` zette de eerste korrel wel op het
+    beginpunt maar liet hem daar staan; de klok liep niet. CSS `offset-path` doet hetzelfde langs
+    precies dezelfde padbeschrijving, draait op dezelfde motor als de zijbanden, en is te meten
+    (`getAnimations()[0].currentTime` loopt op). Gemeten in een echte browser, niet aangenomen:
+    de code zag er in beide gevallen goed uit."""
+    r = _client().get("/maquette")
+    assert "animateMotion" not in r.text and "mpath" not in r.text, (
+        "SMIL is hier vervangen door CSS; terugzetten laat de korrels stilstaan")
+    assert "offset-path" in r.text and "korrelLoopt" in r.text
+    assert r.text.count('class="korrel') >= 1, "de korrels komen uit de tekenfunctie"
+    assert "stroomOmhoog" in r.text and "stroomOmlaag" in r.text, (
+        "de twee zijbanden stromen elk hun eigen kant op")
+
+
+def test_wie_geen_beweging_wil_krijgt_de_volle_baan_in_plaats_van_een_puls():
+    """De informatie mag niet aan de animatie hangen: zonder beweging wordt de baan juist beter
+    zichtbaar (opacity omhoog) en verdwijnen de korrels.
+
+    **Let op de specificiteit**, en dit is de fout die hier gemaakt werd: `.stroom { animation:
+    none }` verliest het van `.stroom.omhoog { animation: ... }`, en dan bleven de banden
+    doorlopen voor wie om stilstand had gevraagd. In de code zag het er goed uit; het bleek pas
+    door het in een browser met `--force-prefers-reduced-motion` te meten."""
+    r = _client().get("/maquette")
+    blok = r.text.split("prefers-reduced-motion:reduce")[1].split("}\n  </style>")[0]
+    assert ".stroom.omhoog" in blok and ".stroom.omlaag" in blok, (
+        "een regel op `.stroom` alleen heeft te lage specificiteit en doet niets")
+    assert ".korrel" in blok and "display:none" in blok
+    assert ".baan { opacity:.85" in blok, "zonder puls hoort de hele baan zichtbaar te zijn"

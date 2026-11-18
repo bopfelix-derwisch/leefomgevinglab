@@ -118,8 +118,26 @@
     .blok.inkijk .plaat.gedimd { opacity:.5; }
 
     .binnen { position:absolute; left:0; top:0; pointer-events:none; }
-    .binnen .baan { fill:none; stroke:var(--accent); stroke-width:2.5; opacity:.85;
+    .binnen .baan { fill:none; stroke:var(--accent); stroke-width:2.5; opacity:.35;
       stroke-linecap:round; stroke-linejoin:round; }
+    /* Een lichtpuls die de baan afloopt, van de bron naar de gebruiker. De baan zelf blijft
+       zichtbaar als flauwe lijn, zodat de hele route ook stilstaand te lezen is. */
+    .binnen .puls { fill:none; stroke:#eafff6; stroke-width:2.5; stroke-linecap:round;
+      stroke-linejoin:round; stroke-dasharray:34 1000;
+      animation:baanPuls 3.4s linear infinite; }
+    @keyframes baanPuls { from { stroke-dashoffset:34; } to { stroke-dashoffset:-1000; } }
+    /* De korrels lopen de baan af met CSS in plaats van met SMIL: `offset-path` neemt dezelfde
+       padbeschrijving, draait op dezelfde motor als de zijbanden, en is te meten. */
+    .binnen .korrel { fill:#eafff6; offset-rotate:0deg;
+      animation:korrelLoopt 3.4s linear infinite; }
+    .binnen .korrel.k2 { animation-delay:-1.13s; }
+    .binnen .korrel.k3 { animation-delay:-2.27s; }
+    @keyframes korrelLoopt {
+      from { offset-distance:0%; opacity:0; }
+      8% { opacity:1; }
+      92% { opacity:1; }
+      to { offset-distance:100%; opacity:0; }
+    }
     .binnen .station { pointer-events:auto; cursor:pointer; }
     .binnen .station circle { fill:#0b1726; stroke:var(--accent); stroke-width:2; }
     .binnen .station.gekozen circle { fill:var(--accent); }
@@ -131,8 +149,20 @@
 
     .stroom { position:absolute; width:16px; margin-left:-8px; left:0; top:0;
       border-radius:8px; cursor:pointer; }
-    .stroom.omhoog { background:linear-gradient(0deg, rgba(46,204,143,.08), rgba(46,204,143,.5)); }
-    .stroom.omlaag { background:linear-gradient(180deg, rgba(255,122,107,.08), rgba(255,122,107,.5)); }
+    /* De twee banden stromen echt: korrels die omhoog of omlaag schuiven. Dat is het verschil
+       tussen "hier loopt een stroom" en een gekleurde balk. De richting is het hele punt --
+       links gaat data omhoog en wordt informatie, rechts gaat de correctie terug naar de bron. */
+    .stroom { background-size:100% 46px; }
+    .stroom.omhoog {
+      background-image:linear-gradient(0deg, rgba(46,204,143,.05) 0 42%,
+        rgba(46,204,143,.62) 50%, rgba(46,204,143,.05) 58% 100%);
+      animation:stroomOmhoog 2.6s linear infinite; }
+    .stroom.omlaag {
+      background-image:linear-gradient(0deg, rgba(255,122,107,.05) 0 42%,
+        rgba(255,122,107,.62) 50%, rgba(255,122,107,.05) 58% 100%);
+      animation:stroomOmlaag 3.1s linear infinite; }
+    @keyframes stroomOmhoog { from { background-position:0 0; } to { background-position:0 -46px; } }
+    @keyframes stroomOmlaag { from { background-position:0 0; } to { background-position:0 46px; } }
     .stroom:hover { filter:brightness(1.4); }
 
     .bediening { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
@@ -211,7 +241,17 @@
       .wrap { padding:0 14px 50px; }
       .scene { height:400px; perspective:1200px; }
     }
-    @media (prefers-reduced-motion:reduce) { .blok, .plaat { transition:none; } }
+    /* Wie beweging liever niet heeft, krijgt de volle baan in plaats van een puls: dezelfde
+       informatie, zonder animatie. */
+    @media (prefers-reduced-motion:reduce) {
+      .blok, .plaat { transition:none; }
+      /* Let op de specificiteit: `.stroom` alleen verliest het van `.stroom.omhoog`, en dan
+         bleven de banden gewoon doorlopen voor wie om stilstand had gevraagd. Gemeten, niet
+         aangenomen -- in de code zag het er goed uit. */
+      .stroom.omhoog, .stroom.omlaag { animation:none; }
+      .binnen .baan { opacity:.85; }
+      .binnen .puls, .binnen .korrel { display:none; animation:none; }
+    }
   </style>
 </head>
 <body>
@@ -484,6 +524,15 @@
         x: xVan[s.kant] || B / 2, y: yVan(s.laag), s,
       }));
       const pad = punten.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+      // Drie korrels achter elkaar, zodat het een stroom wordt en geen enkele stip. De id is
+      // per route uniek, anders volgen de korrels na een herteken de oude baan.
+      const baanId = `baan-${esc(route.id)}`;
+      // Drie korrels achter elkaar, zodat het een stroom wordt en geen enkele stip. De
+      // negatieve vertraging in de CSS zet ze meteen verspreid over de baan in plaats van ze
+      // eerst op elkaar te laten wachten.
+      const korrels = ["", " k2", " k3"].map(extra =>
+        `<circle class="korrel${extra}" r="3.4" cx="0" cy="0" ` +
+        `style="offset-path:path('${pad}')"/>`).join("");
       const koppen = M.kanten.map(k =>
         `<text class="kantkop" x="${xVan[k.id] || B / 2}" y="14" text-anchor="middle">` +
         `${esc(k.naam.toUpperCase())}</text>`).join("");
@@ -496,7 +545,10 @@
       return `<svg class="binnen" width="${B}" height="${hoogte}" ` +
         `viewBox="0 0 ${B} ${hoogte}" style="margin:${-hoogte / 2}px 0 0 ${-B / 2}px;` +
         `transform:translateZ(40px)" aria-label="Route van ${esc(route.naam)}">` +
-        koppen + `<path class="baan" d="${pad}"/>` + stations + `</svg>`;
+        koppen +
+        `<path class="baan" id="${baanId}" d="${pad}"/>` +
+        `<path class="puls" d="${pad}"/>` +
+        korrels + stations + `</svg>`;
     }
 
     function huidigeRoute() {
