@@ -23,10 +23,10 @@ def _plat(html: str) -> str:
     return re.sub(r"\s+", " ", html)
 
 
-def test_de_api_levert_het_eindbeeld_als_gebouw():
+def test_de_api_levert_het_eindbeeld_als_doorsnede():
     d = _client().get("/api/maquette").json()
-    for sleutel in ("bodemplaat", "dak", "verdiepingen", "trappenhuis", "gevels",
-                     "standpunten", "herkomst", "telling"):
+    for sleutel in ("lagen", "gebied", "processen", "handelingen", "aansluitingen", "bodem",
+                     "stromen", "waarde", "herkomst", "telling"):
         assert d[sleutel], sleutel
     assert "plateaus" not in d, (
         "de pagina gaat over het eindbeeld; de transitie heeft een eigen eindpunt")
@@ -49,28 +49,45 @@ def test_de_route_raakt_geen_bron_en_is_dus_snel():
     assert time.perf_counter() - t0 < 1.0
 
 
-def test_de_pagina_haalt_het_gebouw_uit_de_api_en_typt_niets_zelf():
-    """Geen verdiepingsnaam, geen vraag en geen onderdeel in de HTML. Zou dat wel zo zijn, dan
-    kan het gebouw iets anders tonen dan BALO zegt."""
+def test_de_pagina_haalt_de_doorsnede_uit_de_api_en_typt_niets_zelf():
+    """Geen laagnaam, geen handeling en geen standaard in de HTML. Zou dat wel zo zijn, dan kan
+    de maquette iets anders tonen dan het model zegt."""
     r = _client().get("/maquette")
     assert r.status_code == 200
     assert "/api/maquette" in r.text
-    for v in eb.VERDIEPINGEN:
-        assert v["naam"] not in r.text, f"verdieping {v['naam']} hoort uit de API te komen"
-        assert v["wat"] not in r.text
-    for q in eb.VRAGEN:
-        assert q["vraag"] not in r.text, "de vragen komen uit BALO via de API"
-    for o in eb.DAK["onderdelen"] + eb.BODEMPLAAT["onderdelen"]:
-        assert o not in r.text
+    for e in eb._alle_elementen():
+        naam = e.get("naam") or e.get("object")
+        assert naam not in r.text, f"{naam} hoort uit de API te komen"
+        assert e["architectuur"] not in r.text, "ook de uitleg komt uit de API"
+    for l in eb.LAGEN:
+        assert l["wat"] not in r.text
 
 
-def test_de_pagina_legt_het_gebouw_uit_in_gewone_woorden():
-    """Het doel is dat iemand zonder architectuuropleiding het begrijpt. Dan moeten de woorden
-    die de vorm dragen -- bodemplaat, verdiepingen, dak, gevels, vensters -- er ook staan."""
+def test_de_pagina_opent_in_gewone_woorden():
+    """Het doel is dat iemand zonder architectuuropleiding het begrijpt. De inleiding noemt dus
+    het gebied, de gegevens, de doorsnede en de stekkerdozen -- geen informatiefuncties."""
     plat = _plat(_client().get("/maquette").text)
-    for woord in ("bodemplaat", "verdiepingen", "dak", "gevels", "vensters"):
+    for woord in ("gebied", "gegevens", "doorsnede", "stekkerdozen"):
         assert woord in plat.lower(), woord
-    assert "links wordt geleverd, rechts wordt gehaald" in plat
+    assert "informatiefunctie" not in plat.lower().split("in architectuurtaal")[0], (
+        "de vaktaal hoort in de uitlegvelden, niet in de inleiding")
+
+
+def test_de_pagina_tekent_een_herkenbaar_gebied():
+    """De bovenste laag is geen tekstpaneel maar een kaart: een bedrijf, een rivier, een
+    woonwijk, een meetpunt. Dat is wat de maquette concreet maakt."""
+    r = _client().get("/maquette")
+    for ding in ("chemiebedrijf", "lozingspunt", "woonwijk", "meetpunt", "de rivier"):
+        assert ding in r.text, f"{ding} ontbreekt op de kaart"
+    assert "<svg" in r.text and "viewBox" in r.text
+
+
+def test_het_blok_is_uit_elkaar_te_trekken():
+    """De schuif is wat de doorsnede zichtbaar maakt -- zonder haar zie je alleen de buitenkant,
+    en dan is de laag met de standaarden precies zo onzichtbaar als in de werkelijkheid."""
+    r = _client().get("/maquette")
+    assert 'id="uitelkaar"' in r.text and 'type="range"' in r.text
+    assert "Toon de doorsnede" in r.text
 
 
 def test_de_pagina_zegt_dat_dit_geen_vastgesteld_beleid_is():
@@ -90,7 +107,15 @@ def test_de_pagina_draagt_een_herkomsttabel_die_balo_en_lab_onderscheidt():
     assert "Wat uit BALO komt, en wat dit lab erbij leest" in plat
 
 
-def test_het_gebouw_is_zonder_muis_te_draaien():
+def test_elke_doorkijk_op_de_pagina_wijst_naar_een_bestaande_route():
+    """De pagina belooft dat elk ding naar werkende code leidt. Een dode link breekt die belofte
+    stiller dan een foutmelding."""
+    routes = {r.path for r in api_mod.app.routes if hasattr(r, "path")}
+    dood = sorted({e["waar"] for e in eb._alle_elementen() if e["waar"] not in routes})
+    assert not dood, dood
+
+
+def test_het_blok_is_zonder_muis_te_draaien():
     """Draaien is de kern van deze pagina. Kan het alleen met slepen, dan is zij voor een
     toetsenbordgebruiker niet te bedienen."""
     r = _client().get("/maquette")
@@ -100,13 +125,13 @@ def test_het_gebouw_is_zonder_muis_te_draaien():
     assert "prefers-reduced-motion" in r.text
 
 
-def test_een_standpunt_is_deelbaar_via_de_url():
-    """'Kijk eens van onderen' moet een link kunnen zijn -- anders moet je uitleggen welke knop
-    iemand moet indrukken."""
+def test_een_blik_is_deelbaar_via_de_url():
+    """'Kijk eens naar de doorsnede' moet een link kunnen zijn -- anders moet je uitleggen welke
+    knop iemand moet indrukken."""
     r = _client().get("/maquette")
-    assert "standpunt" in r.text
-    assert "URLSearchParams" in r.text and "replaceState" in r.text
-    assert _client().get("/maquette?standpunt=bodemplaat").status_code == 200
+    assert "blik" in r.text and "URLSearchParams" in r.text
+    for blik in ("boven", "doorsnede"):
+        assert _client().get(f"/maquette?blik={blik}").status_code == 200
 
 
 def test_de_pagina_laadt_geen_3d_bibliotheek():

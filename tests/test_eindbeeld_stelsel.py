@@ -1,189 +1,181 @@
-"""`usecases.eindbeeld_stelsel` -- het functioneel eindbeeld als gebouw.
+"""`usecases.eindbeeld_stelsel` -- het eindbeeld als doorsnede door een stuk leefomgeving.
 
-Deze module beweert dingen over BALO v1.0, een document dat niet in de repo staat. De bewaking
-gaat er daarom vooral over dat **bron en lezing gescheiden blijven**: de vragen zijn woordelijk
-van BALO, de plaatsing ervan is van dit lab, en het gebouw als vorm ook. Een maquette die haar
-eigen lezing als brongegeven presenteert, is erger dan geen maquette -- zij ziet eruit als
-architectuur.
+Twee eisen staan hier centraal, en beide komen rechtstreeks uit wat er van deze maquette gevraagd
+is.
+
+**Niet vrijblijvend.** Elk ding in de maquette draagt een uitlegveld (`architectuur`) én een
+doorkijk (`waar`) naar een pagina waar het in dit lab op echte data draait. Een 3D-plaat zonder
+die twee is een plaatje; mét die twee is het een ingang. De tests eisen ze op élk element, en
+eisen bovendien dat de doorkijk naar een route wijst die werkelijk bestaat -- een dode link is
+erger dan geen link, want hij belooft iets.
+
+**Geen vaktaal in de voorgrond.** De negen handelingen zijn BALO's informatiefuncties, maar die
+term staat met opzet niet in de naam: wie geen architect is heeft er niets aan. De vakterm hoort
+in het uitlegveld, zodat niemand iets verliest.
 """
 import pytest
 
+from leefomgevinglab.geluidsmeter import api as api_mod
 from leefomgevinglab.usecases import eindbeeld_stelsel as eb
 
 
 @pytest.fixture(scope="module")
-def g():
-    return eb.gebouw()
+def m():
+    return eb.maquette()
 
 
-# -- Bron en lezing gescheiden ------------------------------------------------------------------
-
-def test_de_herkomst_noemt_zowel_balo_als_het_lab(g):
-    assert g["herkomst"]
-    for h in g["herkomst"]:
-        assert h["van"] in ("bron", "lab"), h
-        assert h["wat"] and h["bron"]
-    soorten = {h["van"] for h in g["herkomst"]}
-    assert soorten == {"bron", "lab"}, (
-        "alles 'bron' zou de eigen lezing verbergen, alles 'lab' het document wegpoetsen")
+@pytest.fixture(scope="module")
+def routes():
+    """De paden die de app werkelijk bedient."""
+    return {r.path for r in api_mod.app.routes if hasattr(r, "path")}
 
 
-def test_het_gebouw_als_vorm_staat_als_lezing_van_dit_lab(g):
-    """BALO tekent een platte figuur. Dat die zich als gebouw laat lezen is een keuze van dit
-    lab, gemaakt zodat iemand zonder architectuuropleiding er omheen kan lopen -- en zo'n keuze
-    hoort niet als brongegeven te worden gepresenteerd."""
-    regel = next(h for h in g["herkomst"] if "gebouw als vorm" in h["wat"])
-    assert regel["van"] == "lab"
-    assert "platte figuur" in regel["bron"]
+# -- De doorkijk naar de architectuurwereld -----------------------------------------------------
+
+def test_elk_element_zegt_hoe_het_in_vaktaal_heet(m):
+    """**De brug naar de architectuurwereld.** Zonder dit veld is de maquette een plaat voor
+    leken en nutteloos voor wie het formeel moet verantwoorden; mét dit veld bedient zij beide."""
+    for e in eb._alle_elementen():
+        assert e.get("architectuur"), f"{e.get('id')} zegt niet hoe het in vaktaal heet"
+        assert len(e["architectuur"]) > 25, f"{e['id']}: te kort om iets uit te leggen"
 
 
-def test_de_plaatsing_van_de_vragen_is_een_lezing_en_de_vragen_zelf_niet(g):
-    """De vragen zijn van BALO, woordelijk. Waar zij hangen is van dit lab. Dat onderscheid is
-    het hele verschil tussen citeren en interpreteren."""
-    vragen_regel = next(h for h in g["herkomst"] if "vensters, woordelijk" in h["wat"])
-    assert vragen_regel["van"] == "bron"
-    plaats_regel = next(h for h in g["herkomst"] if h["wat"].startswith("Op welk vlak"))
-    assert plaats_regel["van"] == "lab"
+def test_elk_element_wijst_naar_een_pagina_waar_het_echt_draait(m):
+    """Dit is wat de maquette van een visual onderscheidt: elk ding is een ingang naar werkende
+    code met echte data."""
+    for e in eb._alle_elementen():
+        assert e.get("waar"), f"{e.get('id')} heeft geen doorkijk"
+        assert e.get("waar_tekst"), f"{e['id']}: een link zonder uitleg waarheen"
 
 
-def test_elke_vraag_is_een_vraag(g):
-    """Een venster met een bewering erin zou suggereren dat BALO het antwoord al geeft."""
-    for v in eb.VRAGEN:
-        assert v["vraag"].endswith("?"), v["vraag"]
-        assert len(v["vraag"]) > 12
+def test_elke_doorkijk_wijst_naar_een_route_die_bestaat(m, routes):
+    """**Een dode link is erger dan geen link**, want hij belooft iets. Deze test vangt ook het
+    geval dat een pagina later hernoemd wordt zonder dat iemand aan de maquette denkt."""
+    dood = sorted({e["waar"] for e in eb._alle_elementen() if e["waar"] not in routes})
+    assert not dood, f"doorkijk naar niet-bestaande route(s): {dood}"
 
 
-# -- Het gebouw klopt met zichzelf --------------------------------------------------------------
+def test_de_doorkijken_spreiden_over_het_hele_lab(m):
+    """Zouden alle elementen naar dezelfde pagina wijzen, dan is de doorkijk een formaliteit."""
+    assert len(m["telling"]["paginas"]) >= 10, m["telling"]["paginas"]
 
-def test_de_verdiepingen_zijn_de_informatieketen_van_balo(g):
-    """Vier niveaus op elkaar: data → informatie → kennis → inzicht. De volgorde is de keten, dus
-    hun nummers moeten oplopen en uniek zijn."""
-    nrs = [v["nr"] for v in g["verdiepingen"]]
+
+def test_de_telling_van_de_doorkijk_is_volledig(m):
+    t = m["telling"]
+    assert t["met_uitleg"] == t["elementen"]
+    assert t["met_doorkijk"] == t["elementen"]
+
+
+# -- Geen vaktaal in de voorgrond ---------------------------------------------------------------
+
+def test_de_handelingen_heten_in_gewone_woorden(m):
+    """"Niet zo noemen", was de eis. De negen zijn BALO's informatiefuncties, maar de naam die
+    een lezer ziet is een werkwoord dat iedereen kent."""
+    verboden = ("informatiefunctie", "valideren", "registreren", "ontsluiten", "terugkoppelen",
+                 "beschikbaar stellen", "lokaliseren")
+    for h in m["handelingen"]:
+        laag = h["naam"].lower()
+        for woord in verboden:
+            assert woord not in laag, f"{h['naam']}: {woord!r} is vaktaal, zet die in de uitleg"
+        assert h["code"].startswith("F"), "de code hoort er wel te zijn, voor wie hem zoekt"
+
+
+def test_de_vakterm_staat_wel_in_het_uitlegveld(m):
+    """Weglaten zou het andere uiterste zijn: dan kan een architect de maquette niet plaatsen."""
+    for h in m["handelingen"]:
+        assert "nformatiefunctie" in h["architectuur"], h["naam"]
+        assert h["code"] in h["architectuur"], f"{h['naam']} noemt zijn eigen code niet"
+
+
+def test_de_processen_dragen_hun_waardestroom_in_de_uitleg(m):
+    for p in m["processen"]:
+        assert "aardestroom W" in p["architectuur"], p["naam"]
+
+
+# -- De vier lagen -------------------------------------------------------------------------------
+
+def test_de_lagen_lopen_van_het_gebied_tot_de_bodem(m):
+    assert [l["id"] for l in m["lagen"]] == ["gebied", "handelingen", "aansluitingen", "bodem"]
+    nrs = [l["nr"] for l in m["lagen"]]
     assert nrs == sorted(nrs) == list(range(1, len(nrs) + 1))
-    assert [v["id"] for v in g["verdiepingen"]] == ["data", "informatie", "kennis", "inzicht"]
 
 
-def test_elke_verdieping_zegt_wat_er_nodig_is_om_een_niveau_hoger_te_komen(g):
-    """Dat is wat een trap tot een trap maakt in plaats van een stapel dozen: zonder dit veld
-    staan er vier losse begrippen boven elkaar."""
-    for v in g["verdiepingen"]:
-        assert v["omhoog"], f"{v['id']} zegt niet hoe je een verdieping hoger komt"
-        assert v["wat"]
+def test_alleen_de_standaardenlaag_is_een_doorsnede(m):
+    """Een doorsnede is iets wat je pas ziet als je opensnijdt. Zouden alle lagen zo heten, dan
+    zegt het woord niets meer."""
+    snij = [l["id"] for l in m["lagen"] if l["snijvlak"]]
+    assert snij == ["aansluitingen"], snij
 
 
-def test_elke_verdieping_heeft_een_aanbod_en_een_vraagkant(g):
-    """De twee gevels zijn de kern van de vorm: links wordt geleverd, rechts gehaald. Een
-    verdieping zonder een van beide zou aan één kant een blinde muur hebben."""
-    for v in g["verdiepingen"]:
-        assert v["aanbod"], f"{v['id']} heeft geen aanbodkant"
-        assert v["vraag"], f"{v['id']} heeft geen vraagkant"
+def test_het_gebied_is_concreet_en_niet_abstract(m):
+    """De eerdere maquettes faalden op abstractie. De bovenste laag moet dingen bevatten die
+    iemand kan aanwijzen: een bedrijf, een punt in de rivier, een woonwijk."""
+    soorten = {g["soort"] for g in m["gebied"]}
+    assert {"bedrijf", "water", "kwetsbaar"} <= soorten, soorten
+    for g in m["gebied"]:
+        assert g["wat"] and not g["wat"].startswith("Een informatie"), g["naam"]
 
 
-def test_het_zwaartepunt_verschuift_van_aanbod_naar_vraag(g):
-    """**Dit is geen vormeis maar een bevinding, en zij komt uit de data zelf.** Onderin levert
-    bijna alleen de aanbodkant; bovenin haalt bijna alleen de vraagkant. Precies dat maakt het
-    een keten en geen stapel -- en wie het gebouw ronddraait, ziet het."""
-    onder, boven = g["verdiepingen"][0], g["verdiepingen"][-1]
-    assert len(onder["aanbod"]) > len(onder["vraag"]), "onderin hoort het aanbod te overheersen"
-    assert len(boven["vraag"]) > len(boven["aanbod"]), "bovenin de vraag"
+# -- De standaardenlaag --------------------------------------------------------------------------
+
+def test_elke_aansluiting_zegt_wat_er_zonder_de_standaard_misgaat(m):
+    """Dat is waarom deze laag bestaat: een standaard is onzichtbaar tot zij ontbreekt. Zonder
+    dit veld is het een opsomming van afkortingen."""
+    for a in m["aansluitingen"]:
+        assert a["zonder"], f"{a['object']} zegt niet wat er zonder misgaat"
+        assert a["standaard"] and a["verbindt"]
 
 
-def test_de_bodemplaat_en_het_dak_zijn_van_een_andere_soort_dan_een_verdieping(g):
-    """Zij dragen geen stap in de keten maar houden hem bij elkaar -- en dat is waarom zij in de
-    maquette platen zijn en geen verdiepingen."""
-    for v in (g["bodemplaat"], g["dak"]):
-        assert v["kop"] and v["wat"] and v["waarom"] and v["onderdelen"] and v["bron"]
-        assert "omhoog" not in v, "een plaat heeft geen volgende verdieping"
+def test_de_genoemde_standaarden_zijn_de_standaarden_die_dit_lab_echt_gebruikt(m):
+    """Verzonnen of modieuze standaarden zouden de maquette onbetrouwbaar maken. Deze komen
+    allemaal elders in dit lab voor."""
+    genoemd = " ".join(a["standaard"] for a in m["aansluitingen"])
+    for s in ("IMEV", "Aquo", "BAG", "STOP/TPOD", "OGC API"):
+        assert s in genoemd, s
 
 
-def test_het_trappenhuis_is_het_enige_dat_naar_beneden_loopt(g):
-    """Zonder deze weg terug is het gebouw een fabriek. BALO zegt het zelf: de keten is een
-    leercyclus, geen productielijn -- en die zin hoort dus in de bron te staan."""
-    t = g["trappenhuis"]
-    assert "leercyclus" in t["bron"]
-    assert t["wat"] and t["waarom"]
+# -- Data die stroomt ------------------------------------------------------------------------------
+
+def test_er_stroomt_data_in_twee_richtingen(m):
+    """**De tweede richting is het punt.** Een plaat die alleen omhoog tekent maakt er een
+    fabriek van; BALO noemt de keten uitdrukkelijk een leercyclus."""
+    richtingen = {s["richting"] for s in m["stromen"]}
+    assert richtingen == {"omhoog", "omlaag"}
+    omlaag = next(s for s in m["stromen"] if s["richting"] == "omlaag")
+    assert "leercyclus" in omlaag["architectuur"]
 
 
-# -- De vensters --------------------------------------------------------------------------------
-
-def test_elk_venster_hangt_op_een_vlak_dat_bestaat(g):
-    vlakken = {"dak", "bodemplaat"} | {gev["id"] for gev in g["gevels"]}
-    verdiepingen = {v["id"] for v in g["verdiepingen"]}
-    for v in eb.VRAGEN:
-        assert v["vlak"] in vlakken, v
-        if v.get("verdieping"):
-            assert v["verdieping"] in verdiepingen, v
+def test_elke_stroom_begint_en_eindigt_in_een_bestaande_laag(m):
+    ids = {l["id"] for l in m["lagen"]}
+    for s in m["stromen"]:
+        assert s["van"] in ids and s["naar"] in ids, s
 
 
-def test_elk_vlak_draagt_vensters(g):
-    """Een gevel zonder vensters is een blinde muur: dan valt er aan die kant niets te ontdekken
-    en is ronddraaien zinloos."""
-    assert g["dak"]["vragen"] and g["bodemplaat"]["vragen"]
-    for gev in g["gevels"]:
-        assert gev["vragen"], f"{gev['id']} heeft geen vensters"
+# -- Waarde en herkomst ----------------------------------------------------------------------------
+
+def test_de_maquette_zegt_wat_het_oplevert_en_voor_wie(m):
+    """Een maquette zonder dit is een plaat voor de bouwer."""
+    assert len(m["waarde"]) >= 5
+    wie = " ".join(w["wie"].lower() for w in m["waarde"])
+    for doelgroep in ("bedrijf", "toezichthouder", "omwonende", "beleid"):
+        assert doelgroep in wie, doelgroep
+    for w in m["waarde"]:
+        assert len(w["waarde"]) > 40, f"{w['wie']}: te vaag om waarde te heten"
 
 
-def test_elke_gevel_heeft_op_elke_verdieping_een_venster(g):
-    """Anders heeft het kiezen van een verdieping aan één kant geen gevolg, en lijkt het alsof
-    daar geen vraag ligt."""
-    verdiepingen = [v["id"] for v in g["verdiepingen"]]
-    for gev in g["gevels"]:
-        met_verdieping = {q["verdieping"] for q in gev["vragen"] if q.get("verdieping")}
-        assert met_verdieping == set(verdiepingen), (
-            f"{gev['id']}: vensters op {sorted(met_verdieping)}, verwacht alle verdiepingen")
+def test_de_herkomst_scheidt_balo_van_de_lezing_van_dit_lab(m):
+    soorten = {h["van"] for h in m["herkomst"]}
+    assert soorten == {"bron", "lab"}
+    for h in m["herkomst"]:
+        assert h["wat"] and h["bron"]
+    gewone_taal = next(h for h in m["herkomst"] if "gewone taal" in h["wat"])
+    assert gewone_taal["van"] == "lab", (
+        "de vertaling naar gewone woorden is een keuze van dit lab, geen brongegeven")
 
 
-# -- De standpunten ------------------------------------------------------------------------------
-
-def test_er_is_een_standpunt_voor_elke_kant_die_de_pagina_belooft(g):
-    ids = {s["id"] for s in g["standpunten"]}
-    assert {"aanbod", "vraag", "dak", "bodemplaat"} <= ids, (
-        "de zijkanten, de bovenkant en de onderkant horen elk een eigen standpunt te hebben")
-
-
-def test_van_boven_kijkt_naar_beneden_en_van_onder_naar_boven(g):
-    """**Het teken is hier geen detail.** In CSS kantelt een positieve `rotateX` de bovenkant van
-    de kijker wég, dus van bovenaf kijken is een negatieve hoek. Dat stond eerst omgekeerd, en
-    toen toonde de knop 'Van boven' het gebouw van onderen -- alleen te zien door ernaar te
-    kijken, niet door de code te lezen."""
-    boven = next(s for s in g["standpunten"] if s["id"] == "dak")
-    onder = next(s for s in g["standpunten"] if s["id"] == "bodemplaat")
-    assert boven["draai"]["x"] < 0, "van boven kijken is een negatieve rotateX"
-    assert onder["draai"]["x"] > 0
-    assert abs(boven["draai"]["x"]) > 40 and abs(onder["draai"]["x"]) > 40, (
-        "een halfslachtige hoek toont het vlak niet")
-
-
-def test_de_twee_zijkanten_kijken_tegenover_elkaar(g):
-    aanbod = next(s for s in g["standpunten"] if s["id"] == "aanbod")
-    vraag = next(s for s in g["standpunten"] if s["id"] == "vraag")
-    assert aanbod["draai"]["y"] == -vraag["draai"]["y"], (
-        "aanbod en vraag zijn elkaars tegenoverliggende gevel")
-
-
-def test_elk_standpunt_zegt_wat_je_er_ziet(g):
-    for s in g["standpunten"]:
-        assert s["naam"] and s["ziet"], s
-
-
-# -- Tellingen -----------------------------------------------------------------------------------
-
-def test_de_telling_klopt_met_de_lijsten(g):
-    t = g["telling"]
-    assert t["verdiepingen"] == len(g["verdiepingen"])
-    assert t["vragen"] == len(eb.VRAGEN)
-    assert sum(t["vragen_per_vlak"].values()) == t["vragen"]
-    assert t["standpunten"] == len(g["standpunten"])
-    assert t["bron_regels"] + t["lab_regels"] == len(g["herkomst"])
-
-
-def test_geen_uitgeschreven_aantal_in_de_moduletekst_wijkt_af_van_de_data():
-    """Dit lab leidt zijn getallen af. De enige die in de moduletekst staan zijn structureel
-    (vier verdiepingen, vijf niveaus in BALO's keten) en worden hier tegen de data gelegd."""
-    bron = eb.__doc__ or ""
-    t = eb.telling()
-    if "vier niveaus zijn de verdiepingen" in bron:
-        assert t["verdiepingen"] == 4
-    assert "vijf niveaus" in bron, (
-        "BALO's keten telt vijf niveaus -- vier verdiepingen plus de terugkoppeling; laat dat "
-        "staan, anders lijkt er een niveau te ontbreken")
+def test_de_telling_klopt_met_de_lijsten(m):
+    t = m["telling"]
+    assert t["lagen"] == len(m["lagen"])
+    assert t["handelingen"] == len(m["handelingen"])
+    assert t["aansluitingen"] == len(m["aansluitingen"])
+    assert t["elementen"] == len(eb._alle_elementen())

@@ -286,26 +286,30 @@ def dvth_page():
 
 @app.get("/maquette", response_class=HTMLResponse)
 def maquette_page():
-    """Het functioneel eindbeeld van het stelsel leefomgeving, als gebouw dat je ronddraait.
+    """Het functioneel eindbeeld als doorsnede door een stuk leefomgeving, om te draaien en uit
+    elkaar te trekken.
 
     Hoort bij de doelbeelden (`/dvth`, `/lozing`) maar stelt een andere vraag: niet hoe één
-    dossier door de keten loopt, maar hoe het stelsel eromheen in elkaar zit. Geen eigen template
-    -- de vorm (een gebouw dat je van alle kanten bekijkt) deelt niets met de ketenplaat."""
+    dossier door de keten loopt, maar hoe het landschap eronder eruitziet. Geen eigen template --
+    de vorm deelt niets met de ketenplaat."""
     return (Path(__file__).parent.parent / "static" / "maquette.html").read_text()
 
 
 @app.get("/api/maquette")
 def api_maquette():
-    """Het **functioneel eindbeeld** als gebouw: bodemplaat, vier verdiepingen, dak, twee gevels
-    en de vensters met BALO's eigen vragen erin.
+    """Het **functioneel eindbeeld** als doorsnede door een stuk leefomgeving: het gebied
+    bovenop, daaronder wat er met gegevens gebeurt, dan de standaarden die alles op elkaar laten
+    passen, en onderin de stekkerdozen.
 
-    Alleen het eindbeeld, met opzet. De eerste versie toonde ook de transitie — vijf plateaus
+    Alleen het eindbeeld, met opzet. Een eerdere versie toonde ook de transitie — vijf plateaus
     door de tijd — en werd daarmee te druk om te lezen voor wie geen architect is. Die data is
     niet weg maar staat op `/api/maquette/transitie`.
 
-    Geen bron en geen netwerk: dit is een modelstuk uit BALO v1.0, met de vragen geciteerd en de
-    plaatsing ervan als lezing van dit lab gemarkeerd (zie `usecases/eindbeeld_stelsel.py`)."""
-    return eindbeeld_stelsel_mod.gebouw()
+    **Elk element draagt een uitlegveld en een doorkijk** (`architectuur` en `waar`), zodat de
+    maquette geen vrijblijvende plaat is: wie doorklikt komt bij een pagina van dit lab uit waar
+    het op echte data draait. Geen bron en geen netwerk hier — dit is een modelstuk uit BALO
+    v1.0, zie `usecases/eindbeeld_stelsel.py`."""
+    return eindbeeld_stelsel_mod.maquette()
 
 
 @app.get("/api/maquette/transitie")

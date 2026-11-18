@@ -143,41 +143,42 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   `test_de_vergunning_is_aan_beide_kanten_vastgelegd_maar_onvergelijkbaar` en pint de inhoudelijke
   positie.
 - 🚧 **Doelbeeld D-VTH (`/dvth`, `/api/dvth/architectuur`):** doelarchitectuur voor één MBA Seveso-inrichting — DSO-loket → zaaksysteem OD → Data.OD → analyse/beoordeling → besluit als STOP/TPOD met uit IMEV afgeleid objectmodel → omgebouwd REV → GIR/LBR → LHSO, met CIM-VTH-Flo als informatiemodel. Interactieve architectuurplaat (17 componenten, 17 koppelvlakken), de keten in 8 stappen en een roadmap van 23 features. Data in `usecases/dvth.py`. **Het ketentje draait**: `GET /api/dvth/keten?live=1&straal=1000` doorloopt alle 8 stappen in ~1,4 s, met live bevraging van REV-WFS (DWITHIN) en BAG (bbox) op het RD-punt in stap 3; `live=0` slaat dat over en is reproduceerbaar. Code in `usecases/dvth_keten/` (casus, cim, bronnen, tpod, lbr, lhso, stappen, motor). Straal begrensd op 5000 m.
-- ✅ **Maquette van het eindbeeld (`/maquette`, `/api/maquette`):** het functioneel eindbeeld
-  uit BALO als **gebouw dat je ronddraait**. Een **bodemplaat** waar alles op rust, **vier
-  verdiepingen**, een **dak** met de stelselafspraken, en twee gevels — links wordt geleverd,
-  rechts wordt gehaald. In de gevels zitten **vensters**, en achter elk venster zit een vraag die
-  BALO woordelijk stelt. Doel: iets tastbaars dat ook zonder architectuuropleiding te begrijpen
-  is; daarom een gebouw en geen diagram.
-  **De eerste versie toonde óók de transitie** (vijf plateaus door de tijd) en werd daarmee te
-  druk om te lezen. Die data is niet weg: `usecases/maquette.py` en zijn tests blijven, en de
-  route staat op `/api/maquette/transitie` — met op de pagina de mededeling dat een eigen
-  weergave later komt. Niet stil laten vallen, niet half tonen.
-  **De indeling is van BALO, niet verzonnen.** §5.5 zet de stelselafspraken bovenaan, de
-  bevoegde gezagen links, de gebruikers rechts en de fysieke stelselinfrastructuur onderaan. §8.1
-  beschrijft de informatieketen in **vijf niveaus**: data → informatie → kennis → inzicht en
-  handelingsperspectief, plus **terugkoppeling** die de keten sluit ("geen lineaire
-  productielijn, maar een leercyclus"). Die vier niveaus zijn de verdiepingen; de terugkoppeling
-  is het **trappenhuis**, want zij gaat naar beneden terwijl al het andere omhoog gaat.
-  **Wat van dit lab is:** het gebouw als vorm, en op welk vlak elke vraag hangt. BALO tekent een
-  platte figuur en hangt de vragen nergens aan. `HERKOMST` markeert dat per regel en de pagina
-  toont die tabel; een test eist dat er zowel `bron`- als `lab`-regels in staan.
-  **Een bevinding die uit de data zelf komt** en die je ziet door het gebouw te draaien: onderin
-  levert bijna alleen de aanbodkant (4 om 1), bovenin haalt bijna alleen de vraagkant (2 om 4).
-  Een test dwingt dat af — valt het weg, dan is het een stapel en geen keten.
-  **⚠️ Let op het teken van `rotateX`.** In CSS kantelt een positieve `rotateX` de bovenkant van
-  de kijker wég, dus *van bovenaf kijken is een negatieve hoek*. Dat stond eerst omgekeerd en toen
-  toonde de knop "Van boven" het gebouw van onderen — alleen te zien door ernaar te kijken, niet
-  door de code te lezen. Een test pint de tekens nu vast. **En de bodemplaat heeft een eigen
-  ónderkant nodig**: zij had alleen een bovenvlak, en van onderaf keek je tegen niets aan.
-  Vorm: CSS-3D, **geen WebGL-bibliotheek** — de vlakken blijven DOM-elementen, dus de teksten
-  blijven scherp en de vensters zijn met het toetsenbord bereikbaar. Draaien kan met slepen, met
-  de pijltjestoetsen en met vijf standpuntknoppen; een standpunt is **deelbaar via de URL**
-  (`?standpunt=bodemplaat`). De schaal volgt de scènebreedte, met een `ResizeObserver` erop.
-  **⚠️ Valkuil bij het controleren in chromium headless:** `--window-size=400` geeft hier géén
-  viewport van 400 maar van **500**. Een screenshot lijkt dan afgesneden terwijl de opmaak klopt.
-  Meet de viewport eerst met een kale testpagina voordat je een "mobiele" fout gaat repareren die
-  er niet is.
+- ✅ **Maquette: een stuk leefomgeving, uit de grond gestoken (`/maquette`, `/api/maquette`):**
+  het functioneel eindbeeld uit BALO als **doorsnede door een gebied**, te draaien en uit elkaar
+  te trekken. Vier lagen: (1) **het gebied** — een echte kaart met een chemiebedrijf aan een
+  rivier, een lozingspunt, een woonwijk en een meetpunt, plus wat er gebeurt (aanvragen,
+  besluiten, melden, toezicht, oriënteren, verantwoorden); (2) **wat er met gegevens gebeurt** —
+  binnenhalen, nakijken, bewaren, doorgeven, op de kaart zetten, opvallen, laten zien hoe het
+  gaat, uitleggen, terugzeggen; (3) **waarop het past** — de doorsnede met informatieobjecten en
+  standaarden; (4) **de bodem** — de stekkerdozen.
+  **⚠️ Derde poging, en de twee eerdere faalden op abstractie.** Versie 1 toonde vijf plateaus
+  door de tijd, versie 2 een gebouw met verdiepingen. Beide lezen alleen voor wie al architect
+  is. Pas met de fysieke leefomgeving bovenop — iets wat je kunt aanwijzen — werkt het. Wie dit
+  ooit herziet: **begin bij het gebied, niet bij het stelsel.**
+  **De vaktaal staat er wél, maar niet op de voorgrond.** De negen handelingen zijn BALO's
+  informatiefuncties F1–F9; die term staat met opzet niet in de naam (`test_de_handelingen_heten
+  _in_gewone_woorden` verbiedt woorden als "valideren" en "registreren" in de naam), maar wel in
+  het uitlegveld, mét de F-code. De processen dragen hun waardestroom, ook in de uitleg.
+  **De doorkijk is de kern en wordt afgedwongen.** Elk van de **32 elementen** draagt
+  `architectuur` (hoe het in vaktaal heet) én `waar` (een pagina in dit lab waar het op echte
+  data draait) — samen **18 pagina's**. Drie tests bewaken dat: elk element heeft beide velden,
+  en **elke doorkijk wijst naar een route die werkelijk bestaat** (`api.app.routes`). Een dode
+  link is erger dan geen link, want hij belooft iets. Hernoem je een pagina, dan valt deze test
+  om in plaats van de maquette stil te laten liegen.
+  **De standaardenlaag zegt wat er zonder misgaat** — een standaard is onzichtbaar tot zij
+  ontbreekt. Genoemd worden alleen standaarden die dit lab echt gebruikt (IMEV, Aquo, BAG/NEN3610,
+  STOP/TPOD, Stelselcatalogus/SKOS, RGBZ, OGC API); een test houdt die lijst vast.
+  **Data stroomt in twee richtingen.** Omhoog wordt een meting een signaal; omlaag gaat de
+  correctie terug naar de bron. Die tweede wordt in platen bijna altijd vergeten, en zonder haar
+  is het een fabriek in plaats van de leercyclus die BALO beschrijft. Een test eist beide.
+  Vorm: CSS-3D, **geen WebGL** — de vlakken blijven DOM-elementen, dus alles blijft leesbaar,
+  klikbaar en met het toetsenbord bereikbaar. Slepen draait, de schuif trekt de lagen uit elkaar,
+  en `?blik=boven` of `?blik=doorsnede` opent meteen die weergave.
+  **⚠️ Twee valkuilen bij het bewerken.** (1) In CSS kantelt een **positieve `rotateX` de
+  bovenkant van je af**: van bovenaf kijken is dus een *negatieve* hoek. Stond die verkeerd, dan
+  was de gebiedskaart op de bovenste laag onzichtbaar — en dat is juist de laag die het concreet
+  maakt. (2) `chromium --window-size=400` geeft hier **geen viewport van 400 maar van 500**; een
+  screenshot lijkt dan afgesneden terwijl de opmaak klopt. Meet eerst met een kale testpagina.
 - 🚧 **Doelbeeld directe lozing (`/lozing`, `/api/lozing/{architectuur,keten}`):** spiegeldossier van D-VTH — één lozingsactiviteit op een rijkswater (IJssel bij Deventer), RWS namens de minister als bevoegd gezag. Kern: de **knip** (gemeente doet de MBA, waterbeheerder de lozing, geen koppelvlak ertussen), ABM + immissietoets i.p.v. afstandscirkels, **Aquo** i.p.v. IMEV als annotatiebron, en een **Register Lozingen dat niet bestaat**. Stap 2/3 leiden het bevoegd gezag **live** af: een treffer in de KRW-service van RWS (89 rijkswaterlichamen) betekent rijkswater → minister; PDOK bestuurlijke gebieden geeft de gemeente. Code: `usecases/lozing.py` + `usecases/lozing_keten/`.
 - **Gedeelde ketenkern** (`usecases/ketenkern/`): `cim` (objectbibliotheek met validatie tegen het CIM), `lhso` (interventiematrix), `wfs` (WFS-helpers met retries) en `motor` (dossier-onafhankelijk; een dossier levert DOSSIER/CASUS/STAPPEN/ANNOTATIES). Beide tabs draaien op **één sjabloon** `static/keten-tab.html`; de route vervangt `__DOSSIER__` en alle teksten komen uit `PRESENTATIE` in het architectuurmodule. Een derde dossier kost daarmee alleen een architectuur- en een ketenmodule.
 - ✅ **BALO-redeneerlijnen (`/balo`, `/api/balo/overzicht`):** beide doelbeeld-casussen geplot op het redeneermodel van de BALO-businessarchitectuur v0.9 (concept, RWS/WVL). Per ketenstap links **redeneerlijn 2** (waardestroom W1–W8 → informatiebehoefte → informatiefuncties uit de gesloten set van 9) en rechts **redeneerlijn 3** (informatieobjecten → registers, met status bestaat/moet om/bestaat niet). Plus de gedeelde knelpunten (stappen waar béíde ketens vastlopen), een besluitenkwadrant kosten × waarde met 7 besluiten, en de vijf vragen die BALO zelf aan management stelt. Kern van de pagina is de **informatiebehoefte als spil**: 16 behoeften (één per ketenstap), elk met eigenaar, waarde-als-het-lukt, kosten-als-het-niet-lukt en status (voldaan/deels/niet). Analysefuncties `behoeften()`, `cyclus()`, `waardeoverzicht()`, `besluitwaarde()` en `onbediend()`. Uitkomst: 2 voldaan / 6 deels / 8 niet; 5 van 8 waardestromen geraakt (W1, W3, W8 niet); W5 is het zwartste gat met 5 onvervulde behoeften. De waarde van een besluit is niet beweerd maar afgeleid uit de behoeften die het bedient — een test dwingt af dat waarde=hoog ≥2 behoeften betekent. Data in `usecases/balo.py`. NB: structuur en begrippen komen uit het document, de koppeling aan de casussen en de kosten-batenafweging zijn van dit lab — dat onderscheid staat ook op de pagina.
