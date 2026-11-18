@@ -174,6 +174,23 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   Vorm: CSS-3D, **geen WebGL** — de vlakken blijven DOM-elementen, dus alles blijft leesbaar,
   klikbaar en met het toetsenbord bereikbaar. Slepen draait, de schuif trekt de lagen uit elkaar,
   en `?blik=boven` of `?blik=doorsnede` opent meteen die weergave.
+  **De ingang is het gebied.** Klik bovenop het blok een ding aan — het bedrijf, het
+  lozingspunt, het meetpunt, de woonwijk of de rivier — en binnenin verschijnt de **route**: hoe
+  dat ding door de lagen reist en wáár het aansluit. Vijf routes, 23 stappen; elke stap staat op
+  een plek die een **kant** (aanbod · knooppunt · vraag, uit de doelarchitectuur) én een **laag**
+  is, en dáár ligt de verbinding. De route dipt steevast naar de standaardenlaag en komt weer
+  omhoog: dat is zichtbaar gemaakt, niet beweerd. De **zijkanten** dragen nu wie levert (links)
+  en wie haalt (rechts), per laag één onderdeel uit slide 1 van de doelarchitectuur.
+  **⚠️ Met een route actief worden de voorkanten doorzichtig** (`.blok.inkijk`). Zonder dat
+  tekende de route achter een dichte wand: aanwezig in de DOM, onzichtbaar voor de lezer. Een
+  doorsnede moet je ín kunnen kijken.
+  **⚠️⚠️ De bug die alle velden stilbrak: `setPointerCapture` in `pointerdown`.** Om te kunnen
+  slepen ving de scène elke pointer meteen af — en met een actieve pointer-capture gaat óók het
+  `click`-event naar het vangende element in plaats van naar de tegel waarop je drukte. Niets
+  reageerde, zonder enige foutmelding. Vangen gebeurt nu pas ná een sleepdrempel van vier
+  pixels, en een pointerdown op iets klikbaars start helemaal geen sleep.
+  `test_een_klik_op_een_veld_wordt_niet_door_de_scene_afgevangen` leest de pointerdown-tak en
+  valt om als iemand het terugzet. **Dit patroon geldt voor elke 3D-pagina in dit lab.**
   **⚠️ Twee valkuilen bij het bewerken.** (1) In CSS kantelt een **positieve `rotateX` de
   bovenkant van je af**: van bovenaf kijken is dus een *negatieve* hoek. Stond die verkeerd, dan
   was de gebiedskaart op de bovenste laag onzichtbaar — en dat is juist de laag die het concreet

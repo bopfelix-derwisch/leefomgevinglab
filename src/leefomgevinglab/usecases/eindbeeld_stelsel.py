@@ -229,6 +229,145 @@ BODEM = [
      "waar": "/waterruimte", "waar_tekst": "het register live bevraagd bij de bron"},
 ]
 
+#: De drie kanten van het stelsel, uit de doelarchitectuur (slide 1): links levert, in het
+#: midden wordt geborgd, rechts wordt gehaald. In de maquette zijn dit de **zijkanten** van het
+#: blok -- aanbod links, vraag rechts -- en het knooppunt zit er letterlijk tussenin.
+#:
+#: Dit is de horizontale richting; de lagen zijn de verticale. Samen maken zij de plek waar een
+#: verbinding ligt: een station in de maquette is een kant én een laag.
+KANTEN = [
+    {"id": "aanbod", "naam": "Aanbod", "wie": "bronhouders", "kant": "links",
+     "wat": "Wie de gegevens maakt en ze zelf klaarzet.",
+     "onderdelen": [
+         "VTH- en zaaksystemen — hier registreert het bevoegd gezag vergunning, melding, "
+         "inspectie en maatregel",
+         "Plan- en regelsystemen — omgevingsdocumenten en toepasbare regels",
+         "Meetnetten en geo-bronnen — meetgegevens, milieutoestand, satellietdata",
+         "Basis- en sectorale registraties — onder meer BAG, BGT en BRO"],
+     "belofte": "Geen aanleverportalen meer: de bron ontsluit zelf, met metadata, herkomst en "
+                "herstel na terugmelding.",
+     "architectuur": "De aanbodzijde van het federatieve stelselbeeld: gegevensdiensten vanaf "
+                     "de bron, in plaats van een centrale inname.",
+     "waar": "/vth-bronnen", "waar_tekst": "34 registraties, en of ze antwoorden"},
+    {"id": "knooppunt", "naam": "Knooppunt", "wie": "landelijke voorzieningen en dataspaces",
+     "kant": "midden",
+     "wat": "Waar kwaliteit wordt geborgd en informatieproducten worden gemaakt — niet waar een "
+            "kopie van alle data staat.",
+     "onderdelen": [
+         "Omgevingsloket, regels en kennis als code",
+         "Kennisontsluiting via IPLO",
+         "Dataspaces of hubs per milieuthema",
+         "Generieke bouwstenen: valideren, delen, terugmelden"],
+     "belofte": "Kwaliteitsborging en informatieproducten, geen extra kopie van de data.",
+     "architectuur": "Het knooppunt uit het stelselbeeld: landelijke voorzieningen, thematische "
+                     "dataspaces en de federatieve afspraken daartussen.",
+     "waar": "/onderwater", "waar_tekst": "de pijplijn die dit hier echt doet"},
+    {"id": "vraag", "naam": "Vraag", "wie": "gebruikers", "kant": "rechts",
+     "wat": "Wie de gegevens gebruikt, en ze zelf combineert met eigen gereedschap.",
+     "onderdelen": [
+         "Bevoegd gezag en omgevingsdiensten — dossiers, signalen en risicobeelden",
+         "Initiatiefnemers, burgers en bedrijven — wat geldt en wat is vergund op deze plek",
+         "Beleidsmakers — monitoring, verantwoording en beleidsleren",
+         "Eigen (AI-)tools en lokale GIS — gebruikers combineren consumeerbare data zelf"],
+     "belofte": "Gebruikers combineren consumeerbare data zelf.",
+     "architectuur": "De vraagzijde: lokale toepassingen en eigen gereedschap in plaats van één "
+                     "landelijke viewer.",
+     "waar": "/toezicht", "waar_tekst": "een lokaal signaaldossier uit gecombineerde bronnen"},
+]
+
+#: **De stroompjes.** Kies een ding in het gebied en volg het door het blok: van de bron, via de
+#: handelingen en de standaard die het koppelbaar maakt, naar wie het gebruikt. Elke stap staat
+#: op een plek in de maquette -- een `kant` (links, midden, rechts) en een `laag` -- en dáár ligt
+#: de verbinding.
+#:
+#: Dit is de ingang van de hele maquette: niet "hier is een stelsel", maar "hier is een bedrijf,
+#: kijk wat ermee gebeurt".
+ROUTES = [
+    {"id": "route_bedrijf", "gebied": "bedrijf", "naam": "De vergunning van dit bedrijf",
+     "vraag": "Wat mag dit bedrijf, en wie kan dat zien?",
+     "architectuur": "Waardestroom W5 en W7: van besluit naar publicatie, en van registratie "
+                     "naar toezicht.",
+     "waar": "/wasstraat", "waar_tekst": "de vergunningen en hun gaten",
+     "stappen": [
+         {"kant": "aanbod", "laag": "gebied", "station": "Zaaksysteem omgevingsdienst",
+          "wat": "Hier is de vergunning genomen en hier staat zij."},
+         {"kant": "aanbod", "laag": "handelingen", "station": "Bewaren",
+          "wat": "De bronhouder legt vast wie wat wanneer besloot."},
+         {"kant": "knooppunt", "laag": "aansluitingen", "station": "IMEV · STOP/TPOD",
+          "standaard": "IMEV 3.0 · STOP/TPOD",
+          "wat": "Pas hiermee is het besluit meer dan een pdf: een nummer, een contour en een "
+                 "plek die een ander systeem kan vinden."},
+         {"kant": "knooppunt", "laag": "handelingen", "station": "Doorgeven",
+          "wat": "Als gegevensdienst, zodat niemand hoeft te bellen."},
+         {"kant": "vraag", "laag": "handelingen", "station": "Opvallen",
+          "wat": "Een regel ziet dat twee grenswaarden elkaar tegenspreken."},
+         {"kant": "vraag", "laag": "gebied", "station": "Toezichthouder",
+          "wat": "Ziet één dossier per bedrijf, met de vraag die hij ter plaatse kan stellen."}]},
+    {"id": "route_lozing", "gebied": "lozingspunt", "naam": "Een grenswaarde die moet kloppen",
+     "vraag": "Hoe weet je of wat hier vergund is, ook te controleren valt?",
+     "architectuur": "Waardestroom W6 en W7; informatiefuncties F2 en F6.",
+     "waar": "/wasstraat", "waar_tekst": "de controle op echte voorschriften",
+     "stappen": [
+         {"kant": "aanbod", "laag": "gebied", "station": "Voorschrift in de vergunning",
+          "wat": "Per stof een waarde, een eenheid en een bemonsteringsregime."},
+         {"kant": "knooppunt", "laag": "aansluitingen", "station": "Aquo-parameter",
+          "standaard": "Aquo-domeintabel",
+          "wat": "'Zink' wordt Zn. Zonder die code blijft de vergunning los van elke meting."},
+         {"kant": "knooppunt", "laag": "handelingen", "station": "Nakijken",
+          "wat": "Bestaat de code nog? Soms niet — dan is de grenswaarde niet te toetsen."},
+         {"kant": "vraag", "laag": "gebied", "station": "Vergunningverlener",
+          "wat": "Krijgt te horen wat er aan het papier moet rechtkomen, met de reparatie "
+                 "erbij."}]},
+    {"id": "route_meting", "gebied": "meetpunt", "naam": "Van meting naar signaal",
+     "vraag": "Wat zit er werkelijk in het water, en wat betekent dat?",
+     "architectuur": "De keten data → informatie → kennis → inzicht (BALO §8.1).",
+     "waar": "/kmg", "waar_tekst": "kan · mag · gebeurt, op echte metingen",
+     "stappen": [
+         {"kant": "aanbod", "laag": "gebied", "station": "Meetnet",
+          "wat": "Vier keer per jaar een monster, per stof en per hoedanigheid."},
+         {"kant": "aanbod", "laag": "handelingen", "station": "Binnenhalen",
+          "wat": "De meetwaarden komen binnen, met hun oordeel en hun hiaten."},
+         {"kant": "knooppunt", "laag": "aansluitingen", "station": "Aquo + KRW-norm",
+          "standaard": "Aquo · KRW-toetsresultaten",
+          "wat": "Code én hoedanigheid: zink totaal is iets anders dan zink opgelost, en de "
+                 "norm geldt voor het tweede."},
+         {"kant": "knooppunt", "laag": "handelingen", "station": "Laten zien hoe het gaat",
+          "wat": "De gemeten waarde naast de norm, per meetpunt."},
+         {"kant": "vraag", "laag": "gebied", "station": "Toezicht en beleid",
+          "wat": "Waar wordt de norm overschreden, en welke lozer ligt bovenstrooms?"}]},
+    {"id": "route_woonwijk", "gebied": "woonwijk", "naam": "Wie er woont bepaalt wat er mag",
+     "vraag": "Hoeveel mensen wonen binnen het bereik, en hoe weet je dat?",
+     "architectuur": "Waardestroom W2; informatiefunctie F5 (ruimtelijk duiden).",
+     "waar": "/evruimte", "waar_tekst": "verblijfsobjecten live uit de BAG geteld",
+     "stappen": [
+         {"kant": "aanbod", "laag": "bodem", "station": "Basisregistratie BAG",
+          "wat": "Elk verblijfsobject met zijn gebruiksdoel — niet geteld door dit lab maar "
+                 "door de bronhouder."},
+         {"kant": "knooppunt", "laag": "aansluitingen", "station": "BAG-identificatie",
+          "standaard": "BAG · NEN3610",
+          "wat": "Eén identificatie, zodat niemand zijn eigen woningen hoeft te tellen."},
+         {"kant": "knooppunt", "laag": "handelingen", "station": "Op de kaart zetten",
+          "wat": "Binnen welke contour valt dit pand?"},
+         {"kant": "vraag", "laag": "gebied", "station": "Omwonende of adviseur",
+          "wat": "Kan zelf opzoeken wat hier geldt, zonder een verzoek te hoeven indienen."}]},
+    {"id": "route_water", "gebied": "water", "naam": "Het water verbindt de lozers",
+     "vraag": "Wie loost er bovenstrooms van deze meting?",
+     "architectuur": "De schakel tussen een vergunning en een meting; grofmazig en als zodanig "
+                     "benoemd.",
+     "waar": "/kmg", "waar_tekst": "de toerekening, uitdrukkelijk als bovengrens",
+     "stappen": [
+         {"kant": "aanbod", "laag": "gebied", "station": "Waterbeheerder",
+          "wat": "Het waterlichaam met zijn code, beheerder en toestand."},
+         {"kant": "knooppunt", "laag": "aansluitingen", "station": "Waterlichaamcode",
+          "standaard": "KRW-oppervlaktewaterlichamen",
+          "wat": "De enige sleutel die een vergunning aan een meting koppelt — zonder haar is "
+                 "er geen verband te leggen."},
+         {"kant": "knooppunt", "laag": "handelingen", "station": "Opvallen",
+          "wat": "Ligt deze lozer bovenstrooms van het punt waar de norm wordt overschreden?"},
+         {"kant": "vraag", "laag": "gebied", "station": "Toezichthouder",
+          "wat": "Krijgt een aanwijzing waar te kijken — nooit een vaststelling."}]},
+]
+
 #: De lagen zelf, van boven naar beneden. `snijvlak` zegt of deze laag pas zichtbaar wordt als je
 #: het model opensnijdt -- dat is wat een doorsnede een doorsnede maakt.
 LAGEN = [
@@ -323,7 +462,8 @@ HERKOMST = [
 def _alle_elementen() -> list[dict]:
     """Elk ding in de maquette dat een uitlegveld hoort te dragen. Eén plek, zodat de bewaking
     niet kan verouderen als er een lijst bijkomt."""
-    return [*GEBIED, *PROCESSEN, *HANDELINGEN, *AANSLUITINGEN, *BODEM, *STROMEN]
+    return [*GEBIED, *PROCESSEN, *HANDELINGEN, *AANSLUITINGEN, *BODEM, *STROMEN,
+            *KANTEN, *ROUTES]
 
 
 def telling() -> dict:
@@ -337,6 +477,9 @@ def telling() -> dict:
         "aansluitingen": len(AANSLUITINGEN),
         "bodem": len(BODEM),
         "stromen": len(STROMEN),
+        "kanten": len(KANTEN),
+        "routes": len(ROUTES),
+        "stappen": sum(len(r["stappen"]) for r in ROUTES),
         "waarde_voor": len(WAARDE),
         "elementen": len(elementen),
         # De doorkijk naar de architectuurwereld, geteld: hoeveel elementen verwijzen naar een
@@ -360,6 +503,8 @@ def maquette() -> dict:
         "aansluitingen": AANSLUITINGEN,
         "bodem": BODEM,
         "stromen": STROMEN,
+        "kanten": KANTEN,
+        "routes": ROUTES,
         "waarde": WAARDE,
         "herkomst": HERKOMST,
         "telling": telling(),

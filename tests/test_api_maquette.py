@@ -145,3 +145,50 @@ def test_de_pagina_laadt_geen_3d_bibliotheek():
 def test_de_doelbeelden_verwijzen_naar_de_maquette():
     for pad in ("/dvth", "/lozing"):
         assert "/maquette" in _client().get(pad).text, f"{pad} verwijst niet naar de maquette"
+
+
+def test_een_klik_op_een_veld_wordt_niet_door_de_scene_afgevangen():
+    """**De bug die alle velden stilletjes brak.** De scène riep bij elke `pointerdown` meteen
+    `setPointerCapture` aan om te kunnen slepen. Met een actieve pointer-capture gaat óók het
+    `click`-event naar het vangende element -- de scène -- en niet naar de tegel waarop je
+    drukte. Gevolg: niets in de maquette reageerde, zonder enige foutmelding.
+
+    Niet met een test te vangen die alleen HTML leest? Jawel, op de twee eigenschappen die de
+    reparatie uitmaken: vangen gebeurt pas ná een sleepdrempel, en een pointerdown op iets
+    klikbaars start helemaal geen sleep. Beide zijn in de bron te zien, en als iemand ze
+    weghaalt valt dit om.
+    """
+    r = _client().get("/maquette")
+    pointerdown = r.text.split('addEventListener("pointerdown"')[1].split("});")[0]
+    assert "setPointerCapture" not in pointerdown, (
+        "vangen in pointerdown stuurt de klik naar de scène; vang pas als er echt gesleept wordt")
+    assert ".tegel" in pointerdown and "return" in pointerdown, (
+        "een pointerdown op iets klikbaars hoort geen sleep te starten")
+    assert "DREMPEL" in r.text, "er hoort een sleepdrempel te zijn"
+
+
+def test_de_zijkanten_tonen_wie_levert_en_wie_haalt():
+    """De zijkanten stonden leeg. Links hoort te zeggen wie de gegevens maakt, rechts wie ze
+    gebruikt — dat is de horizontale richting uit de doelarchitectuur."""
+    r = _client().get("/maquette")
+    assert "kantHtml" in r.text
+    assert '"aanbod"' in r.text and '"vraag"' in r.text
+    d = _client().get("/api/maquette").json()
+    assert [k["id"] for k in d["kanten"]] == ["aanbod", "knooppunt", "vraag"]
+
+
+def test_de_route_wordt_binnenin_het_blok_getekend():
+    """De vraag was om aan de binnenkant zichtbaar te maken hoe de stroompjes door de lagen gaan
+    en waar de verbindingen liggen. Dat is een snijvlak door het midden met de route erop."""
+    r = _client().get("/maquette")
+    assert "binnenvlakHtml" in r.text
+    assert 'class="binnen"' in r.text or 'class="binnen ' in r.text
+    assert "huidigeRoute" in r.text, "de route hangt aan het gekozen ding uit het gebied"
+
+
+def test_de_ingang_is_het_gebied():
+    """"De ingang is het gebied, een van de blokjes." Het beginpaneel moet dus naar de kaart
+    wijzen en niet naar een willekeurig onderdeel."""
+    plat = _plat(_client().get("/maquette").text)
+    assert "Begin op de kaart" in plat
+    assert "bedrijf, het lozingspunt, het meetpunt" in plat

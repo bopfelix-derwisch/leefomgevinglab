@@ -99,6 +99,36 @@
     .kaart .trefbaar:focus-visible { outline:2px solid var(--accent); }
 
     /* De stromen langs de zijkant: omhoog wordt data informatie, omlaag gaat de correctie terug. */
+    /* De zijkanten: links wie levert, rechts wie haalt. Zij stonden leeg, en dat was zonde --
+       de kant waar je vandaan kijkt hoort te zeggen wie daar staat. */
+    .kantnaam { font-size:10px; text-transform:uppercase; letter-spacing:.1em; display:block;
+      margin-bottom:3px; }
+    .zij.links .kantnaam { color:var(--land); }
+    .zij.rechts .kantnaam { color:var(--water); }
+    .zij .kantregel { font-size:9.5px; line-height:1.4; color:var(--muted); }
+
+    /* Het binnenvlak: een snijvlak door het midden van het blok, waarop de route van een
+       gekozen ding uit het gebied wordt getekend. Hier zie je hoe een stroompje door de lagen
+       gaat en wáár de verbinding ligt -- links is de bron, rechts de gebruiker. */
+    /* Met een route actief kijk je ín het blok: de voorkanten worden doorzichtig zodat het
+       snijvlak erachter zichtbaar wordt. Zonder dit tekende de route achter een dichte wand --
+       aanwezig in de DOM, onzichtbaar voor de lezer. */
+    .blok.inkijk .zij.voor { opacity:.2; }
+    .blok.inkijk .zij.links, .blok.inkijk .zij.rechts { opacity:.55; }
+    .blok.inkijk .plaat.gedimd { opacity:.5; }
+
+    .binnen { position:absolute; left:0; top:0; pointer-events:none; }
+    .binnen .baan { fill:none; stroke:var(--accent); stroke-width:2.5; opacity:.85;
+      stroke-linecap:round; stroke-linejoin:round; }
+    .binnen .station { pointer-events:auto; cursor:pointer; }
+    .binnen .station circle { fill:#0b1726; stroke:var(--accent); stroke-width:2; }
+    .binnen .station.gekozen circle { fill:var(--accent); }
+    .binnen .station text { fill:#dff5ea; font-size:9.5px;
+      font-family:'Segoe UI',system-ui,sans-serif; }
+    .binnen .station:hover circle { stroke:#eafff6; }
+    .binnen .kantkop { fill:var(--dim); font-size:9px; letter-spacing:.09em;
+      font-family:'Segoe UI',system-ui,sans-serif; }
+
     .stroom { position:absolute; width:16px; margin-left:-8px; left:0; top:0;
       border-radius:8px; cursor:pointer; }
     .stroom.omhoog { background:linear-gradient(0deg, rgba(46,204,143,.08), rgba(46,204,143,.5)); }
@@ -136,6 +166,17 @@
       color:var(--accent); text-decoration:none; border-bottom:1px solid transparent; }
     .kaartje .doorkijk:hover { border-bottom-color:var(--accent); }
     .kaartje .standaard { font-size:11.5px; color:var(--steen); margin-top:4px; }
+
+    .kaartje .routelijst { list-style:none; counter-reset:s; margin-top:8px; }
+    .kaartje .routelijst li { counter-increment:s; display:flex; gap:8px; align-items:baseline;
+      padding:3px 0; }
+    .kaartje .routelijst li::before { content:counter(s); font-size:9.5px; color:var(--dim);
+      width:12px; flex:none; }
+    .kaartje .routestap { background:none; border:none; padding:0; cursor:pointer;
+      color:var(--accent); font-family:inherit; font-size:12.5px; text-align:left; }
+    .kaartje .routestap:hover { text-decoration:underline; }
+    .kaartje .routestap:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .kaartje .routelijst .plek { font-size:10px; color:var(--dim); margin-left:auto; }
 
     .section-title { font-size:11px; text-transform:uppercase; letter-spacing:1px;
       color:var(--dim); margin:28px 0 10px; }
@@ -251,6 +292,7 @@
     let spreiding = 14;        // hoe ver de lagen uit elkaar staan, 0-100
     let gekozen = null;        // id van het gekozen element
     let gekozenLaag = null;    // id van de gekozen laag (dimt de rest)
+    let gekozenStap = null;    // welke stap op de route is aangeklikt
 
     const B = 460, D = 290, H = 104;
 
@@ -317,6 +359,19 @@
         `${esc(e.naam || e.object)}</button>`).join("") + `</div>`;
     }
 
+    // Op elke laag staat aan de linkerkant wie daar levert en rechts wie daar haalt. De
+    // onderdelen komen uit de doelarchitectuur; per laag één, zodat de gevel leesbaar blijft.
+    function kantHtml(kantId, laagIndex) {
+      const k = M.kanten.find(x => x.id === kantId);
+      if (!k) return "";
+      const regel = k.onderdelen[laagIndex % k.onderdelen.length];
+      return `<button class="tegel" type="button" data-el="${esc(k.id)}" ` +
+        `aria-pressed="${gekozen === k.id}" style="position:absolute;inset:8px;` +
+        `white-space:normal;text-align:left;max-width:none">` +
+        `<span class="kantnaam">${esc(k.naam)} — ${esc(k.wie)}</span>` +
+        `<span class="kantregel">${esc(regel)}</span></button>`;
+    }
+
     function plaatInhoud(laag) {
       if (laag.id === "gebied") {
         return { boven: kaartSvg(),
@@ -356,12 +411,15 @@
           `style="transform:translateY(${y}px)">` +
           zij("voor", `translateZ(${D / 2}px)`, inhoud.voor, B) +
           zij("achter", `rotateY(180deg) translateZ(${D / 2}px)`, "", B) +
-          zij("links", `rotateY(-90deg) translateZ(${B / 2}px)`, "", D) +
-          zij("rechts", `rotateY(90deg) translateZ(${B / 2}px)`, "", D) +
+          zij("links", `rotateY(-90deg) translateZ(${B / 2}px)`, kantHtml("aanbod", i), D) +
+          zij("rechts", `rotateY(90deg) translateZ(${B / 2}px)`, kantHtml("vraag", i), D) +
           `<div class="zij boven" style="transform:rotateX(90deg) translateZ(${h2}px)">` +
             (inhoud.boven || "") + `</div>` +
           `</div>`;
       });
+
+      // Het binnenvlak: de route van het gekozen ding uit het gebied, dwars door de lagen.
+      html += binnenvlakHtml(totaal, stap);
 
       // De twee stromen, langs de zijkanten van het blok.
       const hoogte = totaal + H;
@@ -373,6 +431,7 @@
       });
 
       $("blok").innerHTML = html;
+      $("blok").classList.toggle("inkijk", !!huidigeRoute());
       draai();
 
       $("blok").querySelectorAll(".plaat").forEach(el => {
@@ -383,10 +442,11 @@
           tekenBlok(); tekenPaneel();
         });
       });
-      $("blok").querySelectorAll("[data-el]").forEach(el => {
+      $("blok").querySelectorAll(".station").forEach(el => {
         const kies = ev => {
           ev.stopPropagation();
-          gekozen = gekozen === el.dataset.el ? null : el.dataset.el;
+          const i = Number(el.dataset.stap);
+          gekozenStap = gekozenStap === i ? null : i;
           tekenBlok(); tekenPaneel();
         };
         el.addEventListener("click", kies);
@@ -394,6 +454,54 @@
           if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); kies(ev); }
         });
       });
+      $("blok").querySelectorAll("[data-el]").forEach(el => {
+        const kies = ev => {
+          ev.stopPropagation();
+          gekozen = gekozen === el.dataset.el ? null : el.dataset.el;
+          gekozenStap = null;
+          tekenBlok(); tekenPaneel();
+        };
+        el.addEventListener("click", kies);
+        el.addEventListener("keydown", ev => {
+          if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); kies(ev); }
+        });
+      });
+    }
+
+    // De route van het gekozen gebiedsding, getekend op een snijvlak midden door het blok.
+    // x volgt de kant (links = bron, rechts = gebruiker), y volgt de laag. Daar waar een lijn
+    // van kant wisselt, ligt de verbinding -- en die ligt altijd op de standaardenlaag.
+    function binnenvlakHtml(totaal, stap) {
+      const route = huidigeRoute();
+      if (!route) return "";
+      const hoogte = totaal + H + 40;
+      const xVan = { aanbod: 72, knooppunt: B / 2, vraag: B - 72 };
+      const yVan = laagId => {
+        const i = M.lagen.findIndex(l => l.id === laagId);
+        return (i < 0 ? 0 : i) * stap + H / 2 + 20;
+      };
+      const punten = route.stappen.map(s => ({
+        x: xVan[s.kant] || B / 2, y: yVan(s.laag), s,
+      }));
+      const pad = punten.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+      const koppen = M.kanten.map(k =>
+        `<text class="kantkop" x="${xVan[k.id] || B / 2}" y="14" text-anchor="middle">` +
+        `${esc(k.naam.toUpperCase())}</text>`).join("");
+      const stations = punten.map((p, i) =>
+        `<g class="station${gekozenStap === i ? " gekozen" : ""}" data-stap="${i}" ` +
+        `tabindex="0" role="button" aria-label="Stap ${i + 1}: ${esc(p.s.station)}">` +
+        `<circle cx="${p.x}" cy="${p.y}" r="7"/>` +
+        `<text x="${p.x + (p.x > B / 2 ? -12 : 12)}" y="${p.y + 3.5}" ` +
+        `text-anchor="${p.x > B / 2 ? "end" : "start"}">${esc(p.s.station)}</text></g>`).join("");
+      return `<svg class="binnen" width="${B}" height="${hoogte}" ` +
+        `viewBox="0 0 ${B} ${hoogte}" style="margin:${-hoogte / 2}px 0 0 ${-B / 2}px;` +
+        `transform:translateZ(40px)" aria-label="Route van ${esc(route.naam)}">` +
+        koppen + `<path class="baan" d="${pad}"/>` + stations + `</svg>`;
+    }
+
+    function huidigeRoute() {
+      if (!gekozen || !M.routes) return null;
+      return M.routes.find(r => r.gebied === gekozen || r.id === gekozen) || null;
     }
 
     function draai() {
@@ -434,8 +542,28 @@
       return l ? l.naam : (id === "stromen" ? "Data die stroomt" : id);
     }
 
-    function tekenPaneel() {
+    function tekenPaneel() { _tekenPaneel(); koppelRoutelijst(); }
+
+    function _tekenPaneel() {
       const z = $("zijkant");
+      const route = huidigeRoute();
+      // Een aangeklikte stap op de route gaat voor: dan wil je weten wat er op díe plek gebeurt.
+      if (route && gekozenStap !== null && route.stappen[gekozenStap]) {
+        const s = route.stappen[gekozenStap];
+        const kant = M.kanten.find(k => k.id === s.kant);
+        const laag = M.lagen.find(l => l.id === s.laag);
+        z.innerHTML = `<div class="kaartje">` +
+          `<div class="laaglabel">Stap ${gekozenStap + 1} van ${route.stappen.length} · ` +
+            `${esc(route.naam)}</div>` +
+          `<h3>${esc(s.station)}</h3>` +
+          (s.standaard ? `<div class="standaard">${esc(s.standaard)}</div>` : "") +
+          `<div class="wat">${esc(s.wat)}</div>` +
+          `<div class="vaktaal"><span class="lbl">Waar deze verbinding ligt</span>` +
+            `${esc((kant || {}).naam || s.kant)} × ${esc((laag || {}).naam || s.laag)}</div>` +
+          `<a class="doorkijk" href="${esc(route.waar)}">` +
+            `Zo werkt dit hier echt: ${esc(route.waar_tekst)} →</a></div>`;
+        return;
+      }
       if (gekozen) {
         const e = zoekElement(gekozen);
         if (e) {
@@ -450,7 +578,16 @@
               `${esc(e.architectuur)}</div>` +
             (e.waar ? `<a class="doorkijk" href="${esc(e.waar)}">` +
               `Zo werkt dit hier echt: ${esc(e.waar_tekst || e.waar)} →</a>` : "") +
-            `</div>`;
+            `</div>` +
+            // Hoort er een route bij dit ding, dan staat die er meteen onder: dit is de ingang
+            // van de maquette, dus hier moet je kunnen zien wat er met dit ding gebeurt.
+            (route ? `<div class="kaartje"><div class="laaglabel">Volg het door het blok</div>` +
+              `<h3>${esc(route.naam)}</h3>` +
+              `<div class="wat">${esc(route.vraag)}</div>` +
+              `<ol class="routelijst">` + route.stappen.map((s, i) =>
+                `<li><button type="button" class="routestap" data-stap="${i}">` +
+                `${esc(s.station)}</button>` +
+                `<span class="plek">${esc(s.kant)}</span></li>`).join("") + `</ol></div>` : "");
           return;
         }
       }
@@ -462,13 +599,25 @@
         return;
       }
       z.innerHTML = `<div class="kaartje"><div class="laaglabel">Doorsnede</div>` +
-        `<h3>Klik op iets in het blok</h3>` +
-        `<div class="wat">Een gebouw op de kaart, een handeling, een standaard of een ` +
-        `stekkerdoos. Elk ding vertelt wat het is, hoe het in vaktaal heet, en waar het in dit ` +
-        `lab op echte data draait.</div>` +
+        `<h3>Begin op de kaart</h3>` +
+        `<div class="wat">Klik bovenop het blok op het bedrijf, het lozingspunt, het meetpunt, ` +
+        `de woonwijk of de rivier. Dan verschijnt binnenin de route: hoe dat ding door de lagen ` +
+        `reist, en waar het aansluit op een standaard. Alles in het blok is aan te klikken — ` +
+        `elk ding zegt wat het is, hoe het in vaktaal heet, en waar het hier op echte data ` +
+        `draait.</div>` +
         `<div class="vaktaal"><span class="lbl">Hoe je het blok bedient</span>` +
         `Slepen draait het. De schuif trekt de lagen uit elkaar, zodat je ertussen kunt kijken. ` +
         `Pijltjestoetsen werken ook.</div></div>`;
+    }
+
+    // De stappen in het paneel zijn dezelfde als de stations in het blok.
+    function koppelRoutelijst() {
+      document.querySelectorAll(".routestap").forEach(b => {
+        b.onclick = () => {
+          gekozenStap = Number(b.dataset.stap);
+          tekenBlok(); tekenPaneel();
+        };
+      });
     }
 
     function tekenRest() {
@@ -489,19 +638,35 @@
     // -- Bediening -----------------------------------------------------------------------------
     (function bedien() {
       const scene = $("scene");
-      let bezig = false, vx = 0, vy = 0, bx = 0, by = 0;
+      // **Waarom hier niet meteen `setPointerCapture` staat.** Dat stond er wel, en daardoor
+      // werkte geen enkel veld: met een actieve pointer-capture gaat ook het `click`-event naar
+      // het element dat vangt -- de scène -- en niet naar de tegel waarop je drukte. Vangen
+      // gebeurt nu pas zodra de muis echt beweegt, en niet als je op iets klikbaars begint.
+      let bezig = false, sleept = false, vx = 0, vy = 0, bx = 0, by = 0;
+      const DREMPEL = 4;        // pixels voordat het een sleep is in plaats van een klik
       scene.addEventListener("pointerdown", e => {
-        bezig = true; vx = e.clientX; vy = e.clientY; bx = ay; by = ax;
-        $("blok").classList.add("sleept"); scene.setPointerCapture(e.pointerId);
+        if (e.target.closest(".tegel, .trefbaar, .stroom, .station")) return;
+        bezig = true; sleept = false;
+        vx = e.clientX; vy = e.clientY; bx = ay; by = ax;
       });
       scene.addEventListener("pointermove", e => {
         if (!bezig) return;
-        ay = bx + (e.clientX - vx) * 0.4;
-        ax = Math.max(-85, Math.min(85, by - (e.clientY - vy) * 0.35));
+        const dx = e.clientX - vx, dy = e.clientY - vy;
+        if (!sleept && Math.hypot(dx, dy) < DREMPEL) return;
+        if (!sleept) {
+          sleept = true;
+          $("blok").classList.add("sleept");
+          scene.setPointerCapture(e.pointerId);
+        }
+        ay = bx + dx * 0.4;
+        ax = Math.max(-85, Math.min(85, by - dy * 0.35));
         draai();
       });
-      scene.addEventListener("pointerup", () => {
-        bezig = false; $("blok").classList.remove("sleept");
+      scene.addEventListener("pointerup", e => {
+        if (sleept) {
+          try { scene.releasePointerCapture(e.pointerId); } catch (err) { /* al vrij */ }
+        }
+        bezig = false; sleept = false; $("blok").classList.remove("sleept");
       });
       scene.addEventListener("keydown", e => {
         const stap = 12;
