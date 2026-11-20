@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeefomgevingLab — Kennisbasis leefomgeving</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#080c14; --panel:#0d1b2a; --panel2:#0a1220; --border:#1a3a5c;
+      --accent:#2ecc8f; --accent2:#26a69a; --text:#e0e6ed; --muted:#8aa0b2; --dim:#5b7385;
+      /* Dit dossier gaat over documenten, dus krijgt het papier als eigen materiaal: een
+         citaat staat op een lichte grond, al het overige op de donkere van het lab. */
+      --papier:#f2ece0; --papier-ink:#2b2622; --papier-rand:#cdc3b2;
+      /* Dezelfde vier laagkleuren als /maquette: de lezer moet de platen herkennen. */
+      --land:#4e8c5a; --werk:#e8b84b; --steen:#9aa8bd; --koper:#c98a4b;
+      --weg:#ff7a6b;
+    }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+           line-height:1.6; }
+    a { color:inherit; }
+    h1,h2,h3 { text-wrap:balance; }
+
+    header { background:var(--panel); border-bottom:1px solid var(--border); padding:12px 20px;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    header .mark { width:22px; height:22px; border-radius:4px; flex:none;
+      background:linear-gradient(160deg,var(--papier) 45%,var(--koper)); }
+    header h1 { font-size:15px; color:var(--accent); font-weight:700; }
+    .badge { font-size:10px; padding:2px 9px; border-radius:10px; border:1px solid var(--weg);
+      color:var(--weg); letter-spacing:.06em; }
+    header nav { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+    header nav a { font-size:12px; color:var(--muted); padding:4px 10px; border-radius:12px;
+      border:1px solid transparent; text-decoration:none; }
+    header nav a:hover { border-color:var(--border); color:var(--accent); }
+
+    .wrap { max-width:1200px; margin:0 auto; padding:0 20px 70px; }
+    .hero { padding:20px 0 6px; }
+    .hero h2 { font-size:26px; font-weight:800; color:#eafff6; margin-bottom:8px; }
+    .hero p { color:var(--muted); font-size:13.5px; max-width:78ch; }
+    .hero b { color:var(--text); }
+    .sectie { margin-top:34px; }
+    .sectie > h3 { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+      color:var(--dim); margin-bottom:12px; font-weight:700; }
+    .sectie > p.inleiding { color:var(--muted); font-size:13px; max-width:78ch;
+      margin-bottom:14px; }
+
+    /* ---- Gezondheidsstrip: wat deze pagina over zichzelf weet ------------------------------ */
+    .gezond { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .gezond div { font-size:11.5px; padding:5px 11px; border-radius:20px;
+      border:1px solid var(--border); background:var(--panel2); color:var(--muted); }
+    .gezond div.goed { border-color:#1f6b4a; color:#7ee0b4; }
+    .gezond div.let-op { border-color:var(--weg); color:var(--weg); }
+
+    /* ---- De vier bronnen als ruggen ------------------------------------------------------- */
+    .bronnen { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
+    .bron { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:14px 15px; display:flex; flex-direction:column; gap:7px;
+      border-top:3px solid var(--koper); text-decoration:none; }
+    .bron:hover { border-color:var(--accent2); }
+    .bron .soort { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase;
+      color:var(--dim); }
+    .bron h4 { font-size:15px; color:#eafff6; font-weight:700; line-height:1.3; }
+    .bron .onder { font-size:12px; color:var(--muted); }
+    .bron .uitgever { font-size:11.5px; color:var(--dim); }
+    .bron .meta { font-size:11px; color:var(--dim); display:flex; gap:8px; flex-wrap:wrap;
+      margin-top:auto; padding-top:6px; border-top:1px solid var(--border); }
+    .bron .waarom { font-size:12px; color:var(--muted); font-style:italic; }
+
+    /* ---- De plaat: vier platen op elkaar, de blokjes erop ---------------------------------
+       Hetzelfde principe als /maquette en met opzet geen WebGL: de blokjes blijven echte
+       knoppen, dus leesbaar, klikbaar en met het toetsenbord te bereiken. */
+    .plaatwerk { display:grid; grid-template-columns:1fr 360px; gap:16px; }
+    @media (max-width:980px) { .plaatwerk { grid-template-columns:1fr; } }
+    .scene { height:560px; perspective:2200px; position:relative; overflow:hidden;
+      border:1px solid var(--border); border-radius:12px; cursor:grab;
+      background:radial-gradient(ellipse at 50% 16%, #16304a 0%, transparent 62%),
+                 linear-gradient(#0b1726,#05080e); }
+    .scene:active { cursor:grabbing; }
+    .scene:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+    .stapel { position:absolute; left:50%; top:50%; width:0; height:0;
+      transform-style:preserve-3d; transition:transform .55s cubic-bezier(.22,.61,.36,1); }
+    .stapel.sleept { transition:none; }
+    /* Een plaat staat rechtop naar de kijker en draagt haar blokjes als leesbare knoppen; de
+       dikte komt van een strip die onder de plaat weg kantelt (`.dikte`, rotateX(-90deg)). Zo
+       is de stapel een stapel plakken in plaats van een lijst kaarten, zonder dat er ergens
+       tekst op de kop staat. Dat was de eerste opzet -- platen plat met rotateX(90deg) -- en
+       daar bleek elke tegeltekst onleesbaar. */
+    .plaat { position:absolute; width:min(520px, 86vw); min-height:96px;
+      margin:0 0 0 calc(min(520px, 86vw) / -2);
+      left:0; top:0; transform-style:preserve-3d; border-radius:5px;
+      transition:transform .55s cubic-bezier(.22,.61,.36,1), opacity .3s;
+      border:1px solid var(--border); padding:22px 13px 13px; }
+    .plaat .dikte { position:absolute; left:-1px; right:-1px; height:16px; bottom:0;
+      transform-origin:top; transform:rotateX(-90deg); border:1px solid var(--border);
+      border-top:none; border-radius:0 0 5px 5px; }
+    .plaat[data-laag="gebied"] .dikte { background:#0f2016; border-color:#2f5c3c; }
+    .plaat[data-laag="processen"] .dikte { background:#0d1a24; border-color:#2d5570; }
+    .plaat[data-laag="handelingen"] .dikte { background:#1e1809; border-color:#58471b; }
+    .plaat[data-laag="aansluitingen"] .dikte { background:#141c27; border-color:#45566d; }
+    .plaat[data-laag="bodem"] .dikte { background:#171007; border-color:#6b4a24; }
+    .plaat[data-laag="gebied"] { background:linear-gradient(#1b3326cc,#122418cc);
+      border-color:#2f5c3c; }
+    .plaat[data-laag="processen"] { background:linear-gradient(#1a2c3acc,#111f2bcc);
+      border-color:#2d5570; }
+    .plaat[data-laag="handelingen"] { background:linear-gradient(#332a12cc,#241d0ccc);
+      border-color:#58471b; }
+    .plaat[data-laag="aansluitingen"] { background:
+      repeating-linear-gradient(135deg,#1c2634dd 0 7px,#18212edd 7px 14px);
+      border-color:#45566d; }
+    .plaat[data-laag="bodem"] { background:linear-gradient(#2a1d10cc,#1b130acc);
+      border-color:#6b4a24; }
+    .plaat .laagnaam { position:absolute; left:12px; top:7px; font-size:10.5px; font-weight:700;
+      letter-spacing:.08em; text-transform:uppercase; }
+    .plaat[data-laag="gebied"] .laagnaam { color:var(--land); }
+    .plaat[data-laag="processen"] .laagnaam { color:#6fa8cc; }
+    .plaat[data-laag="handelingen"] .laagnaam { color:var(--werk); }
+    .plaat[data-laag="aansluitingen"] .laagnaam { color:var(--steen); }
+    .plaat[data-laag="bodem"] .laagnaam { color:var(--koper); }
+
+    .tegels { display:flex; flex-wrap:wrap; gap:7px; align-content:flex-start; }
+    .tegel { font:inherit; font-size:11px; line-height:1.25; text-align:left; cursor:pointer;
+      padding:6px 9px; border-radius:6px; border:1px solid var(--border); color:var(--text);
+      background:#0a1420e6; max-width:150px; position:relative; }
+    .tegel:hover, .tegel:focus-visible { border-color:var(--accent); outline:none; }
+    .tegel[aria-pressed="true"] { border-color:var(--accent); background:#102b22;
+      box-shadow:0 0 0 2px #2ecc8f44; }
+    .tegel.stil { opacity:.38; border-style:dashed; }
+    .tegel .n { display:inline-block; min-width:16px; margin-right:5px; padding:0 4px;
+      border-radius:4px; font-size:10px; font-weight:800; color:#06120d; text-align:center; }
+    .tegel.stil .n { background:transparent; color:var(--dim); font-weight:600; }
+
+    .knoppen { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+    .knoppen button, .knoppen a { font:inherit; font-size:11.5px; padding:5px 11px;
+      border-radius:16px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); cursor:pointer; text-decoration:none; }
+    .knoppen button:hover, .knoppen a:hover { color:var(--accent); border-color:var(--accent2); }
+    .knoppen button[aria-pressed="true"] { color:var(--accent); border-color:var(--accent); }
+    .hint { font-size:11.5px; color:var(--dim); margin-top:8px; }
+
+    /* ---- Het paneel naast de plaat -------------------------------------------------------- */
+    .paneel { background:var(--panel); border:1px solid var(--border); border-radius:12px;
+      padding:15px 16px; max-height:560px; overflow-y:auto; }
+    .paneel h4 { font-size:16px; color:#eafff6; margin-bottom:3px; }
+    .paneel .plek { font-size:11px; color:var(--dim); margin-bottom:12px; }
+    .paneel .leeg { font-size:12.5px; color:var(--muted); }
+
+    /* Een bevinding: de weergave donker, het citaat op papier. */
+    .bevinding { border-top:1px solid var(--border); padding:13px 0 11px; }
+    .bevinding:first-of-type { border-top:none; padding-top:2px; }
+    .bevinding .kop { font-size:13.5px; font-weight:700; color:#eafff6; }
+    .bevinding .wat { font-size:12.5px; color:var(--muted); margin-top:4px; }
+    .bevinding .label { display:inline-flex; align-items:center; gap:5px; font-size:10px;
+      letter-spacing:.07em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+    .bevinding .label i { width:8px; height:8px; border-radius:2px; display:inline-block; }
+    .citaat { background:var(--papier); color:var(--papier-ink); border:1px solid var(--papier-rand);
+      border-radius:4px; padding:9px 11px; margin-top:8px; font-size:12.5px; line-height:1.5;
+      font-family:Georgia,'Times New Roman',serif; }
+    .citaat q { quotes:'\201E' '\201D'; }
+    .vind { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-top:6px;
+      font-size:11.5px; }
+    .vind a { color:var(--accent); text-decoration:none; border-bottom:1px solid #2ecc8f55; }
+    .vind a:hover { border-bottom-color:var(--accent); }
+    .vind .pag { font-variant-numeric:tabular-nums; color:var(--dim); }
+    .doorkijk { font-size:11.5px; color:var(--dim); margin-top:6px; }
+    .doorkijk a { color:var(--accent2); text-decoration:none; border-bottom:1px dotted #26a69a88; }
+
+    .labmeting { margin-top:12px; border:1px solid #1f6b4a; border-radius:8px; padding:11px 12px;
+      background:#0a1d16; }
+    .labmeting .label { font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+      color:#7ee0b4; font-weight:700; }
+    .labmeting p { font-size:12.5px; color:var(--text); margin-top:5px; }
+    .labmeting .hoe { font-size:11.5px; color:var(--dim); margin-top:5px; }
+
+    /* ---- Thema's en verbanden ------------------------------------------------------------- */
+    .themas { display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:12px; }
+    .thema { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 14px; border-left:3px solid var(--border); }
+    .thema h4 { font-size:14.5px; color:#eafff6; }
+    .thema .vraag { font-size:12.5px; color:var(--muted); margin-top:5px; }
+    .thema .tel { font-size:11px; color:var(--dim); margin-top:9px; display:flex; gap:9px;
+      flex-wrap:wrap; }
+    .thema button { font:inherit; font-size:11.5px; margin-top:10px; padding:4px 10px;
+      border-radius:14px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); cursor:pointer; }
+    .thema button:hover { color:var(--accent); border-color:var(--accent2); }
+
+    .verband { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:12px 14px; margin-bottom:9px; }
+    .verband .keten { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+      font-size:12.5px; }
+    .verband .zijde { color:#eafff6; font-weight:600; }
+    .verband .rel { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+      padding:2px 8px; border-radius:10px; border:1px solid var(--accent2); color:var(--accent); }
+    .verband .rel.blijft_open { border-color:var(--weg); color:var(--weg); }
+    .verband .herkomst { font-size:10px; letter-spacing:.07em; text-transform:uppercase;
+      color:var(--dim); }
+    .verband p { font-size:12.5px; color:var(--muted); margin-top:7px; }
+    .verband .merk { font-size:10.5px; color:var(--dim); }
+
+    /* ---- Zoeken in de documenten ---------------------------------------------------------- */
+    .zoek { background:var(--panel); border:1px solid var(--border); border-radius:12px;
+      padding:16px; }
+    .zoek .rij { display:flex; gap:9px; flex-wrap:wrap; }
+    .zoek input[type=text] { flex:1; min-width:220px; font:inherit; font-size:13.5px;
+      padding:9px 12px; border-radius:8px; border:1px solid var(--border);
+      background:var(--panel2); color:var(--text); }
+    .zoek input[type=text]:focus-visible { outline:2px solid var(--accent); outline-offset:-1px; }
+    .zoek button { font:inherit; font-size:13px; font-weight:700; padding:9px 18px;
+      border-radius:8px; border:none; cursor:pointer; color:#042;
+      background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+    .zoek button[disabled] { opacity:.5; cursor:default; }
+    .zoek .opties { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:11.5px;
+      color:var(--muted); align-items:center; }
+    .zoek .opties label { display:inline-flex; gap:5px; align-items:center; cursor:pointer; }
+    .zoek .voorbeelden { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+    .zoek .voorbeelden button { font-size:11.5px; font-weight:400; padding:4px 11px;
+      border-radius:14px; border:1px solid var(--border); background:var(--panel2);
+      color:var(--muted); }
+    .uitslag { margin-top:14px; }
+    .uitslag .samenvatting { border:1px solid var(--accent2); border-radius:8px; padding:12px 13px;
+      background:#0a1d1a; font-size:13px; white-space:pre-wrap; }
+    .uitslag .disclaimer { font-size:11.5px; color:var(--dim); margin-top:7px; }
+    .passage { border-top:1px solid var(--border); padding:11px 0; }
+    .passage .meta { font-size:11px; color:var(--dim); display:flex; gap:9px; flex-wrap:wrap;
+      align-items:center; }
+    .passage .meta a { color:var(--accent); text-decoration:none; }
+    .passage .tekst { font-size:12.5px; color:var(--muted); margin-top:6px; }
+    .fout { font-size:12.5px; color:var(--weg); margin-top:10px; }
+
+    /* ---- Tabellen: bouwstenen, graafvragen, herkomst --------------------------------------- */
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border);
+      vertical-align:top; }
+    th { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim);
+      font-weight:700; }
+    td b { color:#eafff6; }
+    .tabelbox { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      overflow-x:auto; }
+    tr.lab td:first-child { border-left:3px solid var(--werk); }
+    tr.bron td:first-child { border-left:3px solid var(--accent2); }
+
+    .graafvraag { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+      padding:13px 14px; margin-bottom:10px; }
+    .graafvraag h4 { font-size:14px; color:#eafff6; }
+    .graafvraag .waarom { font-size:12px; color:var(--muted); margin-top:5px; }
+    .graafvraag .rijen { margin-top:10px; display:flex; flex-direction:column; gap:4px; }
+    .graafvraag .r { font-size:12.5px; display:flex; gap:7px; align-items:baseline;
+      flex-wrap:wrap; }
+    .graafvraag .r .naam { flex:1; min-width:11em; color:var(--text); }
+    .graafvraag .r b { color:var(--accent); font-variant-numeric:tabular-nums; }
+    .graafvraag .r .eenheid { color:var(--dim); font-size:11.5px; margin-right:9px; }
+    .graafvraag details { margin-top:10px; }
+    .graafvraag summary { font-size:11px; color:var(--dim); cursor:pointer; }
+    .graafvraag code { display:block; margin-top:7px; font-size:11px; color:var(--muted);
+      background:var(--panel2); border:1px solid var(--border); border-radius:6px;
+      padding:9px 10px; overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
+
+    .geschikt { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width:760px) { .geschikt { grid-template-columns:1fr; } }
+    .geschikt ul { list-style:none; display:flex; flex-direction:column; gap:7px; }
+    .geschikt li { font-size:12.5px; color:var(--muted); display:flex; gap:8px; }
+    .geschikt li span { flex:none; font-weight:800; }
+    .geschikt li.ja span { color:var(--accent); }
+    .geschikt li.nee span { color:var(--weg); }
+    .geschikt h4 { font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--dim); margin-bottom:9px; }
+
+    footer { border-top:1px solid var(--border); margin-top:46px; padding:18px 0;
+      font-size:11.5px; color:var(--dim); }
+
+    @media (prefers-reduced-motion:reduce) {
+      .stapel, .plaat { transition:none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="mark"></div>
+    <h1>LeefomgevingLab</h1>
+    <span class="badge" id="status">MVP</span>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/maquette">Maquette</a>
+      <a href="/balo">BALO</a>
+      <a href="/vth">VTH-kapstok</a>
+      <a href="/toezicht">Toezicht</a>
+      <a href="/water">Waterdossier</a>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <div class="hero">
+      <h2 id="titel">Kennisbasis leefomgeving</h2>
+      <p id="ondertitel"></p>
+      <p style="margin-top:10px">
+        Dit is een <b>kennisinstrument</b>, geen samenvatting. Elke bevinding draagt een
+        letterlijk citaat en de pagina waarop het staat, en bij het laden van deze pagina is
+        nagelopen dat dat citaat daar werkelijk staat. Wat de rapporten zeggen en wat dit lab
+        eruit leest, staan apart — onderaan in de herkomsttabel.
+      </p>
+      <div class="gezond" id="gezond"></div>
+    </div>
+
+    <section class="sectie">
+      <h3>De vier bronnen</h3>
+      <p class="inleiding">
+        Twee toezichtrapporten van oktober 2026, het reflectierapport dat zij bevestigen, en de
+        kabinetsreactie daarop. Alle vier openbaar gepubliceerd; de kopieën in deze kennisbasis
+        staan op de dataschijf, niet in de broncode. Klik een bron om het origineel te openen.
+      </p>
+      <div class="bronnen" id="bronnen"></div>
+    </section>
+
+    <section class="sectie">
+      <h3>De plaat — wat betekenen de blokjes?</h3>
+      <p class="inleiding">
+        Dit is dezelfde stapel als op <a href="/maquette" style="color:var(--accent2)">de
+        maquette</a>: het gebied bovenop, daaronder de processen, dan wat er met gegevens gebeurt,
+        waar het op past, en de bodem. Daar is een blokje een <i>plek</i> in het eindbeeld. Hier
+        krijgt het een <b>reden</b>: dit is wat er volgens de rapporten vandaag op die plek
+        misgaat. Het getal op een blokje is het aantal bevindingen; een gestippeld blokje is een
+        plek waar deze vier rapporten niets over zeggen. Draaien gaat met slepen of met de
+        pijltjestoetsen.
+      </p>
+      <div class="plaatwerk">
+        <div>
+          <div class="scene" id="scene" tabindex="0" role="application"
+               aria-label="De stapel lagen met de blokjes; draaien met de pijltjestoetsen">
+            <div class="stapel" id="stapel"></div>
+          </div>
+          <div class="knoppen">
+            <button type="button" data-blik="schuin">Schuin</button>
+            <button type="button" data-blik="voor">Van voren</button>
+            <button type="button" data-blik="opzij">Van opzij</button>
+            <button type="button" id="spreid" aria-pressed="false">Trek uit elkaar</button>
+          </div>
+          <p class="hint" id="hint"></p>
+        </div>
+        <aside class="paneel" id="paneel" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section class="sectie">
+      <h3>Zeven thema's waar de bronnen elkaar raken</h3>
+      <p class="inleiding">
+        Deze indeling is van dit lab — geen van de vier rapporten gebruikt haar. Zij is gekozen
+        omdat de bronnen zich hier overlappen. Elk thema hangt aan een blokje in de plaat
+        hierboven.
+      </p>
+      <div class="themas" id="themas"></div>
+    </section>
+
+    <section class="sectie">
+      <h3>Waar de rapporten elkaar raken</h3>
+      <p class="inleiding">
+        Dit is de reden dat de vier rapporten in één dossier staan: zonder deze knopen zijn het
+        vier samenvattingen. De verbanden zijn een lezing van dit lab; de bevindingen aan
+        weerszijden komen uit hun document.
+      </p>
+      <div id="verbanden"></div>
+    </section>
+
+    <section class="sectie">
+      <h3>Zoek in de vier documenten</h3>
+      <p class="inleiding">
+        De vier rapporten staan als zoekbare passages in de kennisbasis — per pagina geknipt,
+        zodat elke treffer een werkende verwijzing naar de bron heeft. De passages zijn het
+        resultaat; de samenvatting erboven is een taalmodel dat alleen die passages mag gebruiken
+        en uit te zetten is.
+      </p>
+      <div class="zoek">
+        <form class="rij" id="zoekform">
+          <input type="text" id="vraag" placeholder="Bijvoorbeeld: waarom zijn vergunningen niet actueel?"
+                 autocomplete="off" aria-label="Vraag aan de kennisbasis" />
+          <button type="submit" id="zoekknop">Zoek</button>
+        </form>
+        <div class="opties">
+          <label><input type="checkbox" id="samenvatten" checked /> samenvatting door het taalmodel</label>
+          <span id="indexstatus"></span>
+        </div>
+        <div class="voorbeelden" id="voorbeelden"></div>
+        <div class="uitslag" id="uitslag"></div>
+      </div>
+    </section>
+
+    <section class="sectie">
+      <h3>Drie vragen aan de kennisgraaf</h3>
+      <p class="inleiding">
+        De bevindingen staan ook als graaf in de kennisbasis, waarin elke bewering meevoert of
+        zij uit een document komt of een lezing van dit lab is. Dat maakt een paar vragen
+        mogelijk die een lijst niet kan beantwoorden. Hieronder staan ze mét hun uitkomst — een
+        bevraagbare laag die alleen belooft, is geen laag.
+      </p>
+      <div id="graafvragen"></div>
+    </section>
+
+    <section class="sectie">
+      <h3>Waar dit op gebouwd is</h3>
+      <p class="inleiding">
+        Geen nieuw instrument naast de bestaande, maar de bouwstenen die dit lab al heeft,
+        toegepast op een nieuw onderwerp.
+      </p>
+      <div class="tabelbox">
+        <table>
+          <thead><tr><th>Component</th><th>Bestond voor</th><th>Hier</th></tr></thead>
+          <tbody id="bouwstenen"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sectie">
+      <h3>Waarvoor dit wel en niet geschikt is</h3>
+      <div class="geschikt" id="geschikt"></div>
+    </section>
+
+    <section class="sectie">
+      <h3>Wat uit de bronnen komt, en wat dit lab erbij leest</h3>
+      <div class="tabelbox">
+        <table>
+          <thead><tr><th>Herkomst</th><th>Onderdeel</th><th>Grond</th></tr></thead>
+          <tbody id="herkomst"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer id="voet"></footer>
+  </div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    let D = null;              // het hele dossier uit /api/kennisbasis
+    let gekozen = null;        // de sleutel van het gekozen blokje
+    // Kijkhoek. **rotateX positief kantelt de bovenkant wég van de kijker**, dus van boven
+    // kijken is een negatieve hoek. Die vergissing kostte op /maquette twee keer een beurt.
+    let ax = -16, ay = -17;
+    let uitgespreid = false;
+    let schaal = 1;            // de stapel past zichzelf in de scène; zie stapelOpElkaar()
+
+    // ---- De plaat ---------------------------------------------------------------------------
+
+    // De vijf lagen in de stapelvolgorde van de maquette. De namen komen uit de API; dit is
+    // alleen de volgorde en de hoogte waarop een plaat hangt.
+    const LAAGORDE = ["gebied", "processen", "handelingen", "aansluitingen", "bodem"];
+    const SPREIDING = 46;      // extra afstand als de stapel uit elkaar is getrokken
+    const DIEPTE = 20;         // elke laag ligt iets verder naar achteren: dat geeft de stapel
+    // De tussenruimte moet groter zijn dan de 16px dikte-strip onder een plaat, anders schuift
+    // de volgende plaat eroverheen en verdwijnt de onderste rij blokjes achter de rand.
+    const TUSSEN = 34;
+
+    function blokjesPerLaag() {
+      // Elk blokje één keer, met zijn bevindingen eraan. Een blokje kan bevindingen uit
+      // meerdere thema's dragen, dus wordt hier verzameld in plaats van per thema getoond.
+      const per = new Map();
+      const zet = (sleutel, naam, laag, waar) => {
+        if (!per.has(sleutel)) per.set(sleutel, { sleutel, naam, laag, waar, bevindingen: [] });
+        return per.get(sleutel);
+      };
+      for (const t of D.themas) {
+        for (const b of t.bevindingen) {
+          zet(b.blokje, b.blokje_naam, b.blokje_laag, b.waar).bevindingen.push(b);
+        }
+      }
+      for (const o of D.onbesproken) zet(o.id, o.naam, o.laag, o.waar);
+      const uit = {};
+      for (const laag of LAAGORDE) uit[laag] = [];
+      for (const b of per.values()) (uit[b.laag] ||= []).push(b);
+      return uit;
+    }
+
+    function tegelHtml(b) {
+      const n = b.bevindingen.length;
+      // De kleur van het getal is de kleur van het thema dat het vaakst op dit blokje zit —
+      // één blokje kan bevindingen uit meerdere thema's dragen.
+      const tel = {};
+      for (const bv of b.bevindingen) tel[bv.kleur] = (tel[bv.kleur] || 0) + 1;
+      const kleur = Object.entries(tel).sort((a, c) => c[1] - a[1])[0]?.[0] || "transparent";
+      return `<button type="button" class="tegel${n ? "" : " stil"}" data-sleutel="${esc(b.sleutel)}"
+        aria-pressed="${b.sleutel === gekozen}"
+        title="${n ? n + " bevinding(en)" : "geen bevinding in dit dossier"}">
+        <span class="n" style="background:${n ? kleur : "transparent"}">${n || "–"}</span>${esc(b.naam)}</button>`;
+    }
+
+    function tekenPlaat() {
+      const per = blokjesPerLaag();
+      const namen = {};
+      for (const t of D.themas) {
+        for (const b of t.bevindingen) namen[b.blokje_laag] = b.blokje_laag;
+      }
+      // De platen worden na het plaatsen gemeten en op elkaar gestapeld: een plaat met acht
+      // blokjes is hoger dan een met twee, en een vaste hoogte zou of overlappen of gaten laten.
+      el("stapel").innerHTML = LAAGORDE.map(laag => `<div class="plaat" data-laag="${laag}">
+          <div class="laagnaam">${esc(laag)}</div>
+          <div class="tegels">${(per[laag] || []).map(tegelHtml).join("")}</div>
+          <div class="dikte"></div>
+        </div>`).join("");
+      stapelOpElkaar();
+      draai();
+    }
+
+    function stapelOpElkaar() {
+      const platen = [...el("stapel").children];
+      const hoogtes = platen.map(p => p.offsetHeight);
+      const totaal = hoogtes.reduce((a, b) => a + b, 0)
+        + (platen.length - 1) * (TUSSEN + (uitgespreid ? SPREIDING : 0));
+      let y = -totaal / 2;
+      platen.forEach((plaat, i) => {
+        plaat.style.transform = `translate3d(0,${y}px,${-i * DIEPTE}px)`;
+        y += hoogtes[i] + TUSSEN + (uitgespreid ? SPREIDING : 0);
+      });
+      // **De stapel past zichzelf in, in plaats van op een vaste hoogte te vertrouwen.** Hoe
+      // hoog hij wordt hangt af van hoeveel blokjes er in een laag zitten en hoe breed het
+      // venster is; met een getuned getal viel de bovenste laag buiten beeld zodra er een
+      // bevinding bijkwam. Gemeten in de browser, niet begroot.
+      // Hoogte én breedte: op een telefoon is de scène smaller dan de 520px van een plaat, en
+      // dan viel de stapel links en rechts buiten beeld terwijl hij verticaal keurig paste.
+      const scene = el("scene");
+      const hoogte = (scene.clientHeight - 74) / Math.max(1, totaal);
+      const breedte = (scene.clientWidth - 28) / (platen[0]?.offsetWidth || 520);
+      schaal = Math.min(1, hoogte, breedte);
+    }
+
+    function draai() {
+      el("stapel").style.transform =
+        `scale(${schaal.toFixed(3)}) rotateX(${ax}deg) rotateY(${ay}deg)`;
+    }
+
+    // Drie standen die hier iets toevoegen. **Géén "van boven"**: deze platen staan rechtop,
+    // dus van boven kijk je tegen hun randen en is er niets te lezen. Op /maquette werkt die
+    // stand wel, want daar ligt de bovenste laag als kaart.
+    const BLIKKEN = { schuin: [-16, -17], voor: [0, 0], opzij: [-6, -52] };
+    for (const knop of document.querySelectorAll("[data-blik]")) {
+      knop.addEventListener("click", () => {
+        [ax, ay] = BLIKKEN[knop.dataset.blik];
+        draai();
+        const u = new URL(location); u.searchParams.set("blik", knop.dataset.blik);
+        history.replaceState(null, "", u);
+      });
+    }
+    el("spreid").addEventListener("click", () => {
+      uitgespreid = !uitgespreid;
+      el("spreid").setAttribute("aria-pressed", String(uitgespreid));
+      el("spreid").textContent = uitgespreid ? "Schuif in elkaar" : "Trek uit elkaar";
+      tekenPlaat();
+    });
+
+    // Slepen met een drempel. **Niet `setPointerCapture` in `pointerdown`**: met een actieve
+    // pointer-capture gaat ook het `click`-event naar het vangende element, en dan reageert geen
+    // enkel blokje meer — zonder foutmelding. Pas vangen als er écht gesleept wordt, en een
+    // pointerdown op iets klikbaars start helemaal geen sleep.
+    const DREMPEL = 4;
+    let bezig = false, sleept = false, vx = 0, vy = 0, bx = 0, by = 0;
+    const scene = el("scene");
+    scene.addEventListener("pointerdown", e => {
+      if (e.target.closest(".tegel")) return;
+      bezig = true; sleept = false;
+      vx = e.clientX; vy = e.clientY; bx = ay; by = ax;
+    });
+    scene.addEventListener("pointermove", e => {
+      if (!bezig) return;
+      const dx = e.clientX - vx, dy = e.clientY - vy;
+      if (!sleept && Math.abs(dx) + Math.abs(dy) < DREMPEL) return;
+      if (!sleept) { sleept = true; el("stapel").classList.add("sleept"); }
+      ay = bx + dx * 0.4;
+      ax = Math.max(-88, Math.min(14, by - dy * 0.4));
+      draai();
+    });
+    const stop = () => { bezig = false; el("stapel").classList.remove("sleept"); };
+    scene.addEventListener("pointerup", stop);
+    scene.addEventListener("pointercancel", stop);
+    scene.addEventListener("pointerleave", stop);
+    scene.addEventListener("keydown", e => {
+      const stap = 6;
+      if (e.key === "ArrowLeft") ay -= stap;
+      else if (e.key === "ArrowRight") ay += stap;
+      else if (e.key === "ArrowUp") ax = Math.max(-88, ax - stap);
+      else if (e.key === "ArrowDown") ax = Math.min(14, ax + stap);
+      else return;
+      e.preventDefault(); draai();
+    });
+
+    document.addEventListener("click", e => {
+      const tegel = e.target.closest(".tegel");
+      if (!tegel) return;
+      kies(tegel.dataset.sleutel);
+    });
+
+    function kies(sleutel) {
+      gekozen = sleutel;
+      for (const t of document.querySelectorAll(".tegel")) {
+        t.setAttribute("aria-pressed", String(t.dataset.sleutel === sleutel));
+      }
+      toonPaneel(sleutel);
+      const u = new URL(location); u.searchParams.set("blokje", sleutel);
+      history.replaceState(null, "", u);
+    }
+
+    function bevindingHtml(b) {
+      const bron = D.bronnen.find(x => x.id === b.bron);
+      const link = `${bron.url}#page=${b.pagina}`;
+      return `<article class="bevinding">
+        <div class="label"><i style="background:${b.kleur}"></i>${esc(b.soort)} · ${esc(b.thema_naam)}</div>
+        <div class="kop">${esc(b.kop)}</div>
+        <div class="wat">${esc(b.wat)}</div>
+        <div class="citaat"><q>${esc(b.citaat)}</q></div>
+        <div class="vind">
+          <a href="${esc(link)}" target="_blank" rel="noopener">${esc(bron.korte_naam)} openen</a>
+          <span class="pag">pagina ${b.pagina}</span>
+          <span class="pag">gericht aan ${esc(b.adressant)}</span>
+        </div>
+      </article>`;
+    }
+
+    function toonPaneel(sleutel) {
+      const per = blokjesPerLaag();
+      let blok = null;
+      for (const laag of LAAGORDE) {
+        const g = (per[laag] || []).find(b => b.sleutel === sleutel);
+        if (g) { blok = g; break; }
+      }
+      if (!blok) { el("paneel").innerHTML = beginPaneel(); return; }
+      const themas = [...new Set(blok.bevindingen.map(b => b.thema))];
+      const lab = D.themas.filter(t => themas.includes(t.id)).flatMap(t => t.lablijn);
+      el("paneel").innerHTML = `
+        <h4>${esc(blok.naam)}</h4>
+        <div class="plek">laag ${esc(blok.laag)} · ${blok.bevindingen.length} bevinding(en)
+          · <a href="${esc(blok.waar)}" style="color:var(--accent2)">${esc(blok.waar)}</a></div>
+        ${blok.bevindingen.length
+          ? blok.bevindingen.map(bevindingHtml).join("")
+          : `<p class="leeg">Geen van deze vier rapporten zegt iets over deze plek. Dat is zelf
+             een bevinding over de kennisbasis: hier is nog geen bron voor. In dit lab draait
+             deze plek wel op echte data —
+             <a href="${esc(blok.waar)}" style="color:var(--accent)">${esc(blok.waar)}</a>.</p>`}
+        ${lab.map(l => `<div class="labmeting">
+          <div class="label">Wat dit lab hier zelf meette</div>
+          <p>${esc(l.wat)}</p>
+          <div class="hoe">${esc(l.hoe)} —
+            <a href="${esc(l.waar)}" style="color:var(--accent2)">${esc(l.waar)}</a></div>
+        </div>`).join("")}`;
+      el("paneel").scrollTop = 0;
+    }
+
+    function beginPaneel() {
+      const t = D.telling;
+      return `<h4>Begin bij een blokje</h4>
+        <div class="plek">${t.blokjes_met_bevinding} van de ${t.blokjes} blokjes dragen een
+          bevinding uit deze rapporten</div>
+        <p class="leeg">Klik een blokje in de plaat. Je ziet dan wat de rapporten over díe plek
+          zeggen, letterlijk, met de pagina erbij — en wat dit lab er zelf op echte data
+          gemeten heeft.</p>`;
+    }
+
+    // ---- De rest van de pagina --------------------------------------------------------------
+
+    function toonBronnen() {
+      el("bronnen").innerHTML = D.bronnen.map(b => {
+        const s = b.op_schijf;
+        const mb = s.pdf_bytes ? (s.pdf_bytes / 1e6).toFixed(1) + " MB" : "niet binnengehaald";
+        return `<a class="bron" href="${esc(b.url)}" target="_blank" rel="noopener">
+          <div class="soort">${esc(b.soort)} · ${esc(b.datum)}</div>
+          <h4>${esc(b.titel)}</h4>
+          <div class="onder">${esc(b.ondertitel)}</div>
+          <div class="uitgever">${esc(b.uitgever)} · ${esc(b.kenmerk)}</div>
+          <div class="waarom">${esc(b.waarom)}</div>
+          <div class="meta"><span>${s.paginas ?? "?"} pagina's</span><span>${esc(mb)}</span>
+            <span>aan ${esc(b.gericht_aan)}</span></div>
+        </a>`;
+      }).join("");
+    }
+
+    function toonGezond() {
+      const g = D.gezondheid, t = D.telling;
+      const regels = [
+        { goed: g.citaten_fout === 0 && g.citaten_gecontroleerd,
+          tekst: g.citaten_gecontroleerd
+            ? `${g.citaten - g.citaten_fout} van de ${g.citaten} citaten staan op de pagina die de bevinding noemt`
+            : "citaten niet te controleren: de tekstextractie ontbreekt" },
+        { goed: g.documenten_op_schijf === g.documenten,
+          tekst: `${g.documenten_op_schijf} van de ${g.documenten} documenten binnengehaald` },
+        { goed: g.index.gebouwd,
+          tekst: g.index.gebouwd ? `index met ${g.index.chunks} passages`
+                                 : "index nog niet gebouwd" },
+        { goed: null, tekst: `${t.bevindingen} bevindingen · ${t.themas} thema's · ${t.verbanden} verbanden
+          (${t.verbanden_over_bronnen} over bronnen heen)` },
+        { goed: null, tekst: `graaf: ${D.graaf.triples} triples` },
+      ];
+      el("gezond").innerHTML = regels.map(r =>
+        `<div class="${r.goed === null ? "" : r.goed ? "goed" : "let-op"}">${esc(r.tekst)}</div>`
+      ).join("");
+    }
+
+    function toonThemas() {
+      el("themas").innerHTML = D.themas.map(t => `
+        <div class="thema" style="border-left-color:${t.kleur}">
+          <h4>${esc(t.naam)}</h4>
+          <div class="vraag">${esc(t.vraag)}</div>
+          <div class="tel">
+            <span>${t.bevindingen.length} bevinding(en)</span>
+            <span>${t.bronnen.length} van de ${D.bronnen.length} bronnen</span>
+            ${t.lablijn.length ? `<span>${t.lablijn.length} eigen meting(en)</span>` : ""}
+          </div>
+          <button type="button" data-naar="${esc(t.blokje)}">Toon in de plaat →</button>
+        </div>`).join("");
+      for (const knop of document.querySelectorAll("[data-naar]")) {
+        knop.addEventListener("click", () => {
+          kies(knop.dataset.naar);
+          el("scene").scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+    }
+
+    function toonVerbanden() {
+      const naam = (id) => D.bronnen.find(b => b.id === id)?.korte_naam || id;
+      el("verbanden").innerHTML = D.verbanden.map(v => `
+        <div class="verband">
+          <div class="keten">
+            <span class="zijde">${esc(v.van_kop)}</span>
+            <span class="merk">(${esc(naam(v.van_bron))})</span>
+            <span class="rel ${esc(v.relatie)}">${esc(v.relatie.replace("_", " "))}</span>
+            <span class="zijde">${esc(v.naar_kop)}</span>
+            <span class="merk">(${esc(naam(v.naar_bron))})</span>
+            ${v.over_bronnen ? "" : `<span class="herkomst">binnen één bron</span>`}
+          </div>
+          <p>${esc(v.wat)}</p>
+        </div>`).join("");
+    }
+
+    function toonGraafvragen() {
+      el("graafvragen").innerHTML = D.graafvragen.map(v => {
+        // De kolomnamen komen uit de query mee en worden bij het getal gezet: "4 / 4" zegt
+        // niet wát er vier is, "4 bronnen · 4 bevindingen" wel.
+        const rijen = v.rijen.map(r => {
+          const sleutels = Object.keys(r);
+          const getal = sleutels.filter(k => /^\d+$/.test(String(r[k])));
+          // Een URI wordt op haar lokale naam getoond in plaats van weggelaten: in de derde
+          // vraag is de klasse (`#Bevinding`, `#Verband`) juist het antwoord, en zonder haar
+          // staat er alleen een getal.
+          const kort = (v) => String(v).startsWith("http")
+            ? String(v).split(/[#/]/).filter(Boolean).pop() : String(v);
+          const tekst = sleutels.filter(k => !getal.includes(k));
+          return `<div class="r">
+            <span class="naam">${esc([...new Set(tekst.map(k => kort(r[k])))].join(" · "))}</span>
+            ${getal.map(k => `<b>${esc(r[k])}</b><span class="eenheid">${esc(k)}</span>`).join("")}
+          </div>`;
+        }).join("");
+        return `<div class="graafvraag">
+          <h4>${esc(v.vraag)}</h4>
+          <div class="waarom">${esc(v.waarom)}</div>
+          <div class="rijen">${rijen || '<div class="r"><span>geen rijen</span></div>'}</div>
+          <details><summary>De query</summary><code>${esc(v.sparql)}</code></details>
+        </div>`;
+      }).join("");
+    }
+
+    function toonTabellen() {
+      el("bouwstenen").innerHTML = D.bouwstenen.map(b => `<tr>
+        <td><b>${esc(b.component)}</b><br><a href="${esc(b.waar)}"
+          style="color:var(--accent2);font-size:11.5px">${esc(b.waar)}</a></td>
+        <td>${esc(b.bestond)}</td><td>${esc(b.hier)}</td></tr>`).join("");
+      el("herkomst").innerHTML = D.herkomst.map(h => `<tr class="${esc(h.van)}">
+        <td><b>${h.van === "bron" ? "uit de bron" : "lezing van dit lab"}</b></td>
+        <td>${esc(h.wat)}</td><td>${esc(h.bron)}</td></tr>`).join("");
+      const ja = D.geschikt.filter(g => g.ja), nee = D.geschikt.filter(g => !g.ja);
+      el("geschikt").innerHTML = `
+        <div><h4>Hiervoor wel</h4><ul>${ja.map(g =>
+          `<li class="ja"><span>✓</span>${esc(g.wat)}</li>`).join("")}</ul></div>
+        <div><h4>Hiervoor niet</h4><ul>${nee.map(g =>
+          `<li class="nee"><span>✕</span>${esc(g.wat)}</li>`).join("")}</ul></div>`;
+    }
+
+    // ---- Zoeken ------------------------------------------------------------------------------
+
+    const VOORBEELDVRAGEN = [
+      "Waarom zijn milieuvergunningen niet actueel?",
+      "Wat is het confettikanon?",
+      "Hoe actueel zijn de vergunningen van Seveso-bedrijven?",
+      "Wat doet het kabinet aan het DSO?",
+    ];
+
+    function toonVoorbeelden() {
+      el("voorbeelden").innerHTML = VOORBEELDVRAGEN.map(v =>
+        `<button type="button" data-vraag="${esc(v)}">${esc(v)}</button>`).join("");
+      for (const k of el("voorbeelden").querySelectorAll("[data-vraag]")) {
+        k.addEventListener("click", () => { el("vraag").value = k.dataset.vraag; zoek(); });
+      }
+      const i = D.gezondheid.index;
+      el("indexstatus").textContent = i.gebouwd
+        ? `${i.chunks} passages uit ${Object.keys(i.per_bron).length} documenten`
+        : "de index is nog niet gebouwd";
+    }
+
+    async function zoek() {
+      const vraag = el("vraag").value.trim();
+      if (!vraag) return;
+      el("zoekknop").disabled = true;
+      el("uitslag").innerHTML = `<p class="passage"><span class="meta">zoeken…</span></p>`;
+      try {
+        const r = await fetch("/api/kennisbasis/zoek", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vraag, samenvatten: el("samenvatten").checked }),
+        });
+        const d = await r.json();
+        el("uitslag").innerHTML = `
+          ${d.antwoord ? `<div class="samenvatting">${esc(d.antwoord)}</div>
+            <div class="disclaimer">${esc(d.disclaimer)}</div>` : ""}
+          ${d.reden ? `<p class="fout">${esc(d.reden)}</p>` : ""}
+          ${d.passages.map(p => `<div class="passage">
+            <div class="meta">
+              <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.bron_titel)}</a>
+              <span>pagina ${p.pagina}</span>
+              <span>${esc(p.uitgever)}</span>
+              <span>overeenkomst ${(p.score ?? 0).toFixed(3)}</span>
+            </div>
+            <div class="tekst">${esc(p.text)}</div>
+          </div>`).join("")}`;
+      } catch (e) {
+        el("uitslag").innerHTML = `<p class="fout">De kennisbasis antwoordde niet: ${esc(e)}</p>`;
+      } finally {
+        el("zoekknop").disabled = false;
+      }
+    }
+    el("zoekform").addEventListener("submit", e => { e.preventDefault(); zoek(); });
+
+    let hertekenen;
+    addEventListener("resize", () => {
+      clearTimeout(hertekenen);
+      hertekenen = setTimeout(() => { if (D) { stapelOpElkaar(); draai(); } }, 150);
+    });
+
+    // ---- Opstarten ---------------------------------------------------------------------------
+
+    (async () => {
+      const r = await fetch("/api/kennisbasis");
+      D = await r.json();
+      el("titel").textContent = `${D.dossier.naam} — kennisbasis leefomgeving`;
+      el("ondertitel").textContent = D.dossier.ondertitel;
+      el("status").textContent = D.dossier.status;
+      el("hint").textContent = `${D.telling.blokjes_onbesproken} van de ${D.telling.blokjes} `
+        + `blokjes staan gestippeld: daarover zeggen deze vier rapporten niets.`;
+      document.title = `LeefomgevingLab — ${D.dossier.naam}`;
+      toonGezond(); toonBronnen(); toonThemas(); toonVerbanden();
+      toonGraafvragen(); toonTabellen(); toonVoorbeelden();
+
+      const p = new URLSearchParams(location.search);
+      if (BLIKKEN[p.get("blik")]) [ax, ay] = BLIKKEN[p.get("blik")];
+      tekenPlaat();
+      const start = p.get("blokje");
+      if (start && document.querySelector(`.tegel[data-sleutel="${start}"]`)) kies(start);
+      else el("paneel").innerHTML = beginPaneel();
+
+      el("voet").textContent = `Kennisbasis leefomgeving · dossier ${D.dossier.naam} · `
+        + `${D.telling.bevindingen} bevindingen uit ${D.bronnen.length} openbare rapporten, `
+        + `elk met citaat en pagina · de documenten staan op de dataschijf, niet in de broncode.`;
+    })();
+  </script>
+</body>
+</html>

@@ -672,6 +672,56 @@ C922 USB-mic (plughw:CARD=Webcam,DEV=0)
   sleutel in `.env` staat, terwijl een volledige run slaagde. De gate zelf blijft losgekoppeld
   van elke omgevingsvariabele en hangt uitsluitend aan `--run-live`; een standaardrun skipt 31
   tests. Alle vijf de `*_live.py`-bestanden slagen nu ook los gedraaid.
+- ✅ **Kennisbasis leefomgeving (`/kennisbasis`, `/api/kennisbasis`, `POST /api/kennisbasis/zoek`):**
+  eerste dossier **bevindingen VTH** — vier openbare rapporten van 2026 als één doorzoekbaar
+  dossier: het Rli-advies *Toezicht met vertrouwen* (13-10-2026, RLI-2026/2753), het 8e
+  VTH-onderzoek van de ILT *De basis moet op orde* (09-10-2026), het tweede reflectierapport van
+  de Evaluatiecommissie Omgevingswet *Werk aan de winkel* (01-2026) en de kabinetsreactie
+  (Kamerstuk 33 118 nr. 320, 29-06-2026). Code onder `src/leefomgevinglab/kennisbasis/`
+  (`bronnen`, `vindplaats`, `bevindingen`, `graaf`, `index`, `dossier`), bouwscript
+  `scripts/23_bouw_kennisbasis.py`. **Documenten, tekstextractie en vectorindex staan op NVMe**
+  (`/mnt/nvme/geluidsmeter/data/external/kennisbasis/`), nooit in de repo.
+  **De kern is de vindplaats, niet de samenvatting.** Elke bevinding draagt een letterlijk
+  citaat plus de pagina, en `vindplaats.controleer_alles()` legt dat tegen de tekstextractie —
+  een test bewaakt alle 42 en `/api/kennisbasis` meldt de uitslag op de pagina zelf. Dat was
+  geen formaliteit: **16 van de 42 paginanummers stonden er bij het bouwen naast**, omdat het
+  gedrukte paginanummer in een rapport niet gelijk is aan de pdf-pagina — en juist die laatste
+  opent `#page=N`. Twee citaten stonden nergens omdat zij over een afbreekstreepje liepen; de
+  normalisatie trekt ligaturen (`ﬁ ﬀ ﬂ`), witruimte en aanhalingstekens recht maar **repareert
+  bewust geen afbreking** — zo tolerant wordt de controle niet.
+  42 bevindingen, 7 thema's (indeling van dit lab, geen document kent haar), **12 verbanden
+  waarvan 8 over bronnen heen** — die knopen zijn de reden dat het één dossier is en geen vier
+  samenvattingen. Scherpste uitkomst: het kabinet schrijft dat bij complexe bedrijven de
+  vergunning voor het hele bedrijf van kracht blijft, terwijl de ILT daar meet dat **geen enkele
+  Seveso-omgevingsdienst de afgesproken actualiteit haalt (58–86%, gemiddeld 73%, ~150 majeure
+  risicobedrijven)**. De graaf beantwoordt wat de lijst niet kan: `processen/aanvragen` is het
+  enige blokje waar **alle vier** de rapporten iets over zeggen, en twee thema's dragen
+  aanbevelingen waar de kabinetsreactie niets tegenover zet.
+  **De plaat legt de blokjes van `/maquette` uit**: dezelfde vijf lagen, nu met per blokje de
+  bevindingen die erop van toepassing zijn (20 van de 30 blokjes; de overige 10 staan gestippeld
+  — ook dat is informatie). **Let op twee dingen in die aanknoping.** (1) Een blokje wordt
+  aangeduid als `laag/id`, want `verantwoorden` bestaat twee keer in de maquette (proces én
+  handeling) en een opzoeking op `id` liet er stil één van wegvallen. (2) `onbesproken()` telt
+  alleen de tegels, niet `STROMEN`/`KANTEN`/`ROUTES` uit `_alle_elementen()` — die zijn
+  richtingen en paden, geen plekken, en meetellen halveerde de ogenschijnlijke dekking.
+  **De RAG-index is per pagina gechunkt** (740 chunks), zodat elke treffer een werkende deeplink
+  heeft; dat kan niet met chunks die over een paginagrens lopen. **De duurste valkuil hier is de
+  chunkgrootte**, en die wordt niet bepaald door de leesbaarheid maar door de
+  **fysieke batchgrens van llama.cpp, standaard 512 tokens** — níet door `--ctx-size 8192`. Eén
+  invoer daarboven geeft `HTTP 500: input (548 tokens) is too large to process. increase the
+  physical batch size (current batch size: 512)`. Met 1800 tekens Nederlandse rapporttekst
+  (~3,3 tekens per token) sloeg dat toe vanaf chunk 112; `CHUNK_TEKENS` staat daarom op 1200,
+  dezelfde waarde die `rag/ingest.py` voor de IPLO-index al gebruikt. Wie dit omhoog zet moet
+  `--ubatch-size` op `leefomgevinglab-embed` mee omhoog zetten, en **die server deelt de
+  IPLO-index**. `index.bouw()` biedt een mislukte batch alsnog stuk voor stuk aan, zodat de
+  schuldige chunk met bron, pagina en lengte wordt aangewezen in plaats van "service niet
+  beschikbaar".
+  Hergebruikt wat er al stond: VectorStore + bge-m3 (van `/chatbot`), rdflib (van
+  `/kennisgraaf`), de blokjes van `/maquette`, en de bron/lab-scheiding van `/balo`. De
+  CSS-3D-plaat deelt de lessen van `/maquette`: geen `setPointerCapture` in `pointerdown` (dat
+  stuurt élke klik naar de scène), een sleepdrempel van 4px, en **geen stand 'van boven'** —
+  deze platen staan rechtop, dus van boven kijk je tegen hun randen. De stapel meet zichzelf en
+  schaalt naar de scène (hoogte én breedte), want hij groeit mee met het aantal bevindingen.
 - **Valkuilen bij de waterbronnen:** het geometrieattribuut heet bij de RWS KRW-service `shape` en bij PDOK bestuurlijke gebieden `geom`; die laatste **negeert `cql_filter`** — gebruik een bbox. `owl_naam` is in alle 54 KRW-vlakken leeg, de naam staat in `naam`. **`gemdiepte` is in alle 54 vlakken én 35 lijnen exact `-9999`** (geverifieerd 2026-09-23) — nooit een echte meting, dus `waterprofiel.profiel()` filtert die sentinel naar `None`. Waterschapsgrenzen zijn alléén als WMS en atom-download ontsloten, niet als WFS. `owlcat` kent live vijf waarden, niet vier: naast rivier/meer/kust/overgangswater bestaat categorie 5 (territoriaal water: Eems/Maas/Rijn/Schelde, watertype K0). Wat vandaag niet bestaat staat als `nieuw`/`wijzigt` gemarkeerd: STOP/TPOD kent géén toepassingsprofiel voor een vergunningbesluit, het REV wordt nu via een eigen IMEV-aanleverketen gevuld, en Data.OD is nog een initiatief van DCMR + OD De Vallei.
 
 ---

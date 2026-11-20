@@ -68,6 +68,8 @@ from leefomgevinglab.usecases.toezicht import weergave as toezicht_weergave
 from leefomgevinglab.usecases.toezicht import vraag as toezicht_vraag
 from leefomgevinglab.usecases.toezicht import graafbouw as toezicht_graafbouw
 from leefomgevinglab.usecases.wasstraat import dossier as wasstraat_dossier_mod
+from leefomgevinglab.kennisbasis import dossier as kennisbasis_dossier
+from leefomgevinglab.kennisbasis import index as kennisbasis_index
 from functools import partial
 from leefomgevinglab.rag.embed import embed_texts
 from leefomgevinglab.rag.store import VectorStore
@@ -1556,6 +1558,72 @@ def api_chat(req: ChatRequest):
         top_k=rag.get("top_k", 4), timeout_s=llm.get("timeout_s", 60),
         locatie=req.locatie, regels_fn=regels_fn, omgevingsplan_fn=omgevingsplan_fn,
         ev_fn=ev_fn,
+    )
+
+
+# -- Kennisbasis leefomgeving -------------------------------------------------------------------
+
+@app.get("/kennisbasis", response_class=HTMLResponse)
+def kennisbasis_page():
+    """De kennisbasis leefomgeving, eerste dossier: **bevindingen VTH**.
+
+    Vier openbare rapporten uit 2026 als één samenhangend dossier, met per bevinding een
+    letterlijk citaat en de pagina waar het staat. De plaat eronder is de maquette van
+    `/maquette`: elk blokje van het eindbeeld krijgt hier de bevindingen die erop van toepassing
+    zijn, zodat "wat betekent dat blokje" een antwoord uit een rapport krijgt in plaats van een
+    architectuurdefinitie."""
+    return (Path(__file__).parent.parent / "static" / "kennisbasis.html").read_text()
+
+
+@app.get("/api/kennisbasis")
+def api_kennisbasis():
+    """Het hele dossier: bronnen, thema's, bevindingen met vindplaats, verbanden, de
+    graafvragen met hun uitkomst, en de gezondheid van de kennisbasis zelf.
+
+    Raakt geen netwerk. De citaatcontrole en de indexstatus komen van schijf (NVMe), de rest uit
+    `kennisbasis/`. Duurt onder een seconde, ook koud."""
+    return kennisbasis_dossier.dossier()
+
+
+class KennisbasisVraag(BaseModel):
+    vraag: str
+    bronnen: list[str] | None = None
+    samenvatten: bool = True
+
+
+@app.post("/api/kennisbasis/zoek")
+def api_kennisbasis_zoek(req: KennisbasisVraag):
+    """Zoeken in de vier documenten via de RAG-index, en de passages optioneel laten samenvatten.
+
+    **De passages zijn het product, de samenvatting is een laag erbovenop.** Daarom staat
+    `samenvatten=false` erin: dan komt er geen taalmodel aan te pas en zijn de treffers puur de
+    uitkomst van de vectorzoekopdracht, elk met bron, pagina en een deeplink. Is de index niet
+    gebouwd, dan zegt het antwoord dat -- in plaats van een leeg resultaat dat als "niets
+    gevonden" leest."""
+    store = kennisbasis_index.laad()
+    if store is None:
+        return {"vraag": req.vraag, "passages": [], "antwoord": None,
+                "disclaimer": kennisbasis_index.DISCLAIMER,
+                "reden": "de index is nog niet gebouwd "
+                         "(scripts/23_bouw_kennisbasis.py --index)"}
+    rag = _config.get("leefomgevinglab", {}).get("rag", {})
+    top_k = rag.get("kennisbasis_top_k", 5)
+    if not req.samenvatten:
+        try:
+            passages = kennisbasis_index.zoek(req.vraag, store, _rag_embed_fn(), top_k=top_k,
+                                              bron_ids=req.bronnen)
+        except ConnectorError as exc:
+            return {"vraag": req.vraag, "passages": [], "antwoord": None,
+                    "disclaimer": kennisbasis_index.DISCLAIMER,
+                    "reden": f"de embedding-service antwoordde niet: {exc}"}
+        return {"vraag": req.vraag, "passages": passages, "antwoord": None,
+                "disclaimer": kennisbasis_index.DISCLAIMER, "reden": None}
+    llm = _config.get("leefomgevinglab", {}).get("llm", {})
+    return kennisbasis_index.beantwoord(
+        req.vraag, store, _rag_embed_fn(),
+        llm_base_url=llm.get("base_url", "http://localhost:8080/v1"),
+        model=llm.get("model", "qwen2.5-32b"),
+        top_k=top_k, timeout_s=llm.get("timeout_s", 60), bron_ids=req.bronnen,
     )
 
 

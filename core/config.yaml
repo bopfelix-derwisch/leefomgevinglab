@@ -67,6 +67,9 @@ leefomgevinglab:
     top_k: 4
     chunk_chars: 1200
     chunk_overlap: 200
+    # De kennisbasis zoekt in vier rapporten in plaats van in losse webpagina's; een vraag
+    # raakt daar vaker meerdere documenten, dus iets meer passages. Zie kennisbasis/index.py.
+    kennisbasis_top_k: 5
     # Curated IPLO-bronpagina's (geverifieerd 2026-06-21); vul aan met relevante URL's.
     # Bronset verbreed op 2026-09-03 (leeratelier WP-09b): van 2 naar 170 pagina's,
     # geselecteerd uit iplo.nl/sitemap.xml op de domeinen van ops/ijkset-nl.jsonl. Elke URL
